@@ -59,6 +59,8 @@ describe("validateNodeDraft", () => {
     location: "Berlin",
     endpoint: "https://coolify.example.com",
     domainZone: "",
+    dnsScenario: "public",
+    tailnetHost: "",
   };
 
   it("accepts a complete draft", () => {
@@ -97,6 +99,56 @@ describe("validateNodeDraft", () => {
       sampleNodes,
     );
     expect(errors.domainZone).toMatch(/like .*byov/);
+  });
+
+  it("rejects reserved zone suffixes", () => {
+    expect(
+      validateNodeDraft({ ...valid, domainZone: "apps.corp.local" }, sampleNodes)
+        .domainZone,
+    ).toMatch(/mDNS/);
+    expect(
+      validateNodeDraft({ ...valid, domainZone: "home.arpa" }, sampleNodes)
+        .domainZone,
+    ).toMatch(/home networks/);
+    expect(
+      validateNodeDraft(
+        { ...valid, domainZone: "lab.home.arpa" },
+        sampleNodes,
+      ).domainZone,
+    ).toMatch(/home networks/);
+  });
+
+  it("accepts every DNS scenario", () => {
+    for (const dnsScenario of ["public", "tailnet", "local"]) {
+      expect(
+        validateNodeDraft({ ...valid, dnsScenario }, sampleNodes),
+      ).toEqual({});
+    }
+  });
+
+  it("rejects an unknown DNS scenario", () => {
+    const errors = validateNodeDraft(
+      { ...valid, dnsScenario: "carrier-pigeon" },
+      sampleNodes,
+    );
+    expect(errors.dnsScenario).toMatch(/scenario/i);
+  });
+
+  it("accepts a blank or valid tailnet host", () => {
+    expect(
+      validateNodeDraft({ ...valid, tailnetHost: "  " }, sampleNodes),
+    ).toEqual({});
+    expect(
+      validateNodeDraft({ ...valid, tailnetHost: "qa-lab-01" }, sampleNodes),
+    ).toEqual({});
+  });
+
+  it("rejects a malformed tailnet host", () => {
+    const errors = validateNodeDraft(
+      { ...valid, tailnetHost: "qa lab 01" },
+      sampleNodes,
+    );
+    expect(errors.tailnetHost).toMatch(/machine name/i);
   });
 
   it("requires a name", () => {
@@ -192,6 +244,8 @@ describe("buildNode", () => {
         location: " Berlin ",
         endpoint: "https://coolify.example.com/ ",
         domainZone: " Berlin-01.byov.xexo.io ",
+        dnsScenario: "tailnet",
+        tailnetHost: " Berlin-Edge ",
       },
       sampleNodes,
     );
@@ -202,6 +256,8 @@ describe("buildNode", () => {
       location: "Berlin",
       endpoint: "https://coolify.example.com/",
       domainZone: "berlin-01.byov.xexo.io",
+      dnsScenario: "tailnet",
+      tailnetHost: "berlin-edge",
       status: "pending",
     });
   });
@@ -214,11 +270,30 @@ describe("buildNode", () => {
         location: "Berlin",
         endpoint: "",
         domainZone: "",
+        dnsScenario: "public",
+        tailnetHost: "",
       },
       sampleNodes,
     );
     expect(node.endpoint).toBeUndefined();
     expect(node.domainZone).toBeUndefined();
+    expect(node.tailnetHost).toBeUndefined();
+  });
+
+  it("falls back to the public scenario for a bogus value", () => {
+    const node = buildNode(
+      {
+        name: "Berlin Edge",
+        kind: "Coolify",
+        location: "Berlin",
+        endpoint: "",
+        domainZone: "",
+        dnsScenario: "carrier-pigeon",
+        tailnetHost: "",
+      },
+      sampleNodes,
+    );
+    expect(node.dnsScenario).toBe("public");
   });
 
   it("suffixes the slug when the name is taken", () => {
@@ -229,6 +304,8 @@ describe("buildNode", () => {
         location: "Berlin",
         endpoint: "",
         domainZone: "",
+        dnsScenario: "public",
+        tailnetHost: "",
       },
       sampleNodes,
     );
@@ -279,6 +356,8 @@ describe("removeNodeGuarded", () => {
         location: "Berlin",
         endpoint: "",
         domainZone: "",
+        dnsScenario: "public",
+        tailnetHost: "",
       },
       sampleNodes,
     );
@@ -326,7 +405,7 @@ describe("validateWorkspaceSettings", () => {
 
   it("requires a workspace name", () => {
     const errors = validateWorkspaceSettings(
-      { workspaceName: "  ", defaultNode: "", devZone: "" },
+      { workspaceName: "  ", defaultNode: "", devZone: "", tailnetDomain: "" },
       sampleNodes,
     );
     expect(errors.workspaceName).toMatch(/workspace.*name/i);
@@ -334,7 +413,7 @@ describe("validateWorkspaceSettings", () => {
 
   it("caps the workspace name length", () => {
     const errors = validateWorkspaceSettings(
-      { workspaceName: "x".repeat(61), defaultNode: "", devZone: "" },
+      { workspaceName: "x".repeat(61), defaultNode: "", devZone: "", tailnetDomain: "" },
       sampleNodes,
     );
     expect(errors.workspaceName).toMatch(/60/);
@@ -346,14 +425,14 @@ describe("validateWorkspaceSettings", () => {
         {
           workspaceName: "Acme",
           defaultNode: sampleNodes[0]!.slug,
-          devZone: "",
+          devZone: "", tailnetDomain: "",
         },
         sampleNodes,
       ),
     ).toEqual({});
     expect(
       validateWorkspaceSettings(
-        { workspaceName: "Acme", defaultNode: "", devZone: "" },
+        { workspaceName: "Acme", defaultNode: "", devZone: "", tailnetDomain: "" },
         sampleNodes,
       ),
     ).toEqual({});
@@ -361,7 +440,7 @@ describe("validateWorkspaceSettings", () => {
 
   it("rejects an unknown default node", () => {
     const errors = validateWorkspaceSettings(
-      { workspaceName: "Acme", defaultNode: "no-such-node", devZone: "" },
+      { workspaceName: "Acme", defaultNode: "no-such-node", devZone: "", tailnetDomain: "" },
       sampleNodes,
     );
     expect(errors.defaultNode).toMatch(/known node/i);
@@ -370,7 +449,7 @@ describe("validateWorkspaceSettings", () => {
   it("accepts a blank or valid dev zone", () => {
     expect(
       validateWorkspaceSettings(
-        { workspaceName: "Acme", defaultNode: "", devZone: "  " },
+        { workspaceName: "Acme", defaultNode: "", devZone: "  ", tailnetDomain: "" },
         sampleNodes,
       ),
     ).toEqual({});
@@ -379,7 +458,7 @@ describe("validateWorkspaceSettings", () => {
         {
           workspaceName: "Acme",
           defaultNode: "",
-          devZone: "dev.byov.xexo.io",
+          devZone: "dev.byov.xexo.io", tailnetDomain: "",
         },
         sampleNodes,
       ),
@@ -391,11 +470,49 @@ describe("validateWorkspaceSettings", () => {
       {
         workspaceName: "Acme",
         defaultNode: "",
-        devZone: "*.dev.byov.xexo.io",
+        devZone: "*.dev.byov.xexo.io", tailnetDomain: "",
       },
       sampleNodes,
     );
     expect(errors.devZone).toMatch(/without the \*\. prefix/);
+  });
+
+  it("accepts a blank or valid tailnet domain", () => {
+    expect(
+      validateWorkspaceSettings(
+        {
+          workspaceName: "Acme",
+          defaultNode: "",
+          devZone: "",
+          tailnetDomain: "  ",
+        },
+        sampleNodes,
+      ),
+    ).toEqual({});
+    expect(
+      validateWorkspaceSettings(
+        {
+          workspaceName: "Acme",
+          defaultNode: "",
+          devZone: "",
+          tailnetDomain: "yak-bebop.ts.net",
+        },
+        sampleNodes,
+      ),
+    ).toEqual({});
+  });
+
+  it("rejects a non-tailnet domain", () => {
+    const errors = validateWorkspaceSettings(
+      {
+        workspaceName: "Acme",
+        defaultNode: "",
+        devZone: "",
+        tailnetDomain: "vpn.example.com",
+      },
+      sampleNodes,
+    );
+    expect(errors.tailnetDomain).toMatch(/tailnet domain/i);
   });
 });
 
@@ -430,7 +547,7 @@ describe("stored settings parsing", () => {
   it("parses stored workspace settings", () => {
     expect(
       parseStoredSettings({ workspaceName: "Acme", defaultNode: "" }),
-    ).toEqual({ workspaceName: "Acme", defaultNode: "", devZone: "" });
+    ).toEqual({ workspaceName: "Acme", defaultNode: "", devZone: "", tailnetDomain: "" });
   });
 
   it("normalizes a stored dev zone and drops a bad one", () => {
@@ -438,20 +555,20 @@ describe("stored settings parsing", () => {
       parseStoredSettings({
         workspaceName: "Acme",
         defaultNode: "",
-        devZone: " DEV.byov.xexo.io ",
+        devZone: " DEV.byov.xexo.io ", tailnetDomain: "",
       }),
     ).toEqual({
       workspaceName: "Acme",
       defaultNode: "",
-      devZone: "dev.byov.xexo.io",
+      devZone: "dev.byov.xexo.io", tailnetDomain: "",
     });
     expect(
       parseStoredSettings({
         workspaceName: "Acme",
         defaultNode: "",
-        devZone: "nope",
+        devZone: "nope", tailnetDomain: "",
       }),
-    ).toEqual({ workspaceName: "Acme", defaultNode: "", devZone: "" });
+    ).toEqual({ workspaceName: "Acme", defaultNode: "", devZone: "", tailnetDomain: "" });
   });
 
   it("drops an invalid stored zone but keeps the node", () => {
@@ -461,6 +578,58 @@ describe("stored settings parsing", () => {
     expect(parsed).toHaveLength(1);
     expect(parsed![0]!.slug).toBe(sampleNodes[0]!.slug);
     expect(parsed![0]!.domainZone).toBeUndefined();
+  });
+
+  it("defaults a missing or bogus stored scenario to public", () => {
+    const { dnsScenario: _dropped, ...legacy } = sampleNodes[0]!;
+    expect(parseStoredNodes([legacy])![0]!.dnsScenario).toBe("public");
+    expect(
+      parseStoredNodes([{ ...sampleNodes[1], dnsScenario: "carrier-pigeon" }])![0]!
+        .dnsScenario,
+    ).toBe("public");
+    expect(
+      parseStoredNodes([{ ...sampleNodes[1] }])![0]!.dnsScenario,
+    ).toBe("local");
+  });
+
+  it("normalizes a stored tailnet host and drops a bad one", () => {
+    expect(
+      parseStoredNodes([{ ...sampleNodes[0], tailnetHost: " FrankFurt-01 " }])![0]!
+        .tailnetHost,
+    ).toBe("frankfurt-01");
+    expect(
+      parseStoredNodes([{ ...sampleNodes[0], tailnetHost: "not a host" }])![0]!
+        .tailnetHost,
+    ).toBeUndefined();
+  });
+
+  it("normalizes a stored tailnet domain and drops a bad one", () => {
+    expect(
+      parseStoredSettings({
+        workspaceName: "Acme",
+        defaultNode: "",
+        devZone: "",
+        tailnetDomain: " Yak-Bebop.ts.net ",
+      }),
+    ).toEqual({
+      workspaceName: "Acme",
+      defaultNode: "",
+      devZone: "",
+      tailnetDomain: "yak-bebop.ts.net",
+    });
+    expect(
+      parseStoredSettings({
+        workspaceName: "Acme",
+        defaultNode: "",
+        devZone: "",
+        tailnetDomain: "vpn.example.com",
+      }),
+    ).toEqual({
+      workspaceName: "Acme",
+      defaultNode: "",
+      devZone: "",
+      tailnetDomain: "",
+    });
   });
 
   it("rejects malformed workspace settings", () => {

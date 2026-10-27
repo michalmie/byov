@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Node } from "./control-plane";
-import { listNodes, listApps } from "./control-plane";
+import { isDnsScenario, listNodes, listApps } from "./control-plane";
 import {
   NODES_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
@@ -153,11 +153,15 @@ export function useManagedNodes() {
       }
       const endpoint = draft.endpoint.trim();
       const domainZone = draft.domainZone.trim().toLowerCase();
+      const tailnetHost = draft.tailnetHost.trim().toLowerCase();
       const updated: Node = {
         ...target,
         name: draft.name.trim(),
         kind: draft.kind,
         location: draft.location.trim(),
+        dnsScenario: isDnsScenario(draft.dnsScenario)
+          ? draft.dnsScenario
+          : "public",
       };
       if (endpoint) {
         updated.endpoint = endpoint;
@@ -168,6 +172,11 @@ export function useManagedNodes() {
         updated.domainZone = domainZone;
       } else {
         delete updated.domainZone;
+      }
+      if (tailnetHost) {
+        updated.tailnetHost = tailnetHost;
+      } else {
+        delete updated.tailnetHost;
       }
       persist(replaceNode(nodes, slug, updated));
       return null;
@@ -221,6 +230,7 @@ export function useWorkspaceSettings() {
         workspaceName: draft.workspaceName.trim(),
         defaultNode: draft.defaultNode,
         devZone: draft.devZone.trim().toLowerCase(),
+        tailnetDomain: draft.tailnetDomain.trim().toLowerCase(),
       };
       setSettings(next);
       try {
