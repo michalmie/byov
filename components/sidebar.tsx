@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { listProjects, projectHealth } from "@/lib/control-plane";
-import { BoxIcon, CloseIcon, GridIcon, StackIcon } from "./icons";
+import { listNodes, listProjects, projectHealth } from "@/lib/control-plane";
+import { BoxIcon, CloseIcon, GridIcon, PulseIcon, StackIcon } from "./icons";
 
 const healthDot: Record<string, string> = {
   healthy: "var(--color-ok)",
@@ -16,6 +16,7 @@ const nav = [
   { href: "/", label: "Dashboard", icon: GridIcon, exact: true },
   { href: "/projects", label: "Projects", icon: BoxIcon, exact: false },
   { href: "/nodes", label: "Nodes", icon: StackIcon, exact: true },
+  { href: "/activity", label: "Activity", icon: PulseIcon, exact: true },
 ];
 
 export function Sidebar({
@@ -27,6 +28,10 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const projects = listProjects();
+  const counts: Record<string, number> = {
+    "/projects": projects.length,
+    "/nodes": listNodes().length,
+  };
 
   return (
     <aside
@@ -69,6 +74,7 @@ export function Sidebar({
             ? pathname === item.href
             : pathname === item.href || pathname.startsWith(`${item.href}/`);
           const Icon = item.icon;
+          const count = counts[item.href];
           return (
             <Link
               key={item.href}
@@ -79,6 +85,14 @@ export function Sidebar({
             >
               <Icon className="h-5 w-5 shrink-0" />
               {item.label}
+              {count !== undefined && (
+                <span
+                  className="mono tnum ml-auto text-sm"
+                  style={{ color: "var(--color-rail-muted)" }}
+                >
+                  {count}
+                </span>
+              )}
             </Link>
           );
         })}

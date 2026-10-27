@@ -88,3 +88,40 @@ export function ArrowRightIcon({ className }: IconProps) {
     </Base>
   );
 }
+
+export function LayersIcon({ className }: IconProps) {
+  return (
+    <Base className={className}>
+      <path d="m12 3 9 4.5-9 4.5-9-4.5L12 3Z" />
+      <path d="m3 12.5 9 4.5 9-4.5" />
+      <path d="m3 16.5 9 4.5 9-4.5" />
+    </Base>
+  );
+}
+
+export function DeployIcon({ className }: IconProps) {
+  return (
+    <Base className={className}>
+      <path d="M12 16V4" />
+      <path d="m6 10 6-6 6 6" />
+      <path d="M4 20h16" />
+    </Base>
+  );
+}
+
+export function ShieldCheckIcon({ className }: IconProps) {
+  return (
+    <Base className={className}>
+      <path d="M12 3l7 2.5V11c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V5.5L12 3Z" />
+      <path d="m9 11.5 2 2 4-4.5" />
+    </Base>
+  );
+}
+
+export function PulseIcon({ className }: IconProps) {
+  return (
+    <Base className={className}>
+      <path d="M3 12h4l2.5-6 4 12L16 12h5" />
+    </Base>
+  );
+}
