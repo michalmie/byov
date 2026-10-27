@@ -17,7 +17,8 @@ export interface AppEnvironment {
   name: string;
   node: string;
   status: Health;
-  url: string;
+  /** Explicit URL; when blank the dev-URL contract generates one. */
+  url?: string;
 }
 
 export interface Deployment {
@@ -46,6 +47,8 @@ export interface Node {
   status: Health;
   /** Where the control plane reaches the node; blank until configured. */
   endpoint?: string;
+  /** DNS zone the node serves env URLs under; blank until configured. */
+  domainZone?: string;
 }
 
 export interface ActivityItem {
@@ -87,13 +90,11 @@ const apps: App[] = [
         name: "staging",
         node: "coolify-frankfurt",
         status: "healthy",
-        url: "https://shopfloor-staging.apps.byov.internal",
       },
       {
         name: "development",
         node: "coolify-qa-lab",
         status: "healthy",
-        url: "https://shopfloor-dev.apps.byov.internal",
       },
     ],
     deployments: [
@@ -113,13 +114,11 @@ const apps: App[] = [
         name: "production",
         node: "coolify-frankfurt",
         status: "degraded",
-        url: "https://leave.apps.byov.internal",
       },
       {
         name: "staging",
         node: "coolify-frankfurt",
         status: "healthy",
-        url: "https://leave-staging.apps.byov.internal",
       },
     ],
     deployments: [
@@ -138,13 +137,11 @@ const apps: App[] = [
         name: "production",
         node: "coolify-frankfurt",
         status: "healthy",
-        url: "https://invoices.apps.byov.internal",
       },
       {
         name: "development",
         node: "coolify-qa-lab",
         status: "healthy",
-        url: "https://invoices-dev.apps.byov.internal",
       },
     ],
     deployments: [
@@ -162,13 +159,11 @@ const apps: App[] = [
         name: "staging",
         node: "coolify-qa-lab",
         status: "deploying",
-        url: "https://lab-staging.apps.byov.internal",
       },
       {
         name: "development",
         node: "coolify-qa-lab",
         status: "healthy",
-        url: "https://lab-dev.apps.byov.internal",
       },
     ],
     deployments: [
@@ -184,6 +179,7 @@ const nodes: Node[] = [
     kind: "Coolify",
     location: "Frankfurt",
     status: "healthy",
+    domainZone: "frankfurt-01.byov.xexo.io",
   },
   {
     slug: "coolify-qa-lab",
@@ -191,6 +187,7 @@ const nodes: Node[] = [
     kind: "Coolify",
     location: "QA lab",
     status: "healthy",
+    domainZone: "qa-lab-01.byov.xexo.io",
   },
 ];
 

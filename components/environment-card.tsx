@@ -17,12 +17,14 @@ const deployLabel = { live: "Live", failed: "Failed", running: "Running" } as co
 
 export function EnvironmentCard({
   env,
+  urlNote,
   nodeName,
   lastDeploy,
   checksPassing,
   checksTotal,
 }: {
   env: AppEnvironment;
+  urlNote?: string;
   nodeName: string;
   lastDeploy?: Deployment;
   checksPassing: number;
@@ -49,7 +51,17 @@ export function EnvironmentCard({
       </p>
       <dl className="tnum rule-top grid gap-x-6 gap-y-4 pt-4 sm:grid-cols-3">
         <Fact label="URL">
-          <span className="mono block truncate text-[13px]">{env.url}</span>
+          <span className="mono block truncate text-[13px]">
+            {env.url ?? "—"}
+          </span>
+          {urlNote && (
+            <span
+              className="hint mt-1 block"
+              style={{ color: "var(--color-muted)" }}
+            >
+              {urlNote}
+            </span>
+          )}
         </Fact>
         <Fact label="Node">
           <span className="mono text-[13px]">{nodeName}</span>

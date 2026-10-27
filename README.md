@@ -168,6 +168,7 @@ deploy/         # deployment & preview adapters
 - [ ] Coolify node adapter — deploy for real
 - [ ] Client for Muse / Codex / Claude
 - [ ] More app templates beyond the BYOV stack
+- [ ] Preview URLs per branch with SSO protection
 - [ ] Auth, RBAC, and audit trails
 - [ ] DLP + SIEM integrations
 - [ ] More node types (Kubernetes, …?)

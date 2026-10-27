@@ -134,6 +134,7 @@ export default async function AppDetail({
             {app.envs.map((env) => (
               <ManagedEnvironmentCard
                 key={env.name}
+                appSlug={app.slug}
                 env={env}
                 lastDeploy={app.deployments.find(
                   (deploy) => deploy.env === env.name,

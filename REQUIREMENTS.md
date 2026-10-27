@@ -71,3 +71,26 @@ The solution has three parts:
   Tailwind + Vitest stack BYOV is built on; versions track `package.json`.
 - Adding a stack = new folder + manifest + registry entry + tests; no
   new dependencies.
+
+### Dev URLs (first slice)
+
+- Every environment resolves to `https://{app}-{env}.{node-zone}` under its
+  serving node's wildcard zone; one `*.zone` DNS record per node covers all
+  its envs.
+- An explicit env URL always wins as an override; envs on zoneless nodes show
+  a "set a domain zone" state instead of a dead link.
+- Optional workspace dev zone (e.g. `dev.byov.xexo.io`) gives development
+  envs on the zone-serving node short `{app}.{dev-zone}` URLs, and warns when
+  a dev env sits elsewhere.
+- Pure resolver in `lib/dev-urls.ts` (slugify, 63-char labels, zone checks);
+  the future node adapter reuses it when programming Coolify.
+- Preview URLs per branch/PR with protection land in a later slice.
+
+Operator runbook (per node):
+
+1. Create an `A` record for `*.{node-zone}` pointing at the node.
+2. On the Coolify node, configure the Traefik DNS challenge and request a
+   wildcard certificate for the zone (Coolify docs: Proxy → Wildcard
+   Certificates).
+3. Set each app's Coolify FQDN to the URL the control plane shows; Coolify
+   provisions TLS automatically from there.

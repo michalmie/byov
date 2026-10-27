@@ -69,6 +69,26 @@ describe("EnvironmentCard", () => {
     expect(screen.getByText("4/5 passing")).toBeInTheDocument();
   });
 
+  it("shows the URL note when provided", () => {
+    render(
+      <EnvironmentCard
+        env={{
+          name: "development",
+          node: "bare-01",
+          status: "healthy",
+        }}
+        urlNote="Set a domain zone on bare-01 to get a URL."
+        nodeName="bare-01"
+        lastDeploy={undefined}
+        checksPassing={5}
+        checksTotal={5}
+      />,
+    );
+    expect(
+      screen.getByText("Set a domain zone on bare-01 to get a URL."),
+    ).toBeInTheDocument();
+  });
+
   it("shows a dash without deployments", () => {
     render(
       <EnvironmentCard
