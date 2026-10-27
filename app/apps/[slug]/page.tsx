@@ -5,6 +5,7 @@ import { AppSubnav } from "@/components/app-subnav";
 import { AppScenarioControl } from "@/components/app-scenario-control";
 import { HealthPill, SectionHead, StatStrip, StatusPill } from "@/components/data-ui";
 import { ManagedEnvironmentCard } from "@/components/managed-environment-card";
+import { PageTabs } from "@/components/page-tabs";
 import { ArrowLeftIcon } from "@/components/icons";
 import { ControlPlaneShell } from "@/components/shell";
 import {
@@ -99,6 +100,8 @@ export default async function AppDetail({
             {app.description}
           </p>
         </div>
+
+        <PageTabs sections={appSections} />
 
         <div className="rule-top pt-6">
           <StatStrip
