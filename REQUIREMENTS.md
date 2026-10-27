@@ -147,3 +147,25 @@ Operator runbook (tailnet, per node):
   tailnet domain; per-app pickers inherit the default unless changed.
 - Env cards resolve through app override → workspace default → public
   fallback, with setup guidance instead of dead links.
+
+### Dev URLs (fourth slice)
+
+- Settings → DNS groups one setup card per scenario: public (dev zone),
+  Tailscale (tailnet domain), local (bootstrap guide). Nodes keep zone and
+  machine-name values.
+- Live tests run server-side via POST /api/dns-test in DNS → TLS → HTTP
+  stages with evidence: zone rows probe `byov-probe.{zone}`, tailnet rows
+  probe the machine name, env cards probe their resolved URLs. Results
+  reflect the BYOV server's network view.
+- The endpoint only probes well-formed multi-label hostnames on 443 or the
+  tailnet port range; broader hardening rides with the Auth/RBAC slice.
+
+Local bootstrap runbook:
+
+1. Resolver: point clients and the BYOV server at an internal resolver —
+   router DNS, dnsmasq, CoreDNS, or Pi-hole — serving `*.{node-zone}` to
+   the node's LAN IP.
+2. CA: run step-ca (or an equivalent ACME server) for node certificates;
+   mkcert only covers a single admin machine.
+3. Trust: install the CA root on every client and on the BYOV server, then
+   verify with the Nodes-row Test before pointing apps at local URLs.
