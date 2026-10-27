@@ -1,86 +1,220 @@
-import { buildSiteTitle, summarizeDatabaseProfile } from "@/lib/site";
+import Link from "next/link";
+import { AppShell } from "@/components/app-shell";
+import { HealthPill, SectionHead, StatStrip } from "@/components/data-ui";
+import { ArrowRightIcon } from "@/components/icons";
+import {
+  fleetSummary,
+  getNode,
+  listNodes,
+  listProjects,
+  projectHealth,
+  recentActivity,
+} from "@/lib/control-plane";
 
-const siteName = "BYOV";
-const databaseRequired = true;
-const databaseProfile = "mysql";
+export default function Dashboard() {
+  const summary = fleetSummary();
+  const projects = listProjects();
+  const nodes = listNodes();
+  const activity = recentActivity();
 
-export default function Home() {
   return (
-    <main className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-6 py-8 sm:px-10 lg:px-12">
-      <section className="relative overflow-hidden rounded-[2rem] border border-black/10 bg-white/80 px-6 py-8 shadow-[0_30px_100px_rgba(0,0,0,0.08)] backdrop-blur sm:px-10 sm:py-12">
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,_rgba(245,158,11,0.16),_transparent_30%),radial-gradient(circle_at_left,_rgba(22,163,74,0.12),_transparent_28%)]" />
-        <div className="relative grid gap-10 lg:grid-cols-[1.6fr_1fr]">
-          <div className="space-y-6">
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-black/10 bg-amber-50 px-3 py-1 font-mono text-xs uppercase tracking-[0.24em] text-amber-800">
-              Vibe Factory Starter
-            </div>
-            <div className="space-y-4">
-              <p className="font-mono text-sm uppercase tracking-[0.24em] text-zinc-500">
-                Your next project
-              </p>
-              <h1 className="max-w-3xl font-[family-name:var(--font-display)] text-4xl font-semibold tracking-[-0.04em] text-balance text-zinc-950 sm:text-5xl">
-                {buildSiteTitle("Home", siteName)}
-              </h1>
-              <p className="max-w-2xl text-base leading-8 text-zinc-600 sm:text-lg">
-                This website was scaffolded by the Vibe Factory command center.
-                Update the project requirements, shape the product through Codex,
-                and keep the unit test suite healthy as the project evolves.
-              </p>
-            </div>
-          </div>
-          <aside className="grid gap-4 rounded-[1.5rem] border border-black/10 bg-zinc-950 p-6 text-zinc-50 shadow-inner">
-            <div>
-              <p className="font-mono text-xs uppercase tracking-[0.24em] text-zinc-400">
-                Project Snapshot
-              </p>
-              <p className="mt-3 text-2xl font-semibold">{siteName}</p>
-            </div>
-            <dl className="grid gap-3 text-sm">
-              <div className="flex items-center justify-between gap-4">
-                <dt className="text-zinc-400">Slug</dt>
-                <dd className="font-mono text-zinc-100">byov</dd>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <dt className="text-zinc-400">Tech stack</dt>
-                <dd className="font-mono text-zinc-100">nextjs-website</dd>
-              </div>
-              <div className="flex items-center justify-between gap-4">
-                <dt className="text-zinc-400">Database</dt>
-                <dd className="text-right text-zinc-100">
-                  {summarizeDatabaseProfile(databaseRequired, databaseProfile)}
-                </dd>
-              </div>
-            </dl>
-          </aside>
-        </div>
-      </section>
-
-      <section className="mt-8 grid gap-6 lg:grid-cols-3">
-        {[
-          {
-            title: "Requirements",
-            body: "Keep REQUIREMENTS.md current and let Codex evolve the implementation with commit history.",
-          },
-          {
-            title: "Testing",
-            body: "Run npm run test:unit before major merges and review the checks in Vibe Factory.",
-          },
-          {
-            title: "Deployment",
-            body: "Configure your environment in Vibe Factory and release through its Delivery controls.",
-          },
-        ].map((item) => (
-          <article
-            key={item.title}
-            className="rounded-[1.5rem] border border-black/10 bg-white/80 p-6 shadow-[0_20px_60px_rgba(0,0,0,0.06)]"
+    <AppShell crumb="Dashboard">
+      <div className="grid gap-10">
+        <div>
+          <h1 className="flex flex-wrap items-baseline gap-x-4 text-[clamp(2rem,3.5vw+0.75rem,3rem)] font-bold leading-[1.05] tracking-tight">
+            <span aria-hidden="true" className="tnum">
+              {summary.projects}
+            </span>
+            <span className="max-w-[16ch]">
+              projects ship from this control plane.
+            </span>
+          </h1>
+          <p
+            className="mt-4 max-w-[65ch] text-base"
+            style={{ color: "var(--color-ink-2)" }}
           >
-            <h2 className="font-[family-name:var(--font-display)] text-xl font-semibold tracking-[-0.03em] text-zinc-950">
-              {item.title}
-            </h2>
-            <p className="mt-3 text-sm leading-7 text-zinc-600">{item.body}</p>
-          </article>
-        ))}
-      </section>
-    </main>
+            Every vibe-coded app your teams rely on — governed, deployed and
+            watched from one place.
+          </p>
+          <div className="mt-6">
+            <Link href="/projects" className="btn-ghost px-4 py-2 text-sm">
+              Browse projects
+              <ArrowRightIcon className="h-4 w-4" />
+            </Link>
+          </div>
+        </div>
+
+        <div className="rule-top pt-8">
+          <StatStrip
+            items={[
+              { value: String(summary.projects), qualifier: "Projects" },
+              { value: String(summary.nodes), qualifier: "Nodes" },
+              {
+                value: String(summary.attention),
+                qualifier: "Need attention",
+                accent: summary.attention > 0,
+              },
+              {
+                value: String(summary.deployments),
+                qualifier: "Recent deployments",
+              },
+            ]}
+          />
+        </div>
+
+        <section aria-labelledby="projects-heading" className="grid gap-5">
+          <div id="projects-heading">
+            <SectionHead
+              title="Projects"
+              lede="Health, home node and last deploy at a glance."
+            />
+          </div>
+          <div className="overflow-x-auto">
+            <table className="spec-table min-w-[760px]">
+              <thead>
+                <tr>
+                  <th scope="col">Project</th>
+                  <th scope="col">Health</th>
+                  <th scope="col">Node</th>
+                  <th scope="col">Envs</th>
+                  <th scope="col">Checks</th>
+                  <th scope="col">Last deploy</th>
+                </tr>
+              </thead>
+              <tbody>
+                {projects.map((project) => {
+                  const health = projectHealth(project);
+                  const passing = project.checks.filter(
+                    (check) => check.status === "pass",
+                  ).length;
+                  const last = project.deployments[0];
+                  const home = project.envs.find(
+                    (env) => env.name === "production",
+                  );
+                  const homeNode = home ? getNode(home.node) : undefined;
+                  return (
+                    <tr key={project.slug}>
+                      <td>
+                        <Link
+                          href={`/projects/${project.slug}`}
+                          className="font-semibold underline decoration-[var(--color-rule)] underline-offset-2 hover:decoration-[var(--color-accent-deep)]"
+                        >
+                          {project.name}
+                        </Link>
+                        <span
+                          className="mono block text-sm"
+                          style={{ color: "var(--color-ink-2)" }}
+                        >
+                          {project.slug}
+                        </span>
+                      </td>
+                      <td>
+                        <HealthPill health={health} />
+                      </td>
+                      <td className="mono text-sm">
+                        {homeNode ? homeNode.name : "—"}
+                      </td>
+                      <td>{project.envs.length}</td>
+                      <td>
+                        {passing}/{project.checks.length}
+                      </td>
+                      <td className="text-sm">
+                        {last ? (
+                          <>
+                            {last.when}
+                            <span
+                              className="block"
+                              style={{ color: "var(--color-ink-2)" }}
+                            >
+                              by {last.by}
+                            </span>
+                          </>
+                        ) : (
+                          "—"
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <div className="grid gap-10 lg:grid-cols-[7fr_5fr]">
+          <section aria-labelledby="nodes-heading" className="grid content-start gap-5">
+            <div id="nodes-heading">
+              <SectionHead
+                title="Nodes"
+                lede="Where projects land. The first fleet is self-hosted Coolify."
+              />
+            </div>
+            <ul className="grid">
+              {nodes.map((node) => (
+                <li
+                  key={node.slug}
+                  className="rule-top flex items-center gap-3 py-3"
+                >
+                  <span
+                    aria-hidden="true"
+                    className="h-2.5 w-2.5 shrink-0 rounded-full"
+                    style={{
+                      background:
+                        node.status === "healthy"
+                          ? "var(--color-ok)"
+                          : "var(--color-warn)",
+                    }}
+                  />
+                  <span className="mono text-sm font-semibold">
+                    {node.name}
+                  </span>
+                  <span
+                    className="truncate text-sm"
+                    style={{ color: "var(--color-ink-2)" }}
+                  >
+                    {node.kind} · {node.location}
+                  </span>
+                  <span className="ml-auto">
+                    <HealthPill health={node.status} />
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <Link
+              href="/nodes"
+              className="inline-flex w-fit items-center gap-2 text-sm font-semibold underline decoration-[var(--color-rule)] underline-offset-2 hover:decoration-[var(--color-accent-deep)]"
+            >
+              All nodes
+              <ArrowRightIcon className="h-4 w-4" />
+            </Link>
+          </section>
+
+          <section aria-labelledby="activity-heading" className="grid content-start gap-5">
+            <div id="activity-heading">
+              <SectionHead
+                title="Activity"
+                lede="Latest control plane events."
+              />
+            </div>
+            <ol className="grid">
+              {activity.map((item, index) => (
+                <li key={`${item.when}-${index}`} className="rule-top flex items-start gap-4 py-3">
+                  <span
+                    className="mono w-24 shrink-0 text-sm"
+                    style={{ color: "var(--color-ink-2)" }}
+                  >
+                    {item.when}
+                  </span>
+                  <p className="text-sm">
+                    <strong className="font-semibold">{item.actor}</strong>{" "}
+                    {item.text}
+                  </p>
+                </li>
+              ))}
+            </ol>
+          </section>
+        </div>
+      </div>
+    </AppShell>
   );
 }

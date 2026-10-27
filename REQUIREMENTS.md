@@ -12,4 +12,32 @@ This file is the repo-owned source of truth for evolving product requirements.
 
 ## Product Requirements
 
-TBD
+### Vision
+
+BYOV (Bring Your Own Vibe) empowers employees to fix the issues and challenges
+they face at work by providing solutions that help them with their daily jobs.
+It goes beyond corporate blockers for vibe-coded apps by providing a secure
+framework in which citizen-developed applications can be built, governed and
+deployed.
+
+### Architecture
+
+The solution has three parts:
+
+- **Control Plane**: the central UI to control everything — creating projects,
+  managing environments, deployment, security, DLP, SIEM, audit trails and RBAC.
+- **Nodes**: deployment targets. Administrators decide where apps are deployed
+  and in which environments. The first supported node type is a self-hosted
+  Coolify instance.
+- **Client**: the way an employee or citizen developer connects to a project
+  directly from coding tools such as Muse, Codex, Claude and similar.
+
+### Control Plane UI (first slice)
+
+- App shell with workspace navigation, project shortcuts and breadcrumb topbar.
+- Dashboard (`/`): fleet figures, project health table, nodes and activity.
+- Projects (`/projects`) and project detail (`/projects/[slug]`):
+  environments, deployments and required checks per project.
+- Nodes (`/nodes`): deployment targets and the projects pinned to each.
+- All figures come from a sample dataset until the API lands; the UI labels
+  it as sample data.
