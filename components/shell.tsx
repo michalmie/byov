@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fleetSummary } from "@/lib/control-plane";
+import { fleetSummaryFor, listApps } from "@/lib/control-plane";
+import { useManagedNodes } from "@/lib/settings-store";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
@@ -16,7 +17,8 @@ export function ControlPlaneShell({
 }) {
   const [open, setOpen] = useState(false);
   const close = useCallback(() => setOpen(false), []);
-  const summary = fleetSummary();
+  const { nodes } = useManagedNodes();
+  const summary = fleetSummaryFor(listApps(), nodes);
 
   useEffect(() => {
     if (!open) {

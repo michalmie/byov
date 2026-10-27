@@ -70,6 +70,7 @@ Run it once and click through:
 | `/apps/[slug]` | 🔍 **App detail** — environments, deployment history, required checks |
 | `/nodes` | 🖥️ **Nodes** — deployment targets and the apps pinned to each |
 | `/activity` | ⚡ **Activity** — every control plane event, newest first |
+| `/settings` | ⚙️ **Settings** — workspace preferences, add and manage nodes |
 
 Sample fleet included: `shopfloor-tickets`, `leave-balancer` (watch the failed DLP gate ⛔), `invoice-triage`, and `lab-inventory` (mid-deploy 🛫).
 
@@ -146,7 +147,7 @@ npm run build       # production build
 Project layout:
 
 ```
-app/            # routes: dashboard (/), /apps, /apps/[slug], /nodes, /activity
+app/            # routes: dashboard (/), /apps, /apps/[slug], /nodes, /activity, /settings
 components/     # shell, sidebar, subnav, data UI
 lib/            # control-plane dataset + roll-up logic, site helpers
 tests/unit/     # Vitest suites

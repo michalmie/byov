@@ -3,14 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppSubnav } from "@/components/app-subnav";
 import { HealthPill, SectionHead, StatStrip, StatusPill } from "@/components/data-ui";
-import { EnvironmentCard } from "@/components/environment-card";
+import { ManagedEnvironmentCard } from "@/components/managed-environment-card";
 import { ArrowLeftIcon } from "@/components/icons";
 import { ControlPlaneShell } from "@/components/shell";
 import {
   appHealth,
   appSections,
   getApp,
-  getNode,
   listApps,
 } from "@/lib/control-plane";
 
@@ -145,10 +144,9 @@ export default async function AppDetail({
           </div>
           <div className="grid gap-4">
             {app.envs.map((env) => (
-              <EnvironmentCard
+              <ManagedEnvironmentCard
                 key={env.name}
                 env={env}
-                nodeName={getNode(env.node)?.name ?? env.node}
                 lastDeploy={app.deployments.find(
                   (deploy) => deploy.env === env.name,
                 )}

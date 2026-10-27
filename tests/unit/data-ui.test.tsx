@@ -15,6 +15,7 @@ describe("HealthPill", () => {
     ["deploying", "Deploying"],
     ["degraded", "Degraded"],
     ["down", "Down"],
+    ["pending", "Pending"],
   ] as const)("labels %s as %s", (health, label) => {
     render(<HealthPill health={health} />);
     expect(screen.getByText(label)).toBeInTheDocument();

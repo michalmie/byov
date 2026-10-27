@@ -48,3 +48,13 @@ The solution has three parts:
   with scroll-spy section anchors (L2), page content (L3).
 - Environment cards with URL, node, status, last deploy and checks.
 - Global activity feed (`/activity`), shared with the dashboard.
+
+### Control Plane UI (third slice)
+
+- Settings (`/settings`) with section navigation: General and Nodes.
+- General: workspace name and default node, validated and kept in the
+  browser until the API lands.
+- Nodes: add, edit and remove deployment targets. New nodes start Pending
+  until first contact; nodes with pinned environments cannot be removed.
+- Managed nodes feed the dashboard, nodes page, app environments,
+  sidebar counts and footer summary.
