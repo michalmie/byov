@@ -1,0 +1,75 @@
+{
+  "slug": "vite-spa",
+  "name": "React SPA",
+  "tagline": "Vite + React dashboard starter for internal tools that need no backend — same gates, lighter runtime.",
+  "status": "draft",
+  "stack": [
+    { "label": "Framework", "value": "Vite 7 + React 19" },
+    { "label": "UI", "value": "Tailwind CSS 4" },
+    { "label": "Language", "value": "TypeScript 5 (strict)" },
+    { "label": "Tests", "value": "Vitest 4 + Testing Library" },
+    { "label": "Lint", "value": "ESLint 9" },
+    { "label": "Runtime", "value": "Node.js 20+ (build only)" }
+  ],
+  "packages": {
+    "vite": "^7.0.0",
+    "react": "19.2.4",
+    "react-dom": "19.2.4",
+    "typescript": "^5",
+    "tailwindcss": "^4",
+    "vitest": "^4.1.7"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint",
+    "typecheck": "tsc --noEmit",
+    "test:unit": "vitest run",
+    "test:unit:watch": "vitest"
+  },
+  "checks": [
+    { "name": "Unit tests", "command": "npm run test:unit", "cadence": "Every change" },
+    { "name": "Lint", "command": "npm run lint", "cadence": "Every change" },
+    { "name": "Production build", "command": "npm run build", "cadence": "Every change" },
+    { "name": "DLP scan", "command": "BYOV gate", "cadence": "Every change" },
+    { "name": "Dependency audit", "command": "BYOV gate", "cadence": "Nightly" }
+  ],
+  "nodes": ["coolify"],
+  "scaffold": [
+    {
+      "title": "Create the app from the blueprint",
+      "detail": "Copy the file tree in templates/vite-spa/blueprint.md into a new repository — same configs, same scripts, same gates."
+    },
+    {
+      "title": "Install dependencies",
+      "detail": "Use a clean install so versions match the manifest.",
+      "command": "npm ci"
+    },
+    {
+      "title": "Configure the environment",
+      "detail": "Copy the example env file and fill in local values. Never commit secrets.",
+      "command": "cp .env.example .env.local"
+    },
+    {
+      "title": "Run the dev server",
+      "detail": "Pick a free port — the Control Plane itself uses 3014.",
+      "command": "npm run dev"
+    },
+    {
+      "title": "Keep the gates green",
+      "detail": "Every change passes unit tests, lint, typecheck and the production build before it ships.",
+      "command": "npm run test:unit && npm run lint && npm run typecheck && npm run build"
+    },
+    {
+      "title": "Ship to an approved node",
+      "detail": "Register the app in BYOV and deploy the static build only to admin-approved targets. First supported kind: self-hosted Coolify."
+    }
+  ],
+  "starter": {
+    "kind": "in-repo blueprint",
+    "ref": "templates/vite-spa/blueprint.md",
+    "note": "Versioned starter repos and one-command scaffolding arrive with the BYOV client."
+  },
+  "docs": ["templates/vite-spa/README.md", "templates/vite-spa/blueprint.md"]
+}

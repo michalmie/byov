@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { DocIcon, GlobeIcon, StackIcon } from "./icons";
+import { DocIcon, GlobeIcon, LayersIcon, StackIcon } from "./icons";
 
 const sections = [
   { href: "/settings/general", label: "General", icon: DocIcon },
   { href: "/settings/nodes", label: "Nodes", icon: StackIcon },
   { href: "/settings/dns", label: "DNS", icon: GlobeIcon },
+  { href: "/settings/templates", label: "Templates", icon: LayersIcon },
 ];
 
 export function SettingsSubnav() {
@@ -29,7 +30,7 @@ export function SettingsSubnav() {
             className="mt-1 text-[13px]"
             style={{ color: "var(--color-muted)" }}
           >
-            Preferences and the nodes apps deploy to.
+            Preferences, templates, DNS and the nodes apps deploy to.
           </p>
         </div>
         <nav aria-label="Settings sections" className="grid gap-0.5">

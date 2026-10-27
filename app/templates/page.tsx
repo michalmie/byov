@@ -1,7 +1,11 @@
+"use client";
+
 import Link from "next/link";
 import { ControlPlaneShell } from "@/components/shell";
 import { SectionHead, StatStrip, StatusPill } from "@/components/data-ui";
-import { listTemplates } from "@/lib/templates";
+import { ArrowRightIcon } from "@/components/icons";
+import { useManagedTemplates } from "@/lib/template-store";
+import { frameworkOf } from "@/lib/templates";
 
 const statusTone = { draft: "info", stable: "ok", deprecated: "bad" } as const;
 const statusLabel = {
@@ -10,14 +14,8 @@ const statusLabel = {
   deprecated: "Deprecated",
 } as const;
 
-function frameworkOf(slug: string): string {
-  const template = listTemplates().find((item) => item.slug === slug);
-  const framework = template?.stack.find((item) => item.label === "Framework");
-  return framework ? framework.value : "—";
-}
-
 export default function Templates() {
-  const templates = listTemplates();
+  const { templates, isCustom } = useManagedTemplates();
   const stable = templates.filter(
     (template) => template.status === "stable",
   ).length;
@@ -40,6 +38,15 @@ export default function Templates() {
             with the required gates built in — starting with the stack BYOV
             itself is built on.
           </p>
+          <div className="mt-4">
+            <Link
+              href="/settings/templates"
+              className="btn-ghost px-3 py-1.5 text-[13px]"
+            >
+              Manage templates
+              <ArrowRightIcon className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
 
         <div className="rule-top pt-6">
@@ -87,6 +94,14 @@ export default function Templates() {
                       >
                         {template.tagline}
                       </span>
+                      {isCustom(template.slug) && (
+                        <span
+                          className="mono block text-sm"
+                          style={{ color: "var(--color-muted)" }}
+                        >
+                          workspace
+                        </span>
+                      )}
                     </td>
                     <td>
                       <StatusPill
@@ -95,7 +110,7 @@ export default function Templates() {
                       />
                     </td>
                     <td className="mono text-sm">
-                      {frameworkOf(template.slug)}
+                      {frameworkOf(template)}
                     </td>
                     <td>
                       {template.checks.length} gates
@@ -112,8 +127,9 @@ export default function Templates() {
             className="mono text-sm"
             style={{ color: "var(--color-ink-2)" }}
           >
-            Adding a stack? See templates/README.md — manifest + blueprint,
-            no new dependencies.
+            Define your own in Settings → Templates. Shipping a stack for
+            everyone? See templates/README.md — manifest + blueprint, no new
+            dependencies.
           </p>
         </section>
       </div>
