@@ -58,3 +58,16 @@ The solution has three parts:
   until first contact; nodes with pinned environments cannot be removed.
 - Managed nodes feed the dashboard, nodes page, app environments,
   sidebar counts and footer summary.
+
+### App templates (first slice)
+
+- Template catalog (`templates/`): one folder per stack with `manifest.json`,
+  setup `README.md` and stack `blueprint.md`.
+- Registry (`lib/templates.ts`): typed list/get over the manifests; checks
+  mirror the Control Plane required gates.
+- Catalog UI (`/templates`, `/templates/[slug]`): browse stacks, gates,
+  scaffold steps and node targets.
+- First template `byov-stack`: the same Next.js + React + TypeScript +
+  Tailwind + Vitest stack BYOV is built on; versions track `package.json`.
+- Adding a stack = new folder + manifest + registry entry + tests; no
+  new dependencies.

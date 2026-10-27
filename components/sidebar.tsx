@@ -4,11 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { appHealth, listApps } from "@/lib/control-plane";
 import { useManagedNodes } from "@/lib/settings-store";
+import { listTemplates } from "@/lib/templates";
 import {
   BoxIcon,
   CloseIcon,
   GearIcon,
   GridIcon,
+  LayersIcon,
   PulseIcon,
   StackIcon,
 } from "./icons";
@@ -24,6 +26,7 @@ const healthDot: Record<string, string> = {
 const nav = [
   { href: "/", label: "Dashboard", icon: GridIcon, exact: true },
   { href: "/apps", label: "Apps", icon: BoxIcon, exact: false },
+  { href: "/templates", label: "Templates", icon: LayersIcon, exact: false },
   { href: "/nodes", label: "Nodes", icon: StackIcon, exact: true },
   { href: "/activity", label: "Activity", icon: PulseIcon, exact: true },
   { href: "/settings", label: "Settings", icon: GearIcon, exact: false },
@@ -41,6 +44,7 @@ export function Sidebar({
   const { nodes } = useManagedNodes();
   const counts: Record<string, number> = {
     "/apps": apps.length,
+    "/templates": listTemplates().length,
     "/nodes": nodes.length,
   };
 
