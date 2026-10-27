@@ -7,9 +7,11 @@ import { Topbar } from "./topbar";
 
 export function AppShell({
   crumb,
+  subnav,
   children,
 }: {
   crumb: React.ReactNode;
+  subnav?: React.ReactNode;
   children: React.ReactNode;
 }) {
   const [open, setOpen] = useState(false);
@@ -43,9 +45,14 @@ export function AppShell({
           open ? "opacity-100" : "pointer-events-none opacity-0"
         }`}
       />
-      <div className="flex min-h-dvh flex-col lg:pl-[260px]">
+      <div
+        className={`flex min-h-dvh flex-col ${
+          subnav ? "lg:pl-[508px]" : "lg:pl-[260px]"
+        }`}
+      >
         <Topbar onMenu={() => setOpen(true)} crumb={crumb} />
         <main className="w-full max-w-6xl flex-1 px-4 py-8 sm:px-8 lg:py-10">
+          {subnav}
           {children}
         </main>
         <footer className="w-full max-w-6xl px-4 pb-8 sm:px-8">

@@ -274,3 +274,16 @@ const healthLabels: Record<Health, string> = {
 export function healthLabel(health: Health): string {
   return healthLabels[health];
 }
+
+export interface ProjectSection {
+  id: string;
+  label: string;
+}
+
+/** Anchor sections of the project detail page (level-2 navigation). */
+export const projectSections: ProjectSection[] = [
+  { id: "overview", label: "Overview" },
+  { id: "environments", label: "Environments" },
+  { id: "deployments", label: "Deployments" },
+  { id: "checks", label: "Checks" },
+];

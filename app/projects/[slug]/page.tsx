@@ -3,12 +3,15 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppShell } from "@/components/app-shell";
 import { HealthPill, SectionHead, StatStrip, StatusPill } from "@/components/data-ui";
+import { EnvironmentCard } from "@/components/environment-card";
 import { ArrowLeftIcon } from "@/components/icons";
+import { ProjectSubnav } from "@/components/project-subnav";
 import {
   getProject,
   getNode,
   listProjects,
   projectHealth,
+  projectSections,
 } from "@/lib/control-plane";
 
 export function generateStaticParams() {
@@ -57,12 +60,21 @@ export default async function ProjectDetail({
           / {project.name}
         </>
       }
+      subnav={
+        <ProjectSubnav
+          name={project.name}
+          slug={project.slug}
+          stack={project.stack}
+          health={health}
+          sections={projectSections}
+        />
+      }
     >
       <div className="grid gap-10">
-        <div>
+        <div id="overview" className="scroll-mt-24">
           <Link
             href="/projects"
-            className="inline-flex items-center gap-2 text-sm font-semibold"
+            className="inline-flex items-center gap-2 text-sm font-semibold lg:hidden"
             style={{ color: "var(--color-ink-2)" }}
           >
             <ArrowLeftIcon className="h-4 w-4" />
@@ -98,20 +110,6 @@ export default async function ProjectDetail({
           >
             {project.description}
           </p>
-          <nav
-            aria-label="Project sections"
-            className="mt-6 flex flex-wrap gap-2"
-          >
-            {[
-              ["#environments", "Environments"],
-              ["#deployments", "Deployments"],
-              ["#checks", "Checks"],
-            ].map(([href, label]) => (
-              <a key={href} href={href} className="btn-ghost px-4 py-2 text-sm">
-                {label}
-              </a>
-            ))}
-          </nav>
         </div>
 
         <div className="rule-top pt-8">
@@ -145,31 +143,19 @@ export default async function ProjectDetail({
               lede="Each environment pins to exactly one node."
             />
           </div>
-          <div className="overflow-x-auto">
-            <table className="spec-table min-w-[680px]">
-              <thead>
-                <tr>
-                  <th scope="col">Environment</th>
-                  <th scope="col">Node</th>
-                  <th scope="col">Status</th>
-                  <th scope="col">URL</th>
-                </tr>
-              </thead>
-              <tbody>
-                {project.envs.map((env) => (
-                  <tr key={env.name}>
-                    <td className="font-semibold">{env.name}</td>
-                    <td className="mono text-sm">
-                      {getNode(env.node)?.name ?? env.node}
-                    </td>
-                    <td>
-                      <HealthPill health={env.status} />
-                    </td>
-                    <td className="mono text-sm">{env.url}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid gap-4">
+            {project.envs.map((env) => (
+              <EnvironmentCard
+                key={env.name}
+                env={env}
+                nodeName={getNode(env.node)?.name ?? env.node}
+                lastDeploy={project.deployments.find(
+                  (deploy) => deploy.env === env.name,
+                )}
+                checksPassing={passing}
+                checksTotal={project.checks.length}
+              />
+            ))}
           </div>
         </section>
 

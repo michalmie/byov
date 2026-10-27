@@ -204,6 +204,32 @@ a:active {
   background: var(--color-card);
 }
 
+.card {
+  background: var(--color-card);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+}
+
+.subnav-link {
+  display: flex;
+  align-items: center;
+  border-radius: var(--radius-well);
+  color: var(--color-ink-2);
+  white-space: nowrap;
+  transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
+}
+
+.subnav-link:hover {
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+}
+
+.subnav-link[aria-current="true"] {
+  background: var(--color-paper-2);
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
 /* Mobile drawer: transform-only slide. */
 .drawer {
   transition: transform var(--dur-short) var(--ease-out);

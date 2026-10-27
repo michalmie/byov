@@ -6,6 +6,7 @@ import {
   listNodes,
   listProjects,
   projectHealth,
+  projectSections,
 } from "@/lib/control-plane";
 
 describe("getProject", () => {
@@ -86,5 +87,22 @@ describe("healthLabel", () => {
     expect(healthLabel("deploying")).toBe("Deploying");
     expect(healthLabel("degraded")).toBe("Degraded");
     expect(healthLabel("down")).toBe("Down");
+  });
+});
+
+describe("projectSections", () => {
+  it("lists the four detail anchors starting with overview", () => {
+    expect(projectSections.map((section) => section.id)).toEqual([
+      "overview",
+      "environments",
+      "deployments",
+      "checks",
+    ]);
+  });
+
+  it("labels every section", () => {
+    for (const section of projectSections) {
+      expect(section.label.length).toBeGreaterThan(0);
+    }
   });
 });

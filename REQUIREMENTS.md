@@ -41,3 +41,10 @@ The solution has three parts:
 - Nodes (`/nodes`): deployment targets and the projects pinned to each.
 - All figures come from a sample dataset until the API lands; the UI labels
   it as sample data.
+
+### Control Plane UI (second slice)
+
+- Three navigation levels: workspace rail with counts (L1), project rail
+  with scroll-spy section anchors (L2), page content (L3).
+- Environment cards with URL, node, status, last deploy and checks.
+- Global activity feed (`/activity`), shared with the dashboard.

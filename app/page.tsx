@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { ActivityFeed } from "@/components/activity-feed";
 import { AppShell } from "@/components/app-shell";
 import { HealthPill, SectionHead, StatStrip } from "@/components/data-ui";
 import { ArrowRightIcon } from "@/components/icons";
@@ -196,22 +197,14 @@ export default function Dashboard() {
                 lede="Latest control plane events."
               />
             </div>
-            <ol className="grid">
-              {activity.map((item, index) => (
-                <li key={`${item.when}-${index}`} className="rule-top flex items-start gap-4 py-3">
-                  <span
-                    className="mono w-24 shrink-0 text-sm"
-                    style={{ color: "var(--color-ink-2)" }}
-                  >
-                    {item.when}
-                  </span>
-                  <p className="text-sm">
-                    <strong className="font-semibold">{item.actor}</strong>{" "}
-                    {item.text}
-                  </p>
-                </li>
-              ))}
-            </ol>
+            <ActivityFeed items={activity} />
+            <Link
+              href="/activity"
+              className="inline-flex w-fit items-center gap-2 text-sm font-semibold underline decoration-[var(--color-rule)] underline-offset-2 hover:decoration-[var(--color-accent-deep)]"
+            >
+              All activity
+              <ArrowRightIcon className="h-4 w-4" />
+            </Link>
           </section>
         </div>
       </div>
