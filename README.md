@@ -50,6 +50,7 @@ Employees keep their flow. Admins keep control. Everybody wins.
 | 🎛️ | **Control Plane** — one UI for apps, environments, deployments | Every vibe-coded app, visible and manageable |
 | 🖥️ | **Nodes** — admin-approved deployment targets (self-hosted Coolify first) | Apps land only where they're allowed to |
 | 🔌 | **Client** — connect straight from Muse, Codex, Claude & co. | Zero-friction path from prompt to production |
+| 🧩 | **App templates** — paved-road starters with gates built in | Start compliant on the BYOV stack; more stacks later |
 | ✅ | **Required checks** — unit tests, lint, builds, DLP scan, dependency audit | Nothing ships without passing the gates |
 | 🏥 | **Fleet health** — app health rolled up from envs + checks | Spot trouble before users do |
 | 📜 | **Audit trail & RBAC** — who shipped what, when, where | Compliance without spreadsheets |
@@ -68,6 +69,8 @@ Run it once and click through:
 | `/` | 📊 **Dashboard** — fleet figures, app health table, nodes, activity feed |
 | `/apps` | 📦 **Apps** — every app with health, home node, and last deploy |
 | `/apps/[slug]` | 🔍 **App detail** — environments, deployment history, required checks |
+| `/templates` | 🧩 **Templates** — starter stacks with gates and scaffold steps |
+| `/templates/[slug]` | 🔍 **Template detail** — stack, checks, scaffold, ship targets |
 | `/nodes` | 🖥️ **Nodes** — deployment targets and the apps pinned to each |
 | `/activity` | ⚡ **Activity** — every control plane event, newest first |
 | `/settings` | ⚙️ **Settings** — workspace preferences, add and manage nodes |
@@ -147,9 +150,10 @@ npm run build       # production build
 Project layout:
 
 ```
-app/            # routes: dashboard (/), /apps, /apps/[slug], /nodes, /activity, /settings
+app/            # routes: dashboard (/), /apps, /apps/[slug], /templates, /templates/[slug], /nodes, /activity, /settings
 components/     # shell, sidebar, subnav, data UI
-lib/            # control-plane dataset + roll-up logic, site helpers
+lib/            # control-plane dataset + roll-up logic, site helpers, template registry
+templates/      # app templates: manifest + setup guide + blueprint per stack
 tests/unit/     # Vitest suites
 deploy/         # deployment & preview adapters
 ```
@@ -159,9 +163,11 @@ deploy/         # deployment & preview adapters
 ## 🗺️ Roadmap
 
 - [x] Control Plane UI first slice (dashboard, apps, nodes) on sample data
+- [x] App templates catalog (BYOV stack first)
 - [ ] Real API behind the Control Plane
 - [ ] Coolify node adapter — deploy for real
 - [ ] Client for Muse / Codex / Claude
+- [ ] More app templates beyond the BYOV stack
 - [ ] Auth, RBAC, and audit trails
 - [ ] DLP + SIEM integrations
 - [ ] More node types (Kubernetes, …?)
