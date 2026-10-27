@@ -125,3 +125,12 @@ export function PulseIcon({ className }: IconProps) {
     </Base>
   );
 }
+
+export function GearIcon({ className }: IconProps) {
+  return (
+    <Base className={className}>
+      <circle cx="12" cy="12" r="7.2" strokeDasharray="3.2 2.5" />
+      <circle cx="12" cy="12" r="2.6" />
+    </Base>
+  );
+}

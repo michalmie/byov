@@ -2,6 +2,7 @@ import {
   appHealth,
   appSections,
   fleetSummary,
+  fleetSummaryFor,
   getApp,
   getNode,
   healthLabel,
@@ -48,6 +49,18 @@ describe("appHealth", () => {
     expect(appHealth(app!)).toBe("deploying");
   });
 
+  it("flags attention when an env sits on a pending node", () => {
+    const app = getApp("shopfloor-tickets");
+    expect(app).toBeDefined();
+    const pending = {
+      ...app!,
+      envs: app!.envs.map((env, index) =>
+        index === 0 ? { ...env, status: "pending" as const } : env,
+      ),
+    };
+    expect(appHealth(pending)).toBe("degraded");
+  });
+
   it("prefers down over every other status", () => {
     const app = getApp("shopfloor-tickets");
     expect(app).toBeDefined();
@@ -87,6 +100,30 @@ describe("healthLabel", () => {
     expect(healthLabel("deploying")).toBe("Deploying");
     expect(healthLabel("degraded")).toBe("Degraded");
     expect(healthLabel("down")).toBe("Down");
+    expect(healthLabel("pending")).toBe("Pending");
+  });
+});
+
+describe("fleetSummaryFor", () => {
+  it("matches fleetSummary over the sample dataset", () => {
+    expect(fleetSummaryFor(listApps(), listNodes())).toEqual(
+      fleetSummary(),
+    );
+  });
+
+  it("counts a caller-supplied node list", () => {
+    const summary = fleetSummaryFor(listApps(), [
+      ...listNodes(),
+      {
+        slug: "extra",
+        name: "extra",
+        kind: "Coolify",
+        location: "Berlin",
+        status: "pending",
+      },
+    ]);
+    expect(summary.nodes).toBe(listNodes().length + 1);
+    expect(summary.apps).toBe(listApps().length);
   });
 });
 

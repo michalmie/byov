@@ -1,21 +1,31 @@
+"use client";
+
 import Link from "next/link";
 import { ActivityFeed } from "@/components/activity-feed";
 import { HealthPill, SectionHead, StatStrip } from "@/components/data-ui";
 import { ArrowRightIcon } from "@/components/icons";
 import { ControlPlaneShell } from "@/components/shell";
+import type { Health } from "@/lib/control-plane";
 import {
   appHealth,
-  fleetSummary,
-  getNode,
+  fleetSummaryFor,
   listApps,
-  listNodes,
   recentActivity,
 } from "@/lib/control-plane";
+import { useManagedNodes } from "@/lib/settings-store";
+
+const nodeDot: Record<Health, string> = {
+  healthy: "var(--color-ok)",
+  deploying: "var(--color-info)",
+  degraded: "var(--color-warn)",
+  down: "var(--color-bad)",
+  pending: "var(--color-info)",
+};
 
 export default function Dashboard() {
-  const summary = fleetSummary();
   const apps = listApps();
-  const nodes = listNodes();
+  const { nodes } = useManagedNodes();
+  const summary = fleetSummaryFor(apps, nodes);
   const activity = recentActivity();
 
   return (
@@ -92,7 +102,9 @@ export default function Dashboard() {
                   const home = app.envs.find(
                     (env) => env.name === "production",
                   );
-                  const homeNode = home ? getNode(home.node) : undefined;
+                  const homeNode = home
+                    ? nodes.find((node) => node.slug === home.node)
+                    : undefined;
                   return (
                     <tr key={app.slug}>
                       <td>
@@ -159,12 +171,7 @@ export default function Dashboard() {
                   <span
                     aria-hidden="true"
                     className="h-2.5 w-2.5 shrink-0 rounded-full"
-                    style={{
-                      background:
-                        node.status === "healthy"
-                          ? "var(--color-ok)"
-                          : "var(--color-warn)",
-                    }}
+                    style={{ background: nodeDot[node.status] }}
                   />
                   <span className="mono text-sm font-semibold">
                     {node.name}

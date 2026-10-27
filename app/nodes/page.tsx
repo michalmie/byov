@@ -1,9 +1,14 @@
+"use client";
+
+import Link from "next/link";
 import { HealthPill, StatStrip } from "@/components/data-ui";
+import { ArrowRightIcon } from "@/components/icons";
 import { ControlPlaneShell } from "@/components/shell";
-import { listApps, listNodes } from "@/lib/control-plane";
+import { listApps } from "@/lib/control-plane";
+import { useManagedNodes } from "@/lib/settings-store";
 
 export default function Nodes() {
-  const nodes = listNodes();
+  const { nodes } = useManagedNodes();
   const apps = listApps();
   const envCount = apps.reduce(
     (total, app) => total + app.envs.length,
@@ -24,6 +29,15 @@ export default function Nodes() {
             Where apps land. Administrators pin each environment to a
             node — the first fleet is self-hosted Coolify.
           </p>
+          <div className="mt-6">
+            <Link
+              href="/settings/nodes"
+              className="btn-ghost px-4 py-2 text-sm"
+            >
+              Manage nodes
+              <ArrowRightIcon className="h-4 w-4" />
+            </Link>
+          </div>
         </div>
 
         <div className="rule-top pt-8">

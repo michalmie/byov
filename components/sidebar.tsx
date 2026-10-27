@@ -2,14 +2,23 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { appHealth, listApps, listNodes } from "@/lib/control-plane";
-import { BoxIcon, CloseIcon, GridIcon, PulseIcon, StackIcon } from "./icons";
+import { appHealth, listApps } from "@/lib/control-plane";
+import { useManagedNodes } from "@/lib/settings-store";
+import {
+  BoxIcon,
+  CloseIcon,
+  GearIcon,
+  GridIcon,
+  PulseIcon,
+  StackIcon,
+} from "./icons";
 
 const healthDot: Record<string, string> = {
   healthy: "var(--color-ok)",
   deploying: "var(--color-info)",
   degraded: "var(--color-warn)",
   down: "var(--color-bad)",
+  pending: "var(--color-info)",
 };
 
 const nav = [
@@ -17,6 +26,7 @@ const nav = [
   { href: "/apps", label: "Apps", icon: BoxIcon, exact: false },
   { href: "/nodes", label: "Nodes", icon: StackIcon, exact: true },
   { href: "/activity", label: "Activity", icon: PulseIcon, exact: true },
+  { href: "/settings", label: "Settings", icon: GearIcon, exact: false },
 ];
 
 export function Sidebar({
@@ -28,9 +38,10 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const apps = listApps();
+  const { nodes } = useManagedNodes();
   const counts: Record<string, number> = {
     "/apps": apps.length,
-    "/nodes": listNodes().length,
+    "/nodes": nodes.length,
   };
 
   return (

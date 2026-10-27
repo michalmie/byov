@@ -32,6 +32,7 @@ const healthTone: Record<Health, Tone> = {
   deploying: "info",
   degraded: "warn",
   down: "bad",
+  pending: "info",
 };
 
 export function HealthPill({ health }: { health: Health }) {

@@ -2,7 +2,7 @@
 // later; every figure on screen is computed from this module so tests can
 // pin the roll-up logic.
 
-export type Health = "healthy" | "deploying" | "degraded" | "down";
+export type Health = "healthy" | "deploying" | "degraded" | "down" | "pending";
 
 export type CheckStatus = "pass" | "fail" | "running";
 
@@ -44,6 +44,8 @@ export interface Node {
   kind: string;
   location: string;
   status: Health;
+  /** Where the control plane reaches the node; blank until configured. */
+  endpoint?: string;
 }
 
 export interface ActivityItem {
@@ -229,6 +231,8 @@ export function appHealth(app: App): Health {
   }
   if (
     statuses.includes("degraded") ||
+    // An env on a never-contacted node cannot serve traffic yet.
+    statuses.includes("pending") ||
     app.checks.some((check) => check.status === "fail")
   ) {
     return "degraded";
@@ -251,13 +255,21 @@ export interface FleetSummary {
 }
 
 export function fleetSummary(): FleetSummary {
-  const health = apps.map(appHealth);
+  return fleetSummaryFor(apps, nodes);
+}
+
+/** Same roll-up over caller-supplied lists (e.g. managed nodes). */
+export function fleetSummaryFor(
+  appList: App[],
+  nodeList: Node[],
+): FleetSummary {
+  const health = appList.map(appHealth);
   return {
-    apps: apps.length,
-    nodes: nodes.length,
+    apps: appList.length,
+    nodes: nodeList.length,
     healthy: health.filter((value) => value === "healthy").length,
     attention: health.filter((value) => value !== "healthy").length,
-    deployments: apps.reduce(
+    deployments: appList.reduce(
       (total, app) => total + app.deployments.length,
       0,
     ),
@@ -269,6 +281,7 @@ const healthLabels: Record<Health, string> = {
   deploying: "Deploying",
   degraded: "Degraded",
   down: "Down",
+  pending: "Pending",
 };
 
 export function healthLabel(health: Health): string {
