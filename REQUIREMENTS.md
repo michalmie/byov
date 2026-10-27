@@ -185,3 +185,24 @@ Local bootstrap runbook:
    mkcert only covers a single admin machine.
 3. Trust: install the CA root on every client and on the BYOV server, then
    verify with the Nodes-row Test before pointing apps at local URLs.
+
+### Nodes (second slice)
+
+- Add node is a guided Coolify onboarding flow (see
+  `docs/coolify-node.md`): About the server (name, type, location),
+  Connect (endpoint plus Test), Serve URLs (domain zone, tailnet
+  machine name), each with plain-language help.
+- A prerequisites checklist rides with the Add form: server sizing,
+  Ubuntu, ports 80/443, DNS for Coolify itself, official install,
+  first login and FQDN, then register the endpoint here.
+- Endpoint verification runs server-side via POST /api/nodes-test and
+  shows DNS → TLS → HTTP evidence plus one actionable guidance line;
+  `http` skips TLS by design and any HTTP status counts as reachable.
+- Verification never blocks saving: an unreachable endpoint, a failed
+  probe, or a missing backend still saves, and the node stays Pending.
+- After a successful add the page shows next steps: Pending until
+  first contact, set the zone and DNS below, use the Tests to verify.
+- Pending tracks adapter contact, not reachability — green Tests with
+  a Pending node is the expected steady state until the Coolify node
+  adapter lands. The adapter roadmap item stays open: verification is
+  not deploying.
