@@ -1,14 +1,14 @@
-# AI Chatbot template
+# React SPA tech stack
 
-Next.js 16 (App Router) + Vercel AI SDK 5 + Tailwind CSS 4 starter for
-support copilots and internal assistants. Streaming chat UI, server-side
-provider keys, Control Plane gates from the first commit.
+Vite 7 + React 19 + TypeScript 5 (strict) + Tailwind CSS 4 starter for
+internal dashboards and tools that need no backend. Static build,
+Control Plane gates from the first commit.
 
 ## Scaffold
 
 1. Copy the file tree in [blueprint.md](blueprint.md) into a new repo.
 2. `npm ci`
-3. `cp .env.example .env.local` and add your provider key.
+3. `cp .env.example .env.local` and fill in local values.
 4. `npm run dev` — pick a free port; the Control Plane uses `3014`.
 
 ## Gates
@@ -20,7 +20,7 @@ Every change must pass:
 | Unit tests | `npm run test:unit` |
 | Lint | `npm run lint` |
 | Typecheck | `npm run typecheck` |
-| Production build | `npm run build` |
+| Production build | `npm run build` (`vite build`) |
 | DLP scan | BYOV gate, every change |
 | Dependency audit | BYOV gate, nightly |
 
@@ -34,8 +34,7 @@ npm run test:unit && npm run lint && npm run typecheck && npm run build
 
 1. Register the app in the BYOV Control Plane.
 2. Connect from your coding tool (Muse, Codex, Claude).
-3. Deploy to an admin-approved node (self-hosted Coolify first).
+3. Deploy the static `dist/` output to an admin-approved node
+   (self-hosted Coolify first).
 
-Keep the repo public-safe: no secrets, provider keys, logs or real data.
-Provider keys live in server routes and node env vars only — the DLP gate
-fails the build if one leaks into the client bundle or the repo.
+Keep the repo public-safe: no secrets, env values, logs or real data.

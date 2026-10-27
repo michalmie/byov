@@ -1,4 +1,4 @@
-# BYOV Stack template
+# BYOV stack
 
 The stack BYOV itself is built on: Next.js 16 (App Router), React 19,
 TypeScript 5 (strict), Tailwind CSS 4, Vitest 4 + Testing Library,

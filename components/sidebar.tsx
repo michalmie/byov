@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { appHealth, listApps, type App } from "@/lib/control-plane";
 import { useManagedNodes } from "@/lib/settings-store";
-import { useManagedTemplates } from "@/lib/template-store";
+import { useManagedStacks } from "@/lib/stack-store";
 import {
   ArrowRightIcon,
   BoxIcon,
@@ -30,7 +30,7 @@ const healthDot: Record<string, string> = {
 const workspaceNav = [
   { href: "/", label: "Dashboard", icon: GridIcon, exact: true },
   { href: "/apps", label: "Apps", icon: BoxIcon, exact: false },
-  { href: "/templates", label: "Templates", icon: LayersIcon, exact: false },
+  { href: "/stacks", label: "Tech stacks", icon: LayersIcon, exact: false },
   { href: "/nodes", label: "Nodes", icon: StackIcon, exact: true },
   { href: "/activity", label: "Activity", icon: PulseIcon, exact: true },
 ];
@@ -58,12 +58,12 @@ export function Sidebar({
   const pathname = usePathname();
   const apps = listApps();
   const { nodes } = useManagedNodes();
-  const { templates } = useManagedTemplates();
+  const { stacks } = useManagedStacks();
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const counts: Record<string, number> = {
     "/apps": apps.length,
-    "/templates": templates.length,
+    "/stacks": stacks.length,
     "/nodes": nodes.length,
   };
   const matches = filterApps(apps, query);

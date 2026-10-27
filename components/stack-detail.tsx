@@ -5,8 +5,9 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ControlPlaneShell } from "@/components/shell";
 import { SectionHead, StatStrip, StatusPill } from "@/components/data-ui";
-import { ArrowLeftIcon } from "@/components/icons";
-import { useManagedTemplates } from "@/lib/template-store";
+import { ArrowLeftIcon, ArrowRightIcon } from "@/components/icons";
+import { useManagedStacks } from "@/lib/stack-store";
+import { STACK_CATEGORY_LABELS, layersByCategory } from "@/lib/stacks";
 
 const statusTone = { draft: "info", stable: "ok", deprecated: "bad" } as const;
 const statusLabel = {
@@ -15,8 +16,8 @@ const statusLabel = {
   deprecated: "Deprecated",
 } as const;
 
-export function TemplateDetailView({ slug }: { slug: string }) {
-  const { getManagedTemplate, isCustom } = useManagedTemplates();
+export function StackDetailView({ slug }: { slug: string }) {
+  const { getManagedStack, isCustomStack } = useManagedStacks();
   // Customs hydrate after mount; hold the loading state until then so a
   // workspace slug never flashes a 404 on first render.
   const mounted = useSyncExternalStore(
@@ -25,84 +26,95 @@ export function TemplateDetailView({ slug }: { slug: string }) {
     () => false,
   );
 
-  const template = getManagedTemplate(slug);
+  const stack = getManagedStack(slug);
 
-  if (!template && !mounted) {
+  if (!stack && !mounted) {
     return (
-      <ControlPlaneShell crumb="Templates">
+      <ControlPlaneShell crumb="Tech stacks">
         <p className="text-sm" style={{ color: "var(--color-muted)" }}>
-          Loading template…
+          Loading stack…
         </p>
       </ControlPlaneShell>
     );
   }
 
-  if (!template) {
+  if (!stack) {
     notFound();
   }
+
+  const custom = isCustomStack(stack.slug);
 
   return (
     <ControlPlaneShell
       crumb={
         <>
-          <Link href="/templates" className="hover:underline">
-            Templates
+          <Link href="/stacks" className="hover:underline">
+            Tech stacks
           </Link>{" "}
-          / {template.name}
+          / {stack.name}
         </>
       }
     >
       <div className="grid gap-8">
         <div id="overview" className="scroll-mt-24">
           <Link
-            href="/templates"
+            href="/stacks"
             className="inline-flex items-center gap-1.5 text-[13px] font-medium"
             style={{ color: "var(--color-muted)" }}
           >
             <ArrowLeftIcon className="h-3.5 w-3.5" />
-            Templates
+            Tech stacks
           </Link>
           <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
             <h1 className="text-xl font-semibold tracking-tight">
-              {template.name}
+              {stack.name}
             </h1>
             <StatusPill
-              tone={statusTone[template.status]}
-              label={statusLabel[template.status]}
+              tone={statusTone[stack.status]}
+              label={statusLabel[stack.status]}
             />
           </div>
           <p
             className="mt-1 text-[13px]"
             style={{ color: "var(--color-muted)" }}
           >
-            {template.slug}
-            {isCustom(template.slug) ? " · workspace template" : ""}
+            {stack.slug}
+            {custom ? " · workspace stack" : ""}
           </p>
           <p
             className="mt-3 max-w-[65ch] text-sm"
             style={{ color: "var(--color-ink-2)" }}
           >
-            {template.tagline}
+            {stack.tagline}
           </p>
+          <div className="mt-4">
+            <Link
+              href="/settings/stacks"
+              className="btn-ghost px-3 py-1.5 text-[13px]"
+            >
+              {custom ? "Edit in Settings" : "Manage stacks"}
+              <ArrowRightIcon className="h-3.5 w-3.5" />
+            </Link>
+          </div>
         </div>
 
         <div className="rule-top pt-6">
           <StatStrip
             items={[
               {
-                value: String(template.stack.length),
+                value: String(stack.stack.length),
                 qualifier: "Stack layers",
               },
               {
-                value: String(template.checks.length),
+                value: String(stack.checks.length),
                 qualifier: "Required gates",
               },
               {
-                value: String(template.scaffold.length),
+                value: String(stack.scaffold.length),
                 qualifier: "Scaffold steps",
               },
               {
-                value: String(template.nodes.length),
+                value: String(stack.nodes.length),
                 qualifier: "Node targets",
               },
             ]}
@@ -116,27 +128,36 @@ export function TemplateDetailView({ slug }: { slug: string }) {
         >
           <div id="stack-heading">
             <SectionHead
-              title="Stack"
-              lede="What a scaffolded app is built with."
+              title="Tech stack"
+              lede="What a scaffolded app is built with, by category."
             />
           </div>
-          <div className="overflow-x-auto">
-            <table className="spec-table min-w-[520px]">
-              <thead>
-                <tr>
-                  <th scope="col">Layer</th>
-                  <th scope="col">Choice</th>
-                </tr>
-              </thead>
-              <tbody>
-                {template.stack.map((item) => (
-                  <tr key={item.label}>
-                    <td className="font-semibold">{item.label}</td>
-                    <td className="mono text-sm">{item.value}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="grid gap-6">
+            {layersByCategory(stack).map((group) => (
+              <div key={group.category} className="grid gap-2">
+                <h3 className="text-sm font-semibold tracking-tight">
+                  {STACK_CATEGORY_LABELS[group.category]}
+                </h3>
+                <div className="overflow-x-auto">
+                  <table className="spec-table min-w-[520px]">
+                    <thead>
+                      <tr>
+                        <th scope="col">Layer</th>
+                        <th scope="col">Choice</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {group.layers.map((item) => (
+                        <tr key={item.label}>
+                          <td className="font-semibold">{item.label}</td>
+                          <td className="mono text-sm">{item.value}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -161,7 +182,7 @@ export function TemplateDetailView({ slug }: { slug: string }) {
                 </tr>
               </thead>
               <tbody>
-                {template.checks.map((check) => (
+                {stack.checks.map((check) => (
                   <tr key={check.name}>
                     <td className="font-semibold">{check.name}</td>
                     <td className="mono text-sm">{check.command}</td>
@@ -181,11 +202,11 @@ export function TemplateDetailView({ slug }: { slug: string }) {
           <div id="scaffold-heading">
             <SectionHead
               title="Scaffold"
-              lede="From template to running app."
+              lede="From stack to running app."
             />
           </div>
           <ol className="grid gap-4">
-            {template.scaffold.map((step, index) => (
+            {stack.scaffold.map((step, index) => (
               <li key={step.title} className="card grid gap-2 p-4 sm:p-5">
                 <p className="font-semibold">
                   <span
@@ -229,26 +250,26 @@ export function TemplateDetailView({ slug }: { slug: string }) {
                 <tr>
                   <td className="font-semibold">Starter</td>
                   <td className="text-sm">
-                    {template.starter.kind} ·{" "}
-                    <span className="mono">{template.starter.ref}</span>
+                    {stack.starter.kind} ·{" "}
+                    <span className="mono">{stack.starter.ref}</span>
                     <span
                       className="block"
                       style={{ color: "var(--color-ink-2)" }}
                     >
-                      {template.starter.note}
+                      {stack.starter.note}
                     </span>
                   </td>
                 </tr>
                 <tr>
                   <td className="font-semibold">Nodes</td>
                   <td className="mono text-sm">
-                    {template.nodes.join(" · ")}
+                    {stack.nodes.join(" · ")}
                   </td>
                 </tr>
                 <tr>
                   <td className="font-semibold">Docs</td>
                   <td className="mono text-sm">
-                    {template.docs.join(" · ")}
+                    {stack.docs.join(" · ")}
                   </td>
                 </tr>
               </tbody>

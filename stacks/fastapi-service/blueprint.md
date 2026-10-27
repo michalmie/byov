@@ -1,7 +1,7 @@
 # Python API blueprint
 
 File tree and configs a scaffolded service starts from. Container
-output, same gates as every BYOV template.
+output, same gates as every BYOV stack.
 
 ## File tree
 
@@ -42,7 +42,7 @@ build:     docker build .
 
 ## Definition of done
 
-A scaffolded service is template-compliant when all of these hold:
+A scaffolded service is stack-compliant when all of these hold:
 
 - `pytest` green, with suites for endpoint behavior.
 - `ruff check .` and `ruff format --check .` green.
