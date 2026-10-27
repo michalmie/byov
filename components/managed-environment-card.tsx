@@ -1,6 +1,7 @@
 "use client";
 
 import type { Deployment, AppEnvironment } from "@/lib/control-plane";
+import { listApps } from "@/lib/control-plane";
 import { resolveEnvUrl } from "@/lib/dev-urls";
 import { useWorkspaceSettings } from "@/lib/settings-store";
 import { EnvironmentCard } from "./environment-card";
@@ -22,16 +23,17 @@ export function ManagedEnvironmentCard({
   const { settings, nodes } = useWorkspaceSettings();
   const node = nodes.find((entry) => entry.slug === env.node);
   const nodeName = node?.name ?? env.node;
-  const resolved = resolveEnvUrl(appSlug, env, nodes, settings.devZone);
-  const urlNote =
-    resolved.source === "missing-zone"
-      ? `Set a domain zone on ${nodeName} to get a URL.`
-      : (resolved.warning ?? undefined);
+  const resolved = resolveEnvUrl(appSlug, env, {
+    nodes,
+    apps: listApps(),
+    devZone: settings.devZone,
+    tailnetDomain: settings.tailnetDomain,
+  });
 
   return (
     <EnvironmentCard
       env={{ ...env, url: resolved.url ?? "—" }}
-      urlNote={urlNote}
+      urlNote={resolved.warning ?? undefined}
       nodeName={nodeName}
       lastDeploy={lastDeploy}
       checksPassing={checksPassing}

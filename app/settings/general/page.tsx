@@ -199,6 +199,37 @@ export default function SettingsGeneral() {
               )}
             </div>
 
+            <div className="field">
+              <label className="field-label" htmlFor="tailnet-domain">
+                Tailnet domain <span className="hint">(optional)</span>
+              </label>
+              <input
+                id="tailnet-domain"
+                className="input max-w-md"
+                type="text"
+                inputMode="url"
+                autoComplete="off"
+                placeholder="yak-bebop.ts.net"
+                value={draft.tailnetDomain}
+                aria-invalid={Boolean(errors.tailnetDomain)}
+                aria-describedby={
+                  errors.tailnetDomain
+                    ? "tailnet-domain-error"
+                    : "tailnet-domain-hint"
+                }
+                onChange={(event) => set("tailnetDomain", event.target.value)}
+              />
+              <p id="tailnet-domain-hint" className="hint">
+                Your tailnet&apos;s DNS name, from Tailscale Admin → DNS.
+                Tailnet nodes serve envs on it with stable ports.
+              </p>
+              {errors.tailnetDomain && (
+                <p id="tailnet-domain-error" className="form-error">
+                  {errors.tailnetDomain}
+                </p>
+              )}
+            </div>
+
             <div className="flex flex-wrap gap-3">
               <button type="submit" className="btn-primary px-3 py-1.5 text-[13px]">
                 Save changes

@@ -86,7 +86,7 @@ The solution has three parts:
   the future node adapter reuses it when programming Coolify.
 - Preview URLs per branch/PR with protection land in a later slice.
 
-Operator runbook (per node):
+Operator runbook (public, per node):
 
 1. Create an `A` record for `*.{node-zone}` pointing at the node.
 2. On the Coolify node, configure the Traefik DNS challenge and request a
@@ -94,3 +94,33 @@ Operator runbook (per node):
    Certificates).
 3. Set each app's Coolify FQDN to the URL the control plane shows; Coolify
    provisions TLS automatically from there.
+
+### Dev URLs (second slice)
+
+- Each node serves one DNS scenario: public subdomain, Tailscale, or local
+  DNS; envs inherit their node's scenario.
+- Public keeps the first-slice pattern; local renders the same shape under an
+  operator zone on the internal resolver (`.local` and `home.arpa` are
+  rejected — mDNS and home-network scope, not org servers).
+- Tailnet renders `https://{machine}.{tailnet}.ts.net:{port}`: one node name
+  (Tailscale mints no per-service subdomains) with a stable deterministic
+  port per env; TLS comes from `tailscale cert` on the node.
+- The dev-zone short variant stays public-only; explicit URL overrides still
+  win everywhere.
+- No real tailnet names ship in the repo or sample data; the tailnet domain
+  is workspace config.
+
+Operator runbook (local, per node):
+
+1. Serve `*.{node-zone}` from the internal resolver to the node's LAN IP.
+2. Issue node certificates from the org private CA (ACME-capable preferred),
+   trust the CA on clients, and terminate TLS in the node's proxy.
+3. Set each app's Coolify FQDN to the URL the control plane shows.
+
+Operator runbook (tailnet, per node):
+
+1. Enable MagicDNS and HTTPS certificates in Tailscale Admin → DNS.
+2. Run `tailscale cert {machine}.{tailnet}.ts.net` on the node and load the
+   certificate into the node's proxy (Traefik file provider or equivalent).
+3. Point the proxy's per-env ports at the apps; BYOV shows each env's URL
+   with its stable port.

@@ -6,7 +6,7 @@ import { HealthPill, StatusPill } from "@/components/data-ui";
 import { NodeForm } from "@/components/node-form";
 import { SettingsSubnav } from "@/components/settings-subnav";
 import { listApps } from "@/lib/control-plane";
-import { useManagedNodes } from "@/lib/settings-store";
+import { useManagedNodes, useWorkspaceSettings } from "@/lib/settings-store";
 import { nodeUsage, type NodeDraft } from "@/lib/settings";
 
 const blankDraft: NodeDraft = {
@@ -15,11 +15,14 @@ const blankDraft: NodeDraft = {
   location: "",
   endpoint: "",
   domainZone: "",
+  dnsScenario: "public",
+  tailnetHost: "",
 };
 
 export default function SettingsNodes() {
   const { nodes, createNode, updateNode, deleteNode, resetNodes } =
     useManagedNodes();
+  const { settings } = useWorkspaceSettings();
   const apps = listApps();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
@@ -30,8 +33,16 @@ export default function SettingsNodes() {
   const editingNode = editing
     ? nodes.find((node) => node.slug === editing)
     : undefined;
-  const zoned = nodes.filter((node) => node.domainZone);
-  const unzoned = nodes.filter((node) => !node.domainZone);
+  const zoned = nodes.filter(
+    (node) => node.dnsScenario !== "tailnet" && node.domainZone,
+  );
+  const unzoned = nodes.filter(
+    (node) => node.dnsScenario !== "tailnet" && !node.domainZone,
+  );
+  const tailnetNodes = nodes.filter(
+    (node) => node.dnsScenario === "tailnet",
+  );
+  const hasSetup = zoned.length > 0 || tailnetNodes.length > 0;
 
   function closePanels() {
     setAdding(false);
@@ -142,6 +153,8 @@ export default function SettingsNodes() {
               location: editingNode.location,
               endpoint: editingNode.endpoint ?? "",
               domainZone: editingNode.domainZone ?? "",
+              dnsScenario: editingNode.dnsScenario,
+              tailnetHost: editingNode.tailnetHost ?? "",
             }}
             submitLabel="Save node"
             onSubmit={(draft) => {
@@ -301,11 +314,11 @@ export default function SettingsNodes() {
               className="mt-1 text-sm"
               style={{ color: "var(--color-ink-2)" }}
             >
-              One wildcard record per zoned node, pointing at the node.
-              Then request a wildcard certificate on the node itself.
+              One wildcard record per zoned node; one certificate per
+              tailnet node. Local zones live on your internal resolver.
             </p>
           </div>
-          {zoned.length > 0 ? (
+          {hasSetup ? (
             <ul className="grid gap-2">
               {zoned.map((node) => (
                 <li key={node.slug} className="mono text-sm">
@@ -321,16 +334,46 @@ export default function SettingsNodes() {
                   *.{node.domainZone}{" "}
                   <span style={{ color: "var(--color-ink-2)" }}>
                     → {node.name}
+                    {node.dnsScenario === "local"
+                      ? " (internal resolver)"
+                      : ""}
                   </span>
+                </li>
+              ))}
+              {tailnetNodes.map((node) => (
+                <li key={node.slug} className="mono text-sm">
+                  {node.tailnetHost && settings.tailnetDomain ? (
+                    <>
+                      <span
+                        className="tag px-2 py-1 text-xs"
+                        style={{
+                          background: "var(--color-paper-2)",
+                          color: "var(--color-ink-2)",
+                        }}
+                      >
+                        TLS
+                      </span>{" "}
+                      tailscale cert {node.tailnetHost}.
+                      {settings.tailnetDomain}{" "}
+                      <span style={{ color: "var(--color-ink-2)" }}>
+                        → on {node.name}
+                      </span>
+                    </>
+                  ) : (
+                    <span style={{ color: "var(--color-ink-2)" }}>
+                      {node.name}: set the machine name and tailnet domain to
+                      get env URLs.
+                    </span>
+                  )}
                 </li>
               ))}
             </ul>
           ) : (
             <p className="hint">
-              No node serves a zone yet — add one above to get env URLs.
+              No node serves URLs yet — add a zone or tailnet setup above.
             </p>
           )}
-          {unzoned.length > 0 && zoned.length > 0 && (
+          {unzoned.length > 0 && hasSetup && (
             <p className="hint">
               Without a zone: {unzoned.map((node) => node.name).join(", ")}.
             </p>

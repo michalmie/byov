@@ -39,6 +39,17 @@ export interface App {
   deployments: Deployment[];
 }
 
+/** How a node serves environment URLs. */
+export const DNS_SCENARIOS = ["public", "tailnet", "local"] as const;
+export type DnsScenario = (typeof DNS_SCENARIOS)[number];
+
+export function isDnsScenario(value: unknown): value is DnsScenario {
+  return (
+    typeof value === "string" &&
+    (DNS_SCENARIOS as readonly string[]).includes(value)
+  );
+}
+
 export interface Node {
   slug: string;
   name: string;
@@ -49,6 +60,10 @@ export interface Node {
   endpoint?: string;
   /** DNS zone the node serves env URLs under; blank until configured. */
   domainZone?: string;
+  /** DNS scenario for this node's env URLs. */
+  dnsScenario: DnsScenario;
+  /** Machine name as known on the tailnet (tailnet scenario). */
+  tailnetHost?: string;
 }
 
 export interface ActivityItem {
@@ -180,6 +195,7 @@ const nodes: Node[] = [
     location: "Frankfurt",
     status: "healthy",
     domainZone: "frankfurt-01.byov.xexo.io",
+    dnsScenario: "public",
   },
   {
     slug: "coolify-qa-lab",
@@ -187,7 +203,8 @@ const nodes: Node[] = [
     kind: "Coolify",
     location: "QA lab",
     status: "healthy",
-    domainZone: "qa-lab-01.byov.xexo.io",
+    domainZone: "qa-lab-01.byov.internal",
+    dnsScenario: "local",
   },
 ];
 
