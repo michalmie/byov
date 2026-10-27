@@ -5,7 +5,7 @@ import { fleetSummary } from "@/lib/control-plane";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 
-export function AppShell({
+export function ControlPlaneShell({
   crumb,
   subnav,
   children,
@@ -65,7 +65,7 @@ export function AppShell({
             <span>Sample data</span>
             <span aria-hidden="true">·</span>
             <span className="tnum">
-              {summary.projects} projects · {summary.nodes} nodes
+              {summary.apps} apps · {summary.nodes} nodes
             </span>
           </p>
         </footer>

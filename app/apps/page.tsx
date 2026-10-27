@@ -1,17 +1,17 @@
 import Link from "next/link";
-import { AppShell } from "@/components/app-shell";
 import { HealthPill } from "@/components/data-ui";
-import { listProjects, projectHealth } from "@/lib/control-plane";
+import { ControlPlaneShell } from "@/components/shell";
+import { appHealth, listApps } from "@/lib/control-plane";
 
-export default function Projects() {
-  const projects = listProjects();
+export default function Apps() {
+  const apps = listApps();
 
   return (
-    <AppShell crumb="Projects">
+    <ControlPlaneShell crumb="Apps">
       <div className="grid gap-8">
         <div>
           <h1 className="text-[clamp(2rem,3.5vw+0.75rem,3rem)] font-bold leading-[1.05] tracking-tight">
-            Projects
+            Apps
           </h1>
           <p
             className="mt-3 max-w-[65ch] text-base"
@@ -26,7 +26,7 @@ export default function Projects() {
           <table className="spec-table min-w-[820px]">
             <thead>
               <tr>
-                <th scope="col">Project</th>
+                <th scope="col">App</th>
                 <th scope="col">Health</th>
                 <th scope="col">Environments</th>
                 <th scope="col">Checks</th>
@@ -34,37 +34,37 @@ export default function Projects() {
               </tr>
             </thead>
             <tbody>
-              {projects.map((project) => {
-                const passing = project.checks.filter(
+              {apps.map((app) => {
+                const passing = app.checks.filter(
                   (check) => check.status === "pass",
                 ).length;
-                const last = project.deployments[0];
+                const last = app.deployments[0];
                 return (
-                  <tr key={project.slug}>
+                  <tr key={app.slug}>
                     <td>
                       <Link
-                        href={`/projects/${project.slug}`}
+                        href={`/apps/${app.slug}`}
                         className="font-semibold underline decoration-[var(--color-rule)] underline-offset-2 hover:decoration-[var(--color-accent-deep)]"
                       >
-                        {project.name}
+                        {app.name}
                       </Link>
                       <span
                         className="block max-w-[45ch] text-sm"
                         style={{ color: "var(--color-ink-2)" }}
                       >
-                        {project.description}
+                        {app.description}
                       </span>
                     </td>
                     <td>
-                      <HealthPill health={projectHealth(project)} />
+                      <HealthPill health={appHealth(app)} />
                     </td>
                     <td>
                       <span className="mono text-sm">
-                        {project.envs.map((env) => env.name).join(" · ")}
+                        {app.envs.map((env) => env.name).join(" · ")}
                       </span>
                     </td>
                     <td>
-                      {passing}/{project.checks.length} passing
+                      {passing}/{app.checks.length} passing
                     </td>
                     <td className="text-sm">
                       {last ? (
@@ -88,6 +88,6 @@ export default function Projects() {
           </table>
         </div>
       </div>
-    </AppShell>
+    </ControlPlaneShell>
   );
 }

@@ -1,21 +1,21 @@
 import {
+  appHealth,
+  appSections,
   fleetSummary,
+  getApp,
   getNode,
-  getProject,
   healthLabel,
+  listApps,
   listNodes,
-  listProjects,
-  projectHealth,
-  projectSections,
 } from "@/lib/control-plane";
 
-describe("getProject", () => {
-  it("returns the project for a known slug", () => {
-    expect(getProject("shopfloor-tickets")?.name).toBe("Shopfloor Tickets");
+describe("getApp", () => {
+  it("returns the app for a known slug", () => {
+    expect(getApp("shopfloor-tickets")?.name).toBe("Shopfloor Tickets");
   });
 
   it("returns undefined for an unknown slug", () => {
-    expect(getProject("no-such-project")).toBeUndefined();
+    expect(getApp("no-such-app")).toBeUndefined();
   });
 });
 
@@ -29,46 +29,46 @@ describe("getNode", () => {
   });
 });
 
-describe("projectHealth", () => {
+describe("appHealth", () => {
   it("reports healthy when every env and check is green", () => {
-    const project = getProject("shopfloor-tickets");
-    expect(project).toBeDefined();
-    expect(projectHealth(project!)).toBe("healthy");
+    const app = getApp("shopfloor-tickets");
+    expect(app).toBeDefined();
+    expect(appHealth(app!)).toBe("healthy");
   });
 
   it("reports degraded when a check fails", () => {
-    const project = getProject("leave-balancer");
-    expect(project).toBeDefined();
-    expect(projectHealth(project!)).toBe("degraded");
+    const app = getApp("leave-balancer");
+    expect(app).toBeDefined();
+    expect(appHealth(app!)).toBe("degraded");
   });
 
   it("reports deploying while an env is rolling out", () => {
-    const project = getProject("lab-inventory");
-    expect(project).toBeDefined();
-    expect(projectHealth(project!)).toBe("deploying");
+    const app = getApp("lab-inventory");
+    expect(app).toBeDefined();
+    expect(appHealth(app!)).toBe("deploying");
   });
 
   it("prefers down over every other status", () => {
-    const project = getProject("shopfloor-tickets");
-    expect(project).toBeDefined();
+    const app = getApp("shopfloor-tickets");
+    expect(app).toBeDefined();
     const down = {
-      ...project!,
-      envs: project!.envs.map((env, index) =>
+      ...app!,
+      envs: app!.envs.map((env, index) =>
         index === 0 ? { ...env, status: "down" as const } : env,
       ),
     };
-    expect(projectHealth(down)).toBe("down");
+    expect(appHealth(down)).toBe("down");
   });
 });
 
 describe("fleetSummary", () => {
-  it("counts projects, nodes and deployments", () => {
+  it("counts apps, nodes and deployments", () => {
     const summary = fleetSummary();
-    expect(summary.projects).toBe(listProjects().length);
+    expect(summary.apps).toBe(listApps().length);
     expect(summary.nodes).toBe(listNodes().length);
     expect(summary.deployments).toBe(
-      listProjects().reduce(
-        (total, project) => total + project.deployments.length,
+      listApps().reduce(
+        (total, app) => total + app.deployments.length,
         0,
       ),
     );
@@ -76,7 +76,7 @@ describe("fleetSummary", () => {
 
   it("splits healthy from attention consistently", () => {
     const summary = fleetSummary();
-    expect(summary.healthy + summary.attention).toBe(summary.projects);
+    expect(summary.healthy + summary.attention).toBe(summary.apps);
     expect(summary.attention).toBeGreaterThan(0);
   });
 });
@@ -90,9 +90,9 @@ describe("healthLabel", () => {
   });
 });
 
-describe("projectSections", () => {
+describe("appSections", () => {
   it("lists the four detail anchors starting with overview", () => {
-    expect(projectSections.map((section) => section.id)).toEqual([
+    expect(appSections.map((section) => section.id)).toEqual([
       "overview",
       "environments",
       "deployments",
@@ -101,7 +101,7 @@ describe("projectSections", () => {
   });
 
   it("labels every section", () => {
-    for (const section of projectSections) {
+    for (const section of appSections) {
       expect(section.label.length).toBeGreaterThan(0);
     }
   });

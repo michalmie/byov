@@ -1,12 +1,12 @@
 import { ActivityFeed } from "@/components/activity-feed";
-import { AppShell } from "@/components/app-shell";
+import { ControlPlaneShell } from "@/components/shell";
 import { recentActivity } from "@/lib/control-plane";
 
 export default function Activity() {
   const items = recentActivity();
 
   return (
-    <AppShell crumb="Activity">
+    <ControlPlaneShell crumb="Activity">
       <div className="grid gap-8">
         <div>
           <h1 className="text-[clamp(2rem,3.5vw+0.75rem,3rem)] font-bold leading-[1.05] tracking-tight">
@@ -21,6 +21,6 @@ export default function Activity() {
         </div>
         <ActivityFeed items={items} />
       </div>
-    </AppShell>
+    </ControlPlaneShell>
   );
 }

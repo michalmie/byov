@@ -1,4 +1,4 @@
-import type { Deployment, ProjectEnvironment } from "@/lib/control-plane";
+import type { AppEnvironment, Deployment } from "@/lib/control-plane";
 import { HealthPill } from "./data-ui";
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
@@ -22,7 +22,7 @@ export function EnvironmentCard({
   checksPassing,
   checksTotal,
 }: {
-  env: ProjectEnvironment;
+  env: AppEnvironment;
   nodeName: string;
   lastDeploy?: Deployment;
   checksPassing: number;

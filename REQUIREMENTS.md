@@ -24,27 +24,27 @@ deployed.
 
 The solution has three parts:
 
-- **Control Plane**: the central UI to control everything — creating projects,
+- **Control Plane**: the central UI to control everything — creating apps,
   managing environments, deployment, security, DLP, SIEM, audit trails and RBAC.
 - **Nodes**: deployment targets. Administrators decide where apps are deployed
   and in which environments. The first supported node type is a self-hosted
   Coolify instance.
-- **Client**: the way an employee or citizen developer connects to a project
+- **Client**: the way an employee or citizen developer connects to an app
   directly from coding tools such as Muse, Codex, Claude and similar.
 
 ### Control Plane UI (first slice)
 
-- App shell with workspace navigation, project shortcuts and breadcrumb topbar.
-- Dashboard (`/`): fleet figures, project health table, nodes and activity.
-- Projects (`/projects`) and project detail (`/projects/[slug]`):
-  environments, deployments and required checks per project.
-- Nodes (`/nodes`): deployment targets and the projects pinned to each.
+- App shell with workspace navigation, app shortcuts and breadcrumb topbar.
+- Dashboard (`/`): fleet figures, app health table, nodes and activity.
+- Apps (`/apps`) and app detail (`/apps/[slug]`):
+  environments, deployments and required checks per app.
+- Nodes (`/nodes`): deployment targets and the apps pinned to each.
 - All figures come from a sample dataset until the API lands; the UI labels
   it as sample data.
 
 ### Control Plane UI (second slice)
 
-- Three navigation levels: workspace rail with counts (L1), project rail
+- Three navigation levels: workspace rail with counts (L1), app rail
   with scroll-spy section anchors (L2), page content (L3).
 - Environment cards with URL, node, status, last deploy and checks.
 - Global activity feed (`/activity`), shared with the dashboard.

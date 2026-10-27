@@ -1,33 +1,33 @@
 import Link from "next/link";
 import { ActivityFeed } from "@/components/activity-feed";
-import { AppShell } from "@/components/app-shell";
 import { HealthPill, SectionHead, StatStrip } from "@/components/data-ui";
 import { ArrowRightIcon } from "@/components/icons";
+import { ControlPlaneShell } from "@/components/shell";
 import {
+  appHealth,
   fleetSummary,
   getNode,
+  listApps,
   listNodes,
-  listProjects,
-  projectHealth,
   recentActivity,
 } from "@/lib/control-plane";
 
 export default function Dashboard() {
   const summary = fleetSummary();
-  const projects = listProjects();
+  const apps = listApps();
   const nodes = listNodes();
   const activity = recentActivity();
 
   return (
-    <AppShell crumb="Dashboard">
+    <ControlPlaneShell crumb="Dashboard">
       <div className="grid gap-10">
         <div>
           <h1 className="flex flex-wrap items-baseline gap-x-4 text-[clamp(2rem,3.5vw+0.75rem,3rem)] font-bold leading-[1.05] tracking-tight">
             <span aria-hidden="true" className="tnum">
-              {summary.projects}
+              {summary.apps}
             </span>
             <span className="max-w-[16ch]">
-              projects ship from this control plane.
+              apps ship from this control plane.
             </span>
           </h1>
           <p
@@ -38,8 +38,8 @@ export default function Dashboard() {
             watched from one place.
           </p>
           <div className="mt-6">
-            <Link href="/projects" className="btn-ghost px-4 py-2 text-sm">
-              Browse projects
+            <Link href="/apps" className="btn-ghost px-4 py-2 text-sm">
+              Browse apps
               <ArrowRightIcon className="h-4 w-4" />
             </Link>
           </div>
@@ -48,7 +48,7 @@ export default function Dashboard() {
         <div className="rule-top pt-8">
           <StatStrip
             items={[
-              { value: String(summary.projects), qualifier: "Projects" },
+              { value: String(summary.apps), qualifier: "Apps" },
               { value: String(summary.nodes), qualifier: "Nodes" },
               {
                 value: String(summary.attention),
@@ -63,10 +63,10 @@ export default function Dashboard() {
           />
         </div>
 
-        <section aria-labelledby="projects-heading" className="grid gap-5">
-          <div id="projects-heading">
+        <section aria-labelledby="apps-heading" className="grid gap-5">
+          <div id="apps-heading">
             <SectionHead
-              title="Projects"
+              title="Apps"
               lede="Health, home node and last deploy at a glance."
             />
           </div>
@@ -74,7 +74,7 @@ export default function Dashboard() {
             <table className="spec-table min-w-[760px]">
               <thead>
                 <tr>
-                  <th scope="col">Project</th>
+                  <th scope="col">App</th>
                   <th scope="col">Health</th>
                   <th scope="col">Node</th>
                   <th scope="col">Envs</th>
@@ -83,30 +83,30 @@ export default function Dashboard() {
                 </tr>
               </thead>
               <tbody>
-                {projects.map((project) => {
-                  const health = projectHealth(project);
-                  const passing = project.checks.filter(
+                {apps.map((app) => {
+                  const health = appHealth(app);
+                  const passing = app.checks.filter(
                     (check) => check.status === "pass",
                   ).length;
-                  const last = project.deployments[0];
-                  const home = project.envs.find(
+                  const last = app.deployments[0];
+                  const home = app.envs.find(
                     (env) => env.name === "production",
                   );
                   const homeNode = home ? getNode(home.node) : undefined;
                   return (
-                    <tr key={project.slug}>
+                    <tr key={app.slug}>
                       <td>
                         <Link
-                          href={`/projects/${project.slug}`}
+                          href={`/apps/${app.slug}`}
                           className="font-semibold underline decoration-[var(--color-rule)] underline-offset-2 hover:decoration-[var(--color-accent-deep)]"
                         >
-                          {project.name}
+                          {app.name}
                         </Link>
                         <span
                           className="mono block text-sm"
                           style={{ color: "var(--color-ink-2)" }}
                         >
-                          {project.slug}
+                          {app.slug}
                         </span>
                       </td>
                       <td>
@@ -115,9 +115,9 @@ export default function Dashboard() {
                       <td className="mono text-sm">
                         {homeNode ? homeNode.name : "—"}
                       </td>
-                      <td>{project.envs.length}</td>
+                      <td>{app.envs.length}</td>
                       <td>
-                        {passing}/{project.checks.length}
+                        {passing}/{app.checks.length}
                       </td>
                       <td className="text-sm">
                         {last ? (
@@ -147,7 +147,7 @@ export default function Dashboard() {
             <div id="nodes-heading">
               <SectionHead
                 title="Nodes"
-                lede="Where projects land. The first fleet is self-hosted Coolify."
+                lede="Where apps land. The first fleet is self-hosted Coolify."
               />
             </div>
             <ul className="grid">
@@ -208,6 +208,6 @@ export default function Dashboard() {
           </section>
         </div>
       </div>
-    </AppShell>
+    </ControlPlaneShell>
   );
 }
