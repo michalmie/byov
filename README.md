@@ -47,15 +47,15 @@ Employees keep their flow. Admins keep control. Everybody wins.
 
 | | What | Why it matters |
 |---|---|---|
-| 🎛️ | **Control Plane** — one UI for projects, environments, deployments | Every vibe-coded app, visible and manageable |
+| 🎛️ | **Control Plane** — one UI for apps, environments, deployments | Every vibe-coded app, visible and manageable |
 | 🖥️ | **Nodes** — admin-approved deployment targets (self-hosted Coolify first) | Apps land only where they're allowed to |
 | 🔌 | **Client** — connect straight from Muse, Codex, Claude & co. | Zero-friction path from prompt to production |
 | ✅ | **Required checks** — unit tests, lint, builds, DLP scan, dependency audit | Nothing ships without passing the gates |
-| 🏥 | **Fleet health** — project health rolled up from envs + checks | Spot trouble before users do |
+| 🏥 | **Fleet health** — app health rolled up from envs + checks | Spot trouble before users do |
 | 📜 | **Audit trail & RBAC** — who shipped what, when, where | Compliance without spreadsheets |
 | 📡 | **SIEM-ready events** — security signals flow to your SOC | Shadow IT becomes observed IT |
 
-> 🧪 **Status: early build.** The Control Plane UI first slice (dashboard, projects, nodes) is live on sample data. API, real nodes, and the client are on the [roadmap](#️-roadmap).
+> 🧪 **Status: early build.** The Control Plane UI first slice (dashboard, apps, nodes) is live on sample data. API, real nodes, and the client are on the [roadmap](#️-roadmap).
 
 ---
 
@@ -65,10 +65,11 @@ Run it once and click through:
 
 | Route | What you'll see |
 |---|---|
-| `/` | 📊 **Dashboard** — fleet figures, project health table, nodes, activity feed |
-| `/projects` | 📦 **Projects** — every app with health, home node, and last deploy |
-| `/projects/[slug]` | 🔍 **Project detail** — environments, deployment history, required checks |
-| `/nodes` | 🖥️ **Nodes** — deployment targets and the projects pinned to each |
+| `/` | 📊 **Dashboard** — fleet figures, app health table, nodes, activity feed |
+| `/apps` | 📦 **Apps** — every app with health, home node, and last deploy |
+| `/apps/[slug]` | 🔍 **App detail** — environments, deployment history, required checks |
+| `/nodes` | 🖥️ **Nodes** — deployment targets and the apps pinned to each |
+| `/activity` | ⚡ **Activity** — every control plane event, newest first |
 
 Sample fleet included: `shopfloor-tickets`, `leave-balancer` (watch the failed DLP gate ⛔), `invoice-triage`, and `lab-inventory` (mid-deploy 🛫).
 
@@ -82,7 +83,7 @@ Three parts, one flow:
 flowchart LR
     Dev["🧑‍💻 Citizen developer<br/>(Muse / Codex / Claude)"]
     Client["🔌 BYOV Client"]
-    CP["🎛️ Control Plane<br/>projects · envs · deploys<br/>security · DLP · SIEM · audit · RBAC"]
+    CP["🎛️ Control Plane<br/>apps · envs · deploys<br/>security · DLP · SIEM · audit · RBAC"]
     NodeA["🖥️ Node: frankfurt-01<br/>(Coolify)"]
     NodeB["🖥️ Node: qa-lab-01<br/>(Coolify)"]
 
@@ -92,11 +93,11 @@ flowchart LR
     CP -->|deploy| NodeB
 ```
 
-- **Control Plane** — the central UI: create projects, manage environments, deploy, enforce security, DLP, SIEM, audit trails, and RBAC.
+- **Control Plane** — the central UI: create apps, manage environments, deploy, enforce security, DLP, SIEM, audit trails, and RBAC.
 - **Nodes** — deployment targets. Admins decide where apps go and in which environments. First supported type: **self-hosted Coolify**.
-- **Client** — how an employee connects a project directly from their coding tool.
+- **Client** — how an employee connects an app directly from their coding tool.
 
-Health rolls up honestly: an env that's `down` sinks the project; a failed check or `degraded` env flags attention; `deploying` shows motion. See [`projectHealth()`](lib/control-plane.ts) — pinned by unit tests.
+Health rolls up honestly: an env that's `down` sinks the app; a failed check or `degraded` env flags attention; `deploying` shows motion. See [`appHealth()`](lib/control-plane.ts) — pinned by unit tests.
 
 ---
 
@@ -145,8 +146,8 @@ npm run build       # production build
 Project layout:
 
 ```
-app/            # routes: dashboard (/), /projects, /projects/[slug], /nodes
-components/     # app shell, sidebar, topbar, data UI
+app/            # routes: dashboard (/), /apps, /apps/[slug], /nodes, /activity
+components/     # shell, sidebar, subnav, data UI
 lib/            # control-plane dataset + roll-up logic, site helpers
 tests/unit/     # Vitest suites
 deploy/         # deployment & preview adapters
@@ -156,7 +157,7 @@ deploy/         # deployment & preview adapters
 
 ## 🗺️ Roadmap
 
-- [x] Control Plane UI first slice (dashboard, projects, nodes) on sample data
+- [x] Control Plane UI first slice (dashboard, apps, nodes) on sample data
 - [ ] Real API behind the Control Plane
 - [ ] Coolify node adapter — deploy for real
 - [ ] Client for Muse / Codex / Claude

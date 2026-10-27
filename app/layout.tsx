@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     template: `%s | ${siteName}`,
   },
   description:
-    "BYOV (Bring Your Own Vibe) control plane — govern vibe-coded apps: projects, nodes, environments and deployments.",
+    "BYOV (Bring Your Own Vibe) control plane — govern vibe-coded apps: apps, nodes, environments and deployments.",
   metadataBase: new URL(process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000"),
 };
 

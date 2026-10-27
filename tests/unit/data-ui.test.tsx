@@ -26,13 +26,13 @@ describe("StatStrip", () => {
     render(
       <StatStrip
         items={[
-          { value: "4", qualifier: "Projects" },
+          { value: "4", qualifier: "Apps" },
           { value: "2", qualifier: "Nodes" },
         ]}
       />,
     );
     expect(screen.getByText("4")).toBeInTheDocument();
-    expect(screen.getByText("Projects")).toBeInTheDocument();
+    expect(screen.getByText("Apps")).toBeInTheDocument();
     expect(screen.getByText("2")).toBeInTheDocument();
     expect(screen.getByText("Nodes")).toBeInTheDocument();
   });

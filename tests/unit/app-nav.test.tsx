@@ -1,23 +1,23 @@
 import { render, screen } from "@testing-library/react";
 import { ActivityFeed } from "@/components/activity-feed";
+import { AppSubnav } from "@/components/app-subnav";
 import { EnvironmentCard } from "@/components/environment-card";
-import { ProjectSubnav } from "@/components/project-subnav";
-import { projectSections } from "@/lib/control-plane";
+import { appSections } from "@/lib/control-plane";
 
 function renderSubnav() {
   return render(
-    <ProjectSubnav
+    <AppSubnav
       name="Leave Balancer"
       slug="leave-balancer"
       stack="Next.js App"
       health="degraded"
-      sections={projectSections}
+      sections={appSections}
     />,
   );
 }
 
-describe("ProjectSubnav", () => {
-  it("renders the project and every section anchor", () => {
+describe("AppSubnav", () => {
+  it("renders the app and every section anchor", () => {
     renderSubnav();
     expect(screen.getByText("Leave Balancer")).toBeInTheDocument();
     const links = screen.getAllByRole("link", { name: "Environments" });

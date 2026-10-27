@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { listNodes, listProjects, projectHealth } from "@/lib/control-plane";
+import { appHealth, listApps, listNodes } from "@/lib/control-plane";
 import { BoxIcon, CloseIcon, GridIcon, PulseIcon, StackIcon } from "./icons";
 
 const healthDot: Record<string, string> = {
@@ -14,7 +14,7 @@ const healthDot: Record<string, string> = {
 
 const nav = [
   { href: "/", label: "Dashboard", icon: GridIcon, exact: true },
-  { href: "/projects", label: "Projects", icon: BoxIcon, exact: false },
+  { href: "/apps", label: "Apps", icon: BoxIcon, exact: false },
   { href: "/nodes", label: "Nodes", icon: StackIcon, exact: true },
   { href: "/activity", label: "Activity", icon: PulseIcon, exact: true },
 ];
@@ -27,9 +27,9 @@ export function Sidebar({
   onClose: () => void;
 }) {
   const pathname = usePathname();
-  const projects = listProjects();
+  const apps = listApps();
   const counts: Record<string, number> = {
-    "/projects": projects.length,
+    "/apps": apps.length,
     "/nodes": listNodes().length,
   };
 
@@ -98,14 +98,14 @@ export function Sidebar({
         })}
       </nav>
 
-      <nav aria-label="Project shortcuts" className="grid gap-1 px-1">
-        <p className="rail-label px-2 pb-2">Projects</p>
-        {projects.map((project) => {
-          const active = pathname === `/projects/${project.slug}`;
+      <nav aria-label="App shortcuts" className="grid gap-1 px-1">
+        <p className="rail-label px-2 pb-2">Apps</p>
+        {apps.map((app) => {
+          const active = pathname === `/apps/${app.slug}`;
           return (
             <Link
-              key={project.slug}
-              href={`/projects/${project.slug}`}
+              key={app.slug}
+              href={`/apps/${app.slug}`}
               aria-current={active ? "page" : undefined}
               onClick={onClose}
               className="rail-link px-2 py-2 text-base"
@@ -113,9 +113,9 @@ export function Sidebar({
               <span
                 aria-hidden="true"
                 className="h-2 w-2 shrink-0 rounded-full"
-                style={{ background: healthDot[projectHealth(project)] }}
+                style={{ background: healthDot[appHealth(app)] }}
               />
-              <span className="truncate">{project.name}</span>
+              <span className="truncate">{app.name}</span>
             </Link>
           );
         })}

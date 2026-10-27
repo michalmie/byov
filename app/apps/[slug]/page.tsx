@@ -1,21 +1,21 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AppShell } from "@/components/app-shell";
+import { AppSubnav } from "@/components/app-subnav";
 import { HealthPill, SectionHead, StatStrip, StatusPill } from "@/components/data-ui";
 import { EnvironmentCard } from "@/components/environment-card";
 import { ArrowLeftIcon } from "@/components/icons";
-import { ProjectSubnav } from "@/components/project-subnav";
+import { ControlPlaneShell } from "@/components/shell";
 import {
-  getProject,
+  appHealth,
+  appSections,
+  getApp,
   getNode,
-  listProjects,
-  projectHealth,
-  projectSections,
+  listApps,
 } from "@/lib/control-plane";
 
 export function generateStaticParams() {
-  return listProjects().map((project) => ({ slug: project.slug }));
+  return listApps().map((app) => ({ slug: app.slug }));
 }
 
 export async function generateMetadata({
@@ -24,8 +24,8 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const project = getProject(slug);
-  return { title: project ? project.name : "Unknown project" };
+  const app = getApp(slug);
+  return { title: app ? app.name : "Unknown app" };
 }
 
 const checkTone = { pass: "ok", fail: "bad", running: "info" } as const;
@@ -33,55 +33,55 @@ const checkLabel = { pass: "Pass", fail: "Fail", running: "Running" } as const;
 const deployTone = { live: "ok", failed: "bad", running: "info" } as const;
 const deployLabel = { live: "Live", failed: "Failed", running: "Running" } as const;
 
-export default async function ProjectDetail({
+export default async function AppDetail({
   params,
 }: {
   params: Promise<{ slug: string }>;
 }) {
   const { slug } = await params;
-  const project = getProject(slug);
-  if (!project) {
+  const app = getApp(slug);
+  if (!app) {
     notFound();
   }
 
-  const health = projectHealth(project);
-  const passing = project.checks.filter(
+  const health = appHealth(app);
+  const passing = app.checks.filter(
     (check) => check.status === "pass",
   ).length;
-  const homeNodes = new Set(project.envs.map((env) => env.node)).size;
+  const homeNodes = new Set(app.envs.map((env) => env.node)).size;
 
   return (
-    <AppShell
+    <ControlPlaneShell
       crumb={
         <>
-          <Link href="/projects" className="hover:underline">
-            Projects
+          <Link href="/apps" className="hover:underline">
+            Apps
           </Link>{" "}
-          / {project.name}
+          / {app.name}
         </>
       }
       subnav={
-        <ProjectSubnav
-          name={project.name}
-          slug={project.slug}
-          stack={project.stack}
+        <AppSubnav
+          name={app.name}
+          slug={app.slug}
+          stack={app.stack}
           health={health}
-          sections={projectSections}
+          sections={appSections}
         />
       }
     >
       <div className="grid gap-10">
         <div id="overview" className="scroll-mt-24">
           <Link
-            href="/projects"
+            href="/apps"
             className="inline-flex items-center gap-2 text-sm font-semibold lg:hidden"
             style={{ color: "var(--color-ink-2)" }}
           >
             <ArrowLeftIcon className="h-4 w-4" />
-            Projects
+            Apps
           </Link>
           <h1 className="mt-3 text-[clamp(2rem,3.5vw+0.75rem,3rem)] font-bold leading-[1.05] tracking-tight">
-            {project.name}
+            {app.name}
           </h1>
           <div className="mt-4 flex flex-wrap items-center gap-2">
             <span
@@ -91,7 +91,7 @@ export default async function ProjectDetail({
                 color: "var(--color-ink-2)",
               }}
             >
-              {project.slug}
+              {app.slug}
             </span>
             <span
               className="tag px-2 py-1 text-xs"
@@ -100,7 +100,7 @@ export default async function ProjectDetail({
                 color: "var(--color-ink-2)",
               }}
             >
-              {project.stack}
+              {app.stack}
             </span>
             <HealthPill health={health} />
           </div>
@@ -108,7 +108,7 @@ export default async function ProjectDetail({
             className="mt-4 max-w-[65ch] text-base"
             style={{ color: "var(--color-ink-2)" }}
           >
-            {project.description}
+            {app.description}
           </p>
         </div>
 
@@ -116,15 +116,15 @@ export default async function ProjectDetail({
           <StatStrip
             items={[
               {
-                value: String(project.envs.length),
+                value: String(app.envs.length),
                 qualifier: "Environments",
               },
               {
-                value: String(project.deployments.length),
+                value: String(app.deployments.length),
                 qualifier: "Recent deployments",
               },
               {
-                value: `${passing}/${project.checks.length}`,
+                value: `${passing}/${app.checks.length}`,
                 qualifier: "Checks passing",
               },
               { value: String(homeNodes), qualifier: "Home nodes" },
@@ -144,16 +144,16 @@ export default async function ProjectDetail({
             />
           </div>
           <div className="grid gap-4">
-            {project.envs.map((env) => (
+            {app.envs.map((env) => (
               <EnvironmentCard
                 key={env.name}
                 env={env}
                 nodeName={getNode(env.node)?.name ?? env.node}
-                lastDeploy={project.deployments.find(
+                lastDeploy={app.deployments.find(
                   (deploy) => deploy.env === env.name,
                 )}
                 checksPassing={passing}
-                checksTotal={project.checks.length}
+                checksTotal={app.checks.length}
               />
             ))}
           </div>
@@ -182,7 +182,7 @@ export default async function ProjectDetail({
                 </tr>
               </thead>
               <tbody>
-                {project.deployments.map((deploy) => (
+                {app.deployments.map((deploy) => (
                   <tr key={deploy.id}>
                     <td className="mono text-sm">{deploy.id}</td>
                     <td>{deploy.env}</td>
@@ -223,7 +223,7 @@ export default async function ProjectDetail({
                 </tr>
               </thead>
               <tbody>
-                {project.checks.map((check) => (
+                {app.checks.map((check) => (
                   <tr key={check.name}>
                     <td className="font-semibold">{check.name}</td>
                     <td className="mono text-sm">{check.type}</td>
@@ -241,6 +241,6 @@ export default async function ProjectDetail({
           </div>
         </section>
       </div>
-    </AppShell>
+    </ControlPlaneShell>
   );
 }

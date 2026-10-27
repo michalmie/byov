@@ -1,4 +1,4 @@
-// Sample dataset for the first Control Plane UI slice. Real API wiring lands
+// Sample dataset for the Control Plane UI. Real API wiring lands
 // later; every figure on screen is computed from this module so tests can
 // pin the roll-up logic.
 
@@ -13,7 +13,7 @@ export interface Check {
   status: CheckStatus;
 }
 
-export interface ProjectEnvironment {
+export interface AppEnvironment {
   name: string;
   node: string;
   status: Health;
@@ -28,13 +28,13 @@ export interface Deployment {
   by: string;
 }
 
-export interface Project {
+export interface App {
   slug: string;
   name: string;
   stack: string;
   description: string;
   checks: Check[];
-  envs: ProjectEnvironment[];
+  envs: AppEnvironment[];
   deployments: Deployment[];
 }
 
@@ -66,7 +66,7 @@ function withCheck(name: string, status: CheckStatus): Check[] {
   );
 }
 
-const projects: Project[] = [
+const apps: App[] = [
   {
     slug: "shopfloor-tickets",
     name: "Shopfloor Tickets",
@@ -201,12 +201,12 @@ const activity: ActivityItem[] = [
   { when: "5 h ago", actor: "Sam Tan", text: "shipped Invoice Triage to production" },
 ];
 
-export function listProjects(): Project[] {
-  return projects;
+export function listApps(): App[] {
+  return apps;
 }
 
-export function getProject(slug: string): Project | undefined {
-  return projects.find((project) => project.slug === slug);
+export function getApp(slug: string): App | undefined {
+  return apps.find((app) => app.slug === slug);
 }
 
 export function listNodes(): Node[] {
@@ -221,21 +221,21 @@ export function recentActivity(): ActivityItem[] {
   return activity;
 }
 
-/** Roll project health up from environments and checks. */
-export function projectHealth(project: Project): Health {
-  const statuses = project.envs.map((env) => env.status);
+/** Roll app health up from environments and checks. */
+export function appHealth(app: App): Health {
+  const statuses = app.envs.map((env) => env.status);
   if (statuses.includes("down")) {
     return "down";
   }
   if (
     statuses.includes("degraded") ||
-    project.checks.some((check) => check.status === "fail")
+    app.checks.some((check) => check.status === "fail")
   ) {
     return "degraded";
   }
   if (
     statuses.includes("deploying") ||
-    project.checks.some((check) => check.status === "running")
+    app.checks.some((check) => check.status === "running")
   ) {
     return "deploying";
   }
@@ -243,7 +243,7 @@ export function projectHealth(project: Project): Health {
 }
 
 export interface FleetSummary {
-  projects: number;
+  apps: number;
   nodes: number;
   healthy: number;
   attention: number;
@@ -251,14 +251,14 @@ export interface FleetSummary {
 }
 
 export function fleetSummary(): FleetSummary {
-  const health = projects.map(projectHealth);
+  const health = apps.map(appHealth);
   return {
-    projects: projects.length,
+    apps: apps.length,
     nodes: nodes.length,
     healthy: health.filter((value) => value === "healthy").length,
     attention: health.filter((value) => value !== "healthy").length,
-    deployments: projects.reduce(
-      (total, project) => total + project.deployments.length,
+    deployments: apps.reduce(
+      (total, app) => total + app.deployments.length,
       0,
     ),
   };
@@ -275,13 +275,13 @@ export function healthLabel(health: Health): string {
   return healthLabels[health];
 }
 
-export interface ProjectSection {
+export interface AppSection {
   id: string;
   label: string;
 }
 
-/** Anchor sections of the project detail page (level-2 navigation). */
-export const projectSections: ProjectSection[] = [
+/** Anchor sections of the app detail page (level-2 navigation). */
+export const appSections: AppSection[] = [
   { id: "overview", label: "Overview" },
   { id: "environments", label: "Environments" },
   { id: "deployments", label: "Deployments" },

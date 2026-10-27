@@ -1,17 +1,17 @@
-import { AppShell } from "@/components/app-shell";
 import { HealthPill, StatStrip } from "@/components/data-ui";
-import { listNodes, listProjects } from "@/lib/control-plane";
+import { ControlPlaneShell } from "@/components/shell";
+import { listApps, listNodes } from "@/lib/control-plane";
 
 export default function Nodes() {
   const nodes = listNodes();
-  const projects = listProjects();
-  const envCount = projects.reduce(
-    (total, project) => total + project.envs.length,
+  const apps = listApps();
+  const envCount = apps.reduce(
+    (total, app) => total + app.envs.length,
     0,
   );
 
   return (
-    <AppShell crumb="Nodes">
+    <ControlPlaneShell crumb="Nodes">
       <div className="grid gap-8">
         <div>
           <h1 className="text-[clamp(2rem,3.5vw+0.75rem,3rem)] font-bold leading-[1.05] tracking-tight">
@@ -21,7 +21,7 @@ export default function Nodes() {
             className="mt-3 max-w-[65ch] text-base"
             style={{ color: "var(--color-ink-2)" }}
           >
-            Where projects land. Administrators pin each environment to a
+            Where apps land. Administrators pin each environment to a
             node — the first fleet is self-hosted Coolify.
           </p>
         </div>
@@ -30,7 +30,7 @@ export default function Nodes() {
           <StatStrip
             items={[
               { value: String(nodes.length), qualifier: "Nodes" },
-              { value: String(projects.length), qualifier: "Projects" },
+              { value: String(apps.length), qualifier: "Apps" },
               { value: String(envCount), qualifier: "Environments" },
               {
                 value: String(
@@ -49,13 +49,13 @@ export default function Nodes() {
                 <th scope="col">Node</th>
                 <th scope="col">Kind</th>
                 <th scope="col">Status</th>
-                <th scope="col">Projects</th>
+                <th scope="col">Apps</th>
               </tr>
             </thead>
             <tbody>
               {nodes.map((node) => {
-                const hosted = projects.filter((project) =>
-                  project.envs.some((env) => env.node === node.slug),
+                const hosted = apps.filter((app) =>
+                  app.envs.some((env) => env.node === node.slug),
                 );
                 return (
                   <tr key={node.slug}>
@@ -76,7 +76,7 @@ export default function Nodes() {
                     </td>
                     <td className="text-sm">
                       {hosted.length} ·{" "}
-                      {hosted.map((project) => project.name).join(" · ")}
+                      {hosted.map((app) => app.name).join(" · ")}
                     </td>
                   </tr>
                 );
@@ -85,6 +85,6 @@ export default function Nodes() {
           </table>
         </div>
       </div>
-    </AppShell>
+    </ControlPlaneShell>
   );
 }

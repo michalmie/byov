@@ -2,11 +2,11 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import type { Health, ProjectSection } from "@/lib/control-plane";
+import type { AppSection, Health } from "@/lib/control-plane";
 import { HealthPill } from "./data-ui";
 import { ArrowLeftIcon } from "./icons";
 
-export function ProjectSubnav({
+export function AppSubnav({
   name,
   slug,
   stack,
@@ -17,7 +17,7 @@ export function ProjectSubnav({
   slug: string;
   stack: string;
   health: Health;
-  sections: ProjectSection[];
+  sections: AppSection[];
 }) {
   const [active, setActive] = useState(sections[0]?.id ?? "overview");
 
@@ -54,12 +54,12 @@ export function ProjectSubnav({
         }}
       >
         <Link
-          href="/projects"
+          href="/apps"
           className="inline-flex w-fit items-center gap-2 text-sm font-semibold"
           style={{ color: "var(--color-ink-2)" }}
         >
           <ArrowLeftIcon className="h-4 w-4" />
-          All projects
+          All apps
         </Link>
         <div>
           <p className="truncate text-base font-semibold tracking-tight">
@@ -75,7 +75,7 @@ export function ProjectSubnav({
             {slug} · {stack}
           </p>
         </div>
-        <nav aria-label="Project sections" className="grid gap-1">
+        <nav aria-label="App sections" className="grid gap-1">
           {sections.map((section) => (
             <a
               key={section.id}
@@ -89,7 +89,7 @@ export function ProjectSubnav({
         </nav>
       </div>
       <nav
-        aria-label="Project sections"
+        aria-label="App sections"
         className="flex gap-2 overflow-x-auto pb-2 lg:hidden"
       >
         {sections.map((section) => {
