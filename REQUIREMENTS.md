@@ -72,6 +72,18 @@ The solution has three parts:
 - Adding a stack = new folder + manifest + registry entry + tests; no
   new dependencies.
 
+### App templates (second slice)
+
+- Workspace templates: define, clone, edit and remove custom templates
+  in `/settings/templates`; customs live in the browser until the API lands.
+- Shipped manifests stay the read-only catalog; cloning one starts an
+  editable workspace copy, and the slug never changes after creation.
+- Gates stay governed: customs inherit the five required gate names and
+  only adapt the test/lint/build commands per stack.
+- New draft stacks covering popular vibe-code scenarios: `ai-chatbot`
+  (Next.js + AI SDK), `vite-spa` (client-only dashboards) and
+  `fastapi-service` (Python APIs and automations).
+
 ### Dev URLs (first slice)
 
 - Every environment resolves to `https://{app}-{env}.{node-zone}` under its

@@ -1,0 +1,72 @@
+{
+  "slug": "fastapi-service",
+  "name": "Python API",
+  "tagline": "FastAPI + Uvicorn service starter for automations and data APIs — pytest and Ruff gates included.",
+  "status": "draft",
+  "stack": [
+    { "label": "Framework", "value": "FastAPI (async)" },
+    { "label": "Runtime", "value": "Python 3.12 + Uvicorn" },
+    { "label": "Language", "value": "Python 3.12 (typed)" },
+    { "label": "Tests", "value": "pytest + httpx" },
+    { "label": "Lint", "value": "Ruff check + format" }
+  ],
+  "packages": {
+    "fastapi": "^0.115.0",
+    "uvicorn": "^0.32.0",
+    "pytest": "^8.0.0",
+    "httpx": "^0.28.0",
+    "ruff": "^0.8.0"
+  },
+  "scripts": {
+    "dev": "uvicorn app.main:app --reload",
+    "test": "pytest",
+    "lint": "ruff check .",
+    "format": "ruff format --check .",
+    "typecheck": "mypy app",
+    "build": "docker build ."
+  },
+  "checks": [
+    { "name": "Unit tests", "command": "pytest", "cadence": "Every change" },
+    { "name": "Lint", "command": "ruff check .", "cadence": "Every change" },
+    { "name": "Production build", "command": "docker build .", "cadence": "Every change" },
+    { "name": "DLP scan", "command": "BYOV gate", "cadence": "Every change" },
+    { "name": "Dependency audit", "command": "BYOV gate", "cadence": "Nightly" }
+  ],
+  "nodes": ["coolify"],
+  "scaffold": [
+    {
+      "title": "Create the service from the blueprint",
+      "detail": "Copy the file tree in templates/fastapi-service/blueprint.md into a new repository — app package, tests and gates included."
+    },
+    {
+      "title": "Install dependencies",
+      "detail": "Use a fresh virtualenv and a locked install so versions match the manifest.",
+      "command": "python -m venv .venv && .venv/bin/pip install -r requirements.txt"
+    },
+    {
+      "title": "Configure the environment",
+      "detail": "Copy the example env file and fill in local values. Never commit secrets.",
+      "command": "cp .env.example .env"
+    },
+    {
+      "title": "Run the dev server",
+      "detail": "Pick a free port — the Control Plane itself uses 3014.",
+      "command": ".venv/bin/uvicorn app.main:app --reload --port 8000"
+    },
+    {
+      "title": "Keep the gates green",
+      "detail": "Every change passes unit tests, lint and the container build before it ships.",
+      "command": "pytest && ruff check . && docker build ."
+    },
+    {
+      "title": "Ship to an approved node",
+      "detail": "Register the app in BYOV and deploy the container only to admin-approved targets. First supported kind: self-hosted Coolify."
+    }
+  ],
+  "starter": {
+    "kind": "in-repo blueprint",
+    "ref": "templates/fastapi-service/blueprint.md",
+    "note": "Versioned starter repos and one-command scaffolding arrive with the BYOV client."
+  },
+  "docs": ["templates/fastapi-service/README.md", "templates/fastapi-service/blueprint.md"]
+}

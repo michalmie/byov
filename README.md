@@ -1,6 +1,9 @@
 <div align="center">
 
-# 🎛️ BYOV — Bring Your Own Vibe
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="public/byov-logo-dark.svg" />
+  <img src="public/byov-logo.svg" alt="BYOV — Bring Your Own Vibe" width="360" />
+</picture>
 
 **The secure framework for vibe-coded apps at work.**
 Let employees build the tools they actually need — governed, deployed, and watched from one place.
@@ -73,7 +76,7 @@ Run it once and click through:
 | `/templates/[slug]` | 🔍 **Template detail** — stack, checks, scaffold, ship targets |
 | `/nodes` | 🖥️ **Nodes** — deployment targets and the apps pinned to each |
 | `/activity` | ⚡ **Activity** — every control plane event, newest first |
-| `/settings` | ⚙️ **Settings** — workspace preferences, add and manage nodes |
+| `/settings` | ⚙️ **Settings** — workspace preferences, templates and nodes |
 
 Sample fleet included: `shopfloor-tickets`, `leave-balancer` (watch the failed DLP gate ⛔), `invoice-triage`, and `lab-inventory` (mid-deploy 🛫).
 
@@ -164,10 +167,10 @@ deploy/         # deployment & preview adapters
 
 - [x] Control Plane UI first slice (dashboard, apps, nodes) on sample data
 - [x] App templates catalog (BYOV stack first)
-- [ ] Real API behind the Control Plane
+- [ ] Real API behind the Control Plane (incl. workspace templates today kept in the browser)
 - [ ] Coolify node adapter — deploy for real
 - [ ] Client for Muse / Codex / Claude
-- [ ] More app templates beyond the BYOV stack
+- [x] More app templates beyond the BYOV stack (AI chatbot, React SPA, Python API as drafts + workspace-defined customs)
 - [ ] Preview URLs per branch with SSO protection
 - [ ] Auth, RBAC, and audit trails
 - [ ] DLP + SIEM integrations

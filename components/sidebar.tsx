@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { appHealth, listApps, type App } from "@/lib/control-plane";
 import { useManagedNodes } from "@/lib/settings-store";
-import { listTemplates } from "@/lib/templates";
+import { useManagedTemplates } from "@/lib/template-store";
 import {
   ArrowRightIcon,
   BoxIcon,
@@ -17,6 +17,7 @@ import {
   SearchIcon,
   StackIcon,
 } from "./icons";
+import { LogoMark } from "./logo";
 
 const healthDot: Record<string, string> = {
   healthy: "var(--color-ok)",
@@ -57,11 +58,12 @@ export function Sidebar({
   const pathname = usePathname();
   const apps = listApps();
   const { nodes } = useManagedNodes();
+  const { templates } = useManagedTemplates();
   const [query, setQuery] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
   const counts: Record<string, number> = {
     "/apps": apps.length,
-    "/templates": listTemplates().length,
+    "/templates": templates.length,
     "/nodes": nodes.length,
   };
   const matches = filterApps(apps, query);
@@ -119,8 +121,9 @@ export function Sidebar({
         <Link
           href="/"
           onClick={onClose}
-          className="text-[15px] font-bold tracking-tight"
+          className="inline-flex items-center gap-2 text-[15px] font-bold tracking-tight"
         >
+          <LogoMark className="h-6 w-6" />
           BYOV
         </Link>
         <button

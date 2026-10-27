@@ -8,6 +8,27 @@ developers a stack that passes the Control Plane gates from the first commit.
 | Template | Stack | Status |
 |---|---|---|
 | `byov-stack` | Next.js 16 + React 19 + TypeScript 5 + Tailwind 4 + Vitest 4 | Stable |
+| `ai-chatbot` | Next.js 16 + AI SDK 5 + Tailwind 4 | Draft |
+| `vite-spa` | Vite 7 + React 19 + TypeScript 5 + Tailwind 4 + Vitest 4 | Draft |
+| `fastapi-service` | FastAPI + Python 3.12 + pytest + Ruff | Draft |
+
+## Workspace templates
+
+Shipped manifests are the catalog everyone gets. On top of them, each
+workspace can define its own templates in Settings → Templates: New,
+Clone, Edit and Remove. Workspace templates live in the browser
+(localStorage) until
+the API lands — same deal as managed nodes.
+
+Rules for workspace templates:
+
+- Shipped templates are read-only; Clone starts an editable copy.
+- The slug derives from the name at creation and never changes.
+- Gate names stay governed: customs inherit the five required checks
+  (unit tests, lint, production build, DLP scan, dependency audit) and
+  only adapt the test/lint/build commands per stack.
+- Purpose-built logic lives in `lib/templates.ts` (drafts, validation,
+  build, stored parsing) with hooks in `lib/template-store.ts`.
 
 ## Template contract
 
