@@ -1,4 +1,5 @@
 import { listNodes, listApps } from "@/lib/control-plane";
+import type { WorkspaceSettings } from "@/lib/settings";
 import {
   NODES_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
@@ -59,7 +60,6 @@ describe("validateNodeDraft", () => {
     location: "Berlin",
     endpoint: "https://coolify.example.com",
     domainZone: "",
-    dnsScenario: "public",
     tailnetHost: "",
   };
 
@@ -116,22 +116,6 @@ describe("validateNodeDraft", () => {
         sampleNodes,
       ).domainZone,
     ).toMatch(/home networks/);
-  });
-
-  it("accepts every DNS scenario", () => {
-    for (const dnsScenario of ["public", "tailnet", "local"]) {
-      expect(
-        validateNodeDraft({ ...valid, dnsScenario }, sampleNodes),
-      ).toEqual({});
-    }
-  });
-
-  it("rejects an unknown DNS scenario", () => {
-    const errors = validateNodeDraft(
-      { ...valid, dnsScenario: "carrier-pigeon" },
-      sampleNodes,
-    );
-    expect(errors.dnsScenario).toMatch(/scenario/i);
   });
 
   it("accepts a blank or valid tailnet host", () => {
@@ -244,7 +228,6 @@ describe("buildNode", () => {
         location: " Berlin ",
         endpoint: "https://coolify.example.com/ ",
         domainZone: " Berlin-01.byov.xexo.io ",
-        dnsScenario: "tailnet",
         tailnetHost: " Berlin-Edge ",
       },
       sampleNodes,
@@ -256,7 +239,6 @@ describe("buildNode", () => {
       location: "Berlin",
       endpoint: "https://coolify.example.com/",
       domainZone: "berlin-01.byov.xexo.io",
-      dnsScenario: "tailnet",
       tailnetHost: "berlin-edge",
       status: "pending",
     });
@@ -270,7 +252,6 @@ describe("buildNode", () => {
         location: "Berlin",
         endpoint: "",
         domainZone: "",
-        dnsScenario: "public",
         tailnetHost: "",
       },
       sampleNodes,
@@ -278,22 +259,6 @@ describe("buildNode", () => {
     expect(node.endpoint).toBeUndefined();
     expect(node.domainZone).toBeUndefined();
     expect(node.tailnetHost).toBeUndefined();
-  });
-
-  it("falls back to the public scenario for a bogus value", () => {
-    const node = buildNode(
-      {
-        name: "Berlin Edge",
-        kind: "Coolify",
-        location: "Berlin",
-        endpoint: "",
-        domainZone: "",
-        dnsScenario: "carrier-pigeon",
-        tailnetHost: "",
-      },
-      sampleNodes,
-    );
-    expect(node.dnsScenario).toBe("public");
   });
 
   it("suffixes the slug when the name is taken", () => {
@@ -304,7 +269,6 @@ describe("buildNode", () => {
         location: "Berlin",
         endpoint: "",
         domainZone: "",
-        dnsScenario: "public",
         tailnetHost: "",
       },
       sampleNodes,
@@ -356,7 +320,6 @@ describe("removeNodeGuarded", () => {
         location: "Berlin",
         endpoint: "",
         domainZone: "",
-        dnsScenario: "public",
         tailnetHost: "",
       },
       sampleNodes,
@@ -405,7 +368,7 @@ describe("validateWorkspaceSettings", () => {
 
   it("requires a workspace name", () => {
     const errors = validateWorkspaceSettings(
-      { workspaceName: "  ", defaultNode: "", devZone: "", tailnetDomain: "" },
+      { workspaceName: "  ", defaultNode: "", devZone: "", tailnetDomain: "", defaultScenario: "public", appScenarios: {} },
       sampleNodes,
     );
     expect(errors.workspaceName).toMatch(/workspace.*name/i);
@@ -413,7 +376,7 @@ describe("validateWorkspaceSettings", () => {
 
   it("caps the workspace name length", () => {
     const errors = validateWorkspaceSettings(
-      { workspaceName: "x".repeat(61), defaultNode: "", devZone: "", tailnetDomain: "" },
+      { workspaceName: "x".repeat(61), defaultNode: "", devZone: "", tailnetDomain: "", defaultScenario: "public", appScenarios: {} },
       sampleNodes,
     );
     expect(errors.workspaceName).toMatch(/60/);
@@ -425,14 +388,14 @@ describe("validateWorkspaceSettings", () => {
         {
           workspaceName: "Acme",
           defaultNode: sampleNodes[0]!.slug,
-          devZone: "", tailnetDomain: "",
+          devZone: "", tailnetDomain: "", defaultScenario: "public", appScenarios: {},
         },
         sampleNodes,
       ),
     ).toEqual({});
     expect(
       validateWorkspaceSettings(
-        { workspaceName: "Acme", defaultNode: "", devZone: "", tailnetDomain: "" },
+        { workspaceName: "Acme", defaultNode: "", devZone: "", tailnetDomain: "", defaultScenario: "public", appScenarios: {} },
         sampleNodes,
       ),
     ).toEqual({});
@@ -440,7 +403,7 @@ describe("validateWorkspaceSettings", () => {
 
   it("rejects an unknown default node", () => {
     const errors = validateWorkspaceSettings(
-      { workspaceName: "Acme", defaultNode: "no-such-node", devZone: "", tailnetDomain: "" },
+      { workspaceName: "Acme", defaultNode: "no-such-node", devZone: "", tailnetDomain: "", defaultScenario: "public", appScenarios: {} },
       sampleNodes,
     );
     expect(errors.defaultNode).toMatch(/known node/i);
@@ -449,7 +412,7 @@ describe("validateWorkspaceSettings", () => {
   it("accepts a blank or valid dev zone", () => {
     expect(
       validateWorkspaceSettings(
-        { workspaceName: "Acme", defaultNode: "", devZone: "  ", tailnetDomain: "" },
+        { workspaceName: "Acme", defaultNode: "", devZone: "  ", tailnetDomain: "", defaultScenario: "public", appScenarios: {} },
         sampleNodes,
       ),
     ).toEqual({});
@@ -458,7 +421,7 @@ describe("validateWorkspaceSettings", () => {
         {
           workspaceName: "Acme",
           defaultNode: "",
-          devZone: "dev.byov.xexo.io", tailnetDomain: "",
+          devZone: "dev.byov.xexo.io", tailnetDomain: "", defaultScenario: "public", appScenarios: {},
         },
         sampleNodes,
       ),
@@ -470,7 +433,7 @@ describe("validateWorkspaceSettings", () => {
       {
         workspaceName: "Acme",
         defaultNode: "",
-        devZone: "*.dev.byov.xexo.io", tailnetDomain: "",
+        devZone: "*.dev.byov.xexo.io", tailnetDomain: "", defaultScenario: "public", appScenarios: {},
       },
       sampleNodes,
     );
@@ -484,7 +447,7 @@ describe("validateWorkspaceSettings", () => {
           workspaceName: "Acme",
           defaultNode: "",
           devZone: "",
-          tailnetDomain: "  ",
+          tailnetDomain: "  ", defaultScenario: "public", appScenarios: {},
         },
         sampleNodes,
       ),
@@ -495,7 +458,7 @@ describe("validateWorkspaceSettings", () => {
           workspaceName: "Acme",
           defaultNode: "",
           devZone: "",
-          tailnetDomain: "yak-bebop.ts.net",
+          tailnetDomain: "yak-bebop.ts.net", defaultScenario: "public", appScenarios: {},
         },
         sampleNodes,
       ),
@@ -509,10 +472,79 @@ describe("validateWorkspaceSettings", () => {
         defaultNode: "",
         devZone: "",
         tailnetDomain: "vpn.example.com",
+        defaultScenario: "public",
+        appScenarios: {},
       },
       sampleNodes,
     );
     expect(errors.tailnetDomain).toMatch(/tailnet domain/i);
+  });
+
+  it("accepts every default scenario", () => {
+    for (const defaultScenario of ["public", "tailnet", "local"] as const) {
+      expect(
+        validateWorkspaceSettings(
+          {
+            workspaceName: "Acme",
+            defaultNode: "",
+            devZone: "",
+            tailnetDomain: "",
+            defaultScenario,
+            appScenarios: {},
+          },
+          sampleNodes,
+        ),
+      ).toEqual({});
+    }
+  });
+
+  it("rejects an unknown default scenario", () => {
+    const errors = validateWorkspaceSettings(
+      {
+        workspaceName: "Acme",
+        defaultNode: "",
+        devZone: "",
+        tailnetDomain: "",
+        defaultScenario: "carrier-pigeon",
+        appScenarios: {},
+      } as unknown as WorkspaceSettings,
+      sampleNodes,
+    );
+    expect(errors.defaultScenario).toMatch(/default DNS scenario/i);
+  });
+
+  it("accepts per-app overrides and ignores unknown slugs", () => {
+    expect(
+      validateWorkspaceSettings(
+        {
+          workspaceName: "Acme",
+          defaultNode: "",
+          devZone: "",
+          tailnetDomain: "",
+          defaultScenario: "public",
+          appScenarios: {
+            "lab-inventory": "local",
+            "gone-app": "tailnet",
+          },
+        },
+        sampleNodes,
+      ),
+    ).toEqual({});
+  });
+
+  it("rejects malformed per-app overrides", () => {
+    const errors = validateWorkspaceSettings(
+      {
+        workspaceName: "Acme",
+        defaultNode: "",
+        devZone: "",
+        tailnetDomain: "",
+        defaultScenario: "public",
+        appScenarios: { "lab-inventory": "carrier-pigeon" },
+      } as unknown as WorkspaceSettings,
+      sampleNodes,
+    );
+    expect(errors.appScenarios).toMatch(/public, tailnet, or local/);
   });
 });
 
@@ -547,7 +579,7 @@ describe("stored settings parsing", () => {
   it("parses stored workspace settings", () => {
     expect(
       parseStoredSettings({ workspaceName: "Acme", defaultNode: "" }),
-    ).toEqual({ workspaceName: "Acme", defaultNode: "", devZone: "", tailnetDomain: "" });
+    ).toEqual({ workspaceName: "Acme", defaultNode: "", devZone: "", tailnetDomain: "", defaultScenario: "public", appScenarios: {} });
   });
 
   it("normalizes a stored dev zone and drops a bad one", () => {
@@ -555,20 +587,20 @@ describe("stored settings parsing", () => {
       parseStoredSettings({
         workspaceName: "Acme",
         defaultNode: "",
-        devZone: " DEV.byov.xexo.io ", tailnetDomain: "",
+        devZone: " DEV.byov.xexo.io ", tailnetDomain: "", defaultScenario: "public", appScenarios: {},
       }),
     ).toEqual({
       workspaceName: "Acme",
       defaultNode: "",
-      devZone: "dev.byov.xexo.io", tailnetDomain: "",
+      devZone: "dev.byov.xexo.io", tailnetDomain: "", defaultScenario: "public", appScenarios: {},
     });
     expect(
       parseStoredSettings({
         workspaceName: "Acme",
         defaultNode: "",
-        devZone: "nope", tailnetDomain: "",
+        devZone: "nope", tailnetDomain: "", defaultScenario: "public", appScenarios: {},
       }),
-    ).toEqual({ workspaceName: "Acme", defaultNode: "", devZone: "", tailnetDomain: "" });
+    ).toEqual({ workspaceName: "Acme", defaultNode: "", devZone: "", tailnetDomain: "", defaultScenario: "public", appScenarios: {} });
   });
 
   it("drops an invalid stored zone but keeps the node", () => {
@@ -580,16 +612,58 @@ describe("stored settings parsing", () => {
     expect(parsed![0]!.domainZone).toBeUndefined();
   });
 
-  it("defaults a missing or bogus stored scenario to public", () => {
-    const { dnsScenario: _dropped, ...legacy } = sampleNodes[0]!;
-    expect(parseStoredNodes([legacy])![0]!.dnsScenario).toBe("public");
+  it("ignores a legacy stored node scenario", () => {
+    const parsed = parseStoredNodes([
+      { ...sampleNodes[0], dnsScenario: "tailnet" },
+    ]);
+    expect(parsed).toEqual([sampleNodes[0]]);
+  });
+
+  it("defaults a missing or bogus stored default scenario", () => {
+    const base = {
+      workspaceName: "Acme",
+      defaultNode: "",
+      devZone: "",
+      tailnetDomain: "",
+      appScenarios: {},
+    };
+    expect(parseStoredSettings(base)!.defaultScenario).toBe("public");
     expect(
-      parseStoredNodes([{ ...sampleNodes[1], dnsScenario: "carrier-pigeon" }])![0]!
-        .dnsScenario,
+      parseStoredSettings({ ...base, defaultScenario: "carrier-pigeon" })!
+        .defaultScenario,
     ).toBe("public");
     expect(
-      parseStoredNodes([{ ...sampleNodes[1] }])![0]!.dnsScenario,
+      parseStoredSettings({ ...base, defaultScenario: "local" })!
+        .defaultScenario,
     ).toBe("local");
+  });
+
+  it("keeps valid stored app overrides and drops the rest", () => {
+    expect(
+      parseStoredSettings({
+        workspaceName: "Acme",
+        defaultNode: "",
+        devZone: "",
+        tailnetDomain: "",
+        defaultScenario: "public",
+        appScenarios: {
+          "lab-inventory": "local",
+          "gone-app": "tailnet",
+          "bad-app": "carrier-pigeon",
+          "": "local",
+        },
+      })!.appScenarios,
+    ).toEqual({ "lab-inventory": "local", "gone-app": "tailnet" });
+    expect(
+      parseStoredSettings({
+        workspaceName: "Acme",
+        defaultNode: "",
+        devZone: "",
+        tailnetDomain: "",
+        defaultScenario: "public",
+        appScenarios: "nope",
+      })!.appScenarios,
+    ).toEqual({});
   });
 
   it("normalizes a stored tailnet host and drops a bad one", () => {
@@ -609,26 +683,26 @@ describe("stored settings parsing", () => {
         workspaceName: "Acme",
         defaultNode: "",
         devZone: "",
-        tailnetDomain: " Yak-Bebop.ts.net ",
+        tailnetDomain: " Yak-Bebop.ts.net ", defaultScenario: "public", appScenarios: {},
       }),
     ).toEqual({
       workspaceName: "Acme",
       defaultNode: "",
       devZone: "",
-      tailnetDomain: "yak-bebop.ts.net",
+      tailnetDomain: "yak-bebop.ts.net", defaultScenario: "public", appScenarios: {},
     });
     expect(
       parseStoredSettings({
         workspaceName: "Acme",
         defaultNode: "",
         devZone: "",
-        tailnetDomain: "vpn.example.com",
+        tailnetDomain: "vpn.example.com", defaultScenario: "public", appScenarios: {},
       }),
     ).toEqual({
       workspaceName: "Acme",
       defaultNode: "",
       devZone: "",
-      tailnetDomain: "",
+      tailnetDomain: "", defaultScenario: "public", appScenarios: {},
     });
   });
 

@@ -178,3 +178,13 @@ export function DocIcon({ className }: IconProps) {
     </Base>
   );
 }
+
+export function GlobeIcon({ className }: IconProps) {
+  return (
+    <Base className={className}>
+      <circle cx="12" cy="12" r="8.5" />
+      <ellipse cx="12" cy="12" rx="4" ry="8.5" />
+      <path d="M3.5 12h17" />
+    </Base>
+  );
+}

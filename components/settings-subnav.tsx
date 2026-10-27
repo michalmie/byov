@@ -2,11 +2,12 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { DocIcon, StackIcon } from "./icons";
+import { DocIcon, GlobeIcon, StackIcon } from "./icons";
 
 const sections = [
   { href: "/settings/general", label: "General", icon: DocIcon },
   { href: "/settings/nodes", label: "Nodes", icon: StackIcon },
+  { href: "/settings/dns", label: "DNS", icon: GlobeIcon },
 ];
 
 export function SettingsSubnav() {

@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AppSubnav } from "@/components/app-subnav";
+import { AppScenarioControl } from "@/components/app-scenario-control";
 import { HealthPill, SectionHead, StatStrip, StatusPill } from "@/components/data-ui";
 import { ManagedEnvironmentCard } from "@/components/managed-environment-card";
 import { ArrowLeftIcon } from "@/components/icons";
@@ -130,6 +131,7 @@ export default async function AppDetail({
               lede="Each environment pins to exactly one node."
             />
           </div>
+          <AppScenarioControl appSlug={app.slug} />
           <div className="grid gap-4">
             {app.envs.map((env) => (
               <ManagedEnvironmentCard
