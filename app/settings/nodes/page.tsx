@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { ControlPlaneShell } from "@/components/shell";
 import { HealthPill, StatusPill } from "@/components/data-ui";
+import { DnsTestButton } from "@/components/dns-test-button";
 import { NodeForm } from "@/components/node-form";
 import { SettingsSubnav } from "@/components/settings-subnav";
 import { listApps } from "@/lib/control-plane";
@@ -308,6 +309,7 @@ export default function SettingsNodes() {
             >
               One wildcard record per zoned node; one certificate per
               tailnet node. Local zones live on your internal resolver.
+              Tests run from the BYOV server.
             </p>
           </div>
           {hasSetup ? (
@@ -326,7 +328,11 @@ export default function SettingsNodes() {
                   *.{node.domainZone}{" "}
                   <span style={{ color: "var(--color-ink-2)" }}>
                     → {node.name}
-                  </span>
+                  </span>{" "}
+                  <DnsTestButton
+                    host={`byov-probe.${node.domainZone}`}
+                    note="Probes carry no app — any HTTP status counts once DNS and TLS pass."
+                  />
                 </li>
               ))}
               {tailnetNodes.map((node) => (
@@ -346,7 +352,11 @@ export default function SettingsNodes() {
                       {settings.tailnetDomain}{" "}
                       <span style={{ color: "var(--color-ink-2)" }}>
                         → on {node.name}
-                      </span>
+                      </span>{" "}
+                      <DnsTestButton
+                        host={`${node.tailnetHost}.${settings.tailnetDomain}`}
+                        note="Probes :443; tailnet apps serve on their own ports."
+                      />
                     </>
                   ) : (
                     <span style={{ color: "var(--color-ink-2)" }}>

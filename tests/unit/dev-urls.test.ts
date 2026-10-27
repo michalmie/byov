@@ -7,20 +7,12 @@ import {
   TAILNET_PORT_RANGE,
   isDomainZone,
   isHostname,
+  isTestablePort,
   resolveEnvUrl,
   tailnetPort,
   toDnsLabel,
   type ResolveContext,
 } from "@/lib/dev-urls";
-
-const publicNode: Node = {
-  slug: "coolify-frankfurt",
-  name: "frankfurt-01",
-  kind: "Coolify",
-  location: "Frankfurt",
-  status: "healthy",
-  domainZone: "frankfurt-01.byov.xexo.io",
-};
 
 const qaNode: Node = {
   slug: "coolify-qa-lab",
@@ -135,6 +127,20 @@ describe("isDomainZone", () => {
   it("rejects overlong zones and labels", () => {
     expect(isDomainZone(`${"a".repeat(64)}.example.com`)).toBe(false);
     expect(isDomainZone(`a.${"b".repeat(63)}.${"c".repeat(63)}.${"d".repeat(63)}.${"e".repeat(57)}.io`)).toBe(false);
+  });
+});
+
+describe("isTestablePort", () => {
+  it("allows 443 and the tailnet range", () => {
+    expect(isTestablePort(443)).toBe(true);
+    expect(isTestablePort(10000)).toBe(true);
+    expect(isTestablePort(18999)).toBe(true);
+  });
+
+  it("rejects everything else", () => {
+    for (const port of [80, 22, 9999, 19000, 20000, 1.5, Number.NaN]) {
+      expect(isTestablePort(port)).toBe(false);
+    }
   });
 });
 

@@ -1,5 +1,6 @@
 import type { AppEnvironment, Deployment } from "@/lib/control-plane";
 import { HealthPill, StatusPill } from "./data-ui";
+import { DnsTestButton } from "./dns-test-button";
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
@@ -18,6 +19,7 @@ const deployLabel = { live: "Live", failed: "Failed", running: "Running" } as co
 export function EnvironmentCard({
   env,
   urlNote,
+  testTarget,
   nodeName,
   lastDeploy,
   checksPassing,
@@ -25,6 +27,7 @@ export function EnvironmentCard({
 }: {
   env: AppEnvironment;
   urlNote?: string;
+  testTarget?: { host: string; port: number };
   nodeName: string;
   lastDeploy?: Deployment;
   checksPassing: number;
@@ -54,6 +57,11 @@ export function EnvironmentCard({
           <span className="mono block truncate text-[13px]">
             {env.url ?? "—"}
           </span>
+          {testTarget && (
+            <span className="mt-1 block">
+              <DnsTestButton host={testTarget.host} port={testTarget.port} />
+            </span>
+          )}
           {urlNote && (
             <span
               className="hint mt-1 block"

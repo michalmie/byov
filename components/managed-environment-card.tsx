@@ -2,9 +2,32 @@
 
 import type { Deployment, AppEnvironment } from "@/lib/control-plane";
 import { listApps } from "@/lib/control-plane";
-import { resolveEnvUrl } from "@/lib/dev-urls";
+import { isDomainZone, isTestablePort, resolveEnvUrl } from "@/lib/dev-urls";
 import { useWorkspaceSettings } from "@/lib/settings-store";
 import { EnvironmentCard } from "./environment-card";
+
+/** Test target for a resolved URL, or undefined when untestable. */
+function testTargetFor(
+  url: string | null,
+): { host: string; port: number } | undefined {
+  if (!url) {
+    return undefined;
+  }
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:") {
+      return undefined;
+    }
+    const host = parsed.hostname.toLowerCase();
+    const port = parsed.port ? Number(parsed.port) : 443;
+    if (!isDomainZone(host) || !isTestablePort(port)) {
+      return undefined;
+    }
+    return { host, port };
+  } catch {
+    return undefined;
+  }
+}
 
 /** Environment card that resolves node name and URL from managed state. */
 export function ManagedEnvironmentCard({
@@ -36,6 +59,7 @@ export function ManagedEnvironmentCard({
     <EnvironmentCard
       env={{ ...env, url: resolved.url ?? "—" }}
       urlNote={resolved.warning ?? undefined}
+      testTarget={testTargetFor(resolved.url)}
       nodeName={nodeName}
       lastDeploy={lastDeploy}
       checksPassing={checksPassing}
