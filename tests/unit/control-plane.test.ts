@@ -120,7 +120,6 @@ describe("fleetSummaryFor", () => {
         kind: "Coolify",
         location: "Berlin",
         status: "pending",
-        dnsScenario: "public",
       },
     ]);
     expect(summary.nodes).toBe(listNodes().length + 1);

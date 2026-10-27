@@ -15,7 +15,6 @@ const blankDraft: NodeDraft = {
   location: "",
   endpoint: "",
   domainZone: "",
-  dnsScenario: "public",
   tailnetHost: "",
 };
 
@@ -33,15 +32,9 @@ export default function SettingsNodes() {
   const editingNode = editing
     ? nodes.find((node) => node.slug === editing)
     : undefined;
-  const zoned = nodes.filter(
-    (node) => node.dnsScenario !== "tailnet" && node.domainZone,
-  );
-  const unzoned = nodes.filter(
-    (node) => node.dnsScenario !== "tailnet" && !node.domainZone,
-  );
-  const tailnetNodes = nodes.filter(
-    (node) => node.dnsScenario === "tailnet",
-  );
+  const zoned = nodes.filter((node) => node.domainZone);
+  const unzoned = nodes.filter((node) => !node.domainZone);
+  const tailnetNodes = nodes.filter((node) => node.tailnetHost);
   const hasSetup = zoned.length > 0 || tailnetNodes.length > 0;
 
   function closePanels() {
@@ -153,7 +146,6 @@ export default function SettingsNodes() {
               location: editingNode.location,
               endpoint: editingNode.endpoint ?? "",
               domainZone: editingNode.domainZone ?? "",
-              dnsScenario: editingNode.dnsScenario,
               tailnetHost: editingNode.tailnetHost ?? "",
             }}
             submitLabel="Save node"
@@ -334,9 +326,6 @@ export default function SettingsNodes() {
                   *.{node.domainZone}{" "}
                   <span style={{ color: "var(--color-ink-2)" }}>
                     → {node.name}
-                    {node.dnsScenario === "local"
-                      ? " (internal resolver)"
-                      : ""}
                   </span>
                 </li>
               ))}

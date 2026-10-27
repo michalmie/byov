@@ -1,9 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { DNS_SCENARIOS } from "@/lib/control-plane";
 import {
-  DNS_SCENARIO_META,
   SUPPORTED_NODE_KINDS,
   type NodeDraft,
   type NodeField,
@@ -128,50 +126,6 @@ export function NodeForm({
         </div>
 
         <div className="field">
-          <span className="field-label" id={`${formId}-dnsScenario-label`}>
-            DNS scenario
-          </span>
-          <div
-            role="radiogroup"
-            aria-labelledby={`${formId}-dnsScenario-label`}
-            aria-describedby={describedBy(
-              "dnsScenario",
-              `${formId}-dnsScenario-hint`,
-            )}
-            className="grid gap-2"
-          >
-            {DNS_SCENARIOS.map((scenario) => (
-              <label key={scenario} className="flex items-start gap-2 text-sm">
-                <input
-                  type="radio"
-                  name={`${formId}-dnsScenario`}
-                  value={scenario}
-                  checked={draft.dnsScenario === scenario}
-                  onChange={(event) => set("dnsScenario", event.target.value)}
-                  className="mt-1"
-                />
-                <span>
-                  <span className="block font-medium">
-                    {DNS_SCENARIO_META[scenario].label}
-                  </span>
-                  <span className="hint">
-                    {DNS_SCENARIO_META[scenario].blurb}
-                  </span>
-                </span>
-              </label>
-            ))}
-          </div>
-          <p id={`${formId}-dnsScenario-hint`} className="hint">
-            How this node&apos;s env URLs resolve. Public and local use a
-            zone; Tailscale uses the node name with stable ports.
-          </p>
-          <FieldError
-            id={`${formId}-dnsScenario-error`}
-            message={errors.dnsScenario}
-          />
-        </div>
-
-        <div className="field">
           <label className="field-label" htmlFor={`${formId}-location`}>
             Location
           </label>
@@ -221,72 +175,63 @@ export function NodeForm({
           />
         </div>
 
-        {draft.dnsScenario !== "tailnet" && (
-          <div className="field">
-            <label className="field-label" htmlFor={`${formId}-domainZone`}>
-              Domain zone <span className="hint">(optional)</span>
-            </label>
-            <input
-              id={`${formId}-domainZone`}
-              className="input max-w-md"
-              type="text"
-              inputMode="url"
-              autoComplete="off"
-              placeholder={
-                draft.dnsScenario === "local"
-                  ? "qa-lab-01.byov.internal"
-                  : "qa-lab-01.byov.xexo.io"
-              }
-              value={draft.domainZone}
-              aria-invalid={Boolean(errors.domainZone)}
-              aria-describedby={describedBy(
-                "domainZone",
-                `${formId}-domainZone-hint`,
-              )}
-              onChange={(event) => set("domainZone", event.target.value)}
-            />
-            <p id={`${formId}-domainZone-hint`} className="hint">
-              {draft.dnsScenario === "local"
-                ? "Zone this node serves env URLs under on your internal resolver, without the *. prefix."
-                : "Zone this node serves env URLs under, without the *. prefix. Create a *.zone record pointing at the node."}{" "}
-              Envs on a zoneless node show no URL until you add one.
-            </p>
-            <FieldError
-              id={`${formId}-domainZone-error`}
-              message={errors.domainZone}
-            />
-          </div>
-        )}
+        <div className="field">
+          <label className="field-label" htmlFor={`${formId}-domainZone`}>
+            Domain zone <span className="hint">(optional)</span>
+          </label>
+          <input
+            id={`${formId}-domainZone`}
+            className="input max-w-md"
+            type="text"
+            inputMode="url"
+            autoComplete="off"
+            placeholder="qa-lab-01.byov.xexo.io"
+            value={draft.domainZone}
+            aria-invalid={Boolean(errors.domainZone)}
+            aria-describedby={describedBy(
+              "domainZone",
+              `${formId}-domainZone-hint`,
+            )}
+            onChange={(event) => set("domainZone", event.target.value)}
+          />
+          <p id={`${formId}-domainZone-hint`} className="hint">
+            Zone this node serves public and local env URLs under, without
+            the *. prefix. Create a *.zone record (public) or resolver entry
+            (local) pointing at the node.
+          </p>
+          <FieldError
+            id={`${formId}-domainZone-error`}
+            message={errors.domainZone}
+          />
+        </div>
 
-        {draft.dnsScenario === "tailnet" && (
-          <div className="field">
-            <label className="field-label" htmlFor={`${formId}-tailnetHost`}>
-              Tailnet machine name <span className="hint">(optional)</span>
-            </label>
-            <input
-              id={`${formId}-tailnetHost`}
-              className="input max-w-md"
-              type="text"
-              autoComplete="off"
-              placeholder="qa-lab-01"
-              value={draft.tailnetHost}
-              aria-invalid={Boolean(errors.tailnetHost)}
-              aria-describedby={describedBy(
-                "tailnetHost",
-                `${formId}-tailnetHost-hint`,
-              )}
-              onChange={(event) => set("tailnetHost", event.target.value)}
-            />
-            <p id={`${formId}-tailnetHost-hint`} className="hint">
-              Machine name as known on the tailnet. Envs share it with
-              stable ports; set the tailnet domain in General settings.
-            </p>
-            <FieldError
-              id={`${formId}-tailnetHost-error`}
-              message={errors.tailnetHost}
-            />
-          </div>
-        )}
+        <div className="field">
+          <label className="field-label" htmlFor={`${formId}-tailnetHost`}>
+            Tailnet machine name <span className="hint">(optional)</span>
+          </label>
+          <input
+            id={`${formId}-tailnetHost`}
+            className="input max-w-md"
+            type="text"
+            autoComplete="off"
+            placeholder="qa-lab-01"
+            value={draft.tailnetHost}
+            aria-invalid={Boolean(errors.tailnetHost)}
+            aria-describedby={describedBy(
+              "tailnetHost",
+              `${formId}-tailnetHost-hint`,
+            )}
+            onChange={(event) => set("tailnetHost", event.target.value)}
+          />
+          <p id={`${formId}-tailnetHost-hint`} className="hint">
+            Machine name as known on the tailnet. Envs share it with stable
+            ports; set the tailnet domain in DNS settings.
+          </p>
+          <FieldError
+            id={`${formId}-tailnetHost-error`}
+            message={errors.tailnetHost}
+          />
+        </div>
 
         <div className="flex flex-wrap gap-3">
           <button type="submit" className="btn-primary px-3 py-1.5 text-[13px]">

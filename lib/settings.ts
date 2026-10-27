@@ -15,15 +15,15 @@ export const DNS_SCENARIO_META: Record<
 > = {
   public: {
     label: "Public subdomain",
-    blurb: "Envs at app-env under this node's public zone.",
+    blurb: "App-env under a public zone.",
   },
   tailnet: {
     label: "Tailscale",
-    blurb: "Envs on the node's tailnet name with a stable port.",
+    blurb: "Node name with a stable port.",
   },
   local: {
     label: "Local DNS",
-    blurb: "Envs under this node's zone on your internal resolver.",
+    blurb: "App-env under a zone on your resolver.",
   },
 };
 
@@ -42,7 +42,6 @@ export interface NodeDraft {
   location: string;
   endpoint: string;
   domainZone: string;
-  dnsScenario: string;
   tailnetHost: string;
 }
 
@@ -52,7 +51,6 @@ export type NodeField =
   | "location"
   | "endpoint"
   | "domainZone"
-  | "dnsScenario"
   | "tailnetHost";
 export type NodeFieldErrors = Partial<Record<NodeField, string>>;
 
@@ -156,10 +154,6 @@ export function validateNodeDraft(
     }
   }
 
-  if (!isDnsScenario(draft.dnsScenario)) {
-    errors.dnsScenario = "Choose a DNS scenario.";
-  }
-
   const tailnetHost = draft.tailnetHost.trim();
   if (tailnetHost && !isHostname(tailnetHost)) {
     errors.tailnetHost =
@@ -197,9 +191,6 @@ export function buildNode(
     status: "pending",
     ...(endpoint ? { endpoint } : {}),
     ...(domainZone ? { domainZone } : {}),
-    dnsScenario: isDnsScenario(draft.dnsScenario)
-      ? draft.dnsScenario
-      : "public",
     ...(tailnetHost ? { tailnetHost } : {}),
   };
 }
@@ -273,6 +264,10 @@ export interface WorkspaceSettings {
   devZone: string;
   /** Tailnet domain for tailnet env URLs, or "" when unused. */
   tailnetDomain: string;
+  /** DNS scenario envs use unless their app overrides it. */
+  defaultScenario: DnsScenario;
+  /** Per-app scenario overrides by app slug; absent means inherit. */
+  appScenarios: Partial<Record<string, DnsScenario>>;
 }
 
 export function defaultWorkspaceSettings(): WorkspaceSettings {
@@ -281,6 +276,8 @@ export function defaultWorkspaceSettings(): WorkspaceSettings {
     defaultNode: "",
     devZone: "",
     tailnetDomain: "",
+    defaultScenario: "public",
+    appScenarios: {},
   };
 }
 
@@ -288,7 +285,9 @@ export type WorkspaceField =
   | "workspaceName"
   | "defaultNode"
   | "devZone"
-  | "tailnetDomain";
+  | "tailnetDomain"
+  | "defaultScenario"
+  | "appScenarios";
 export type WorkspaceFieldErrors = Partial<Record<WorkspaceField, string>>;
 
 export function validateWorkspaceSettings(
@@ -328,6 +327,17 @@ export function validateWorkspaceSettings(
         "Enter your tailnet domain, e.g. yak-bebop.ts.net.";
     }
   }
+  if (!isDnsScenario(draft.defaultScenario)) {
+    errors.defaultScenario = "Choose a default DNS scenario.";
+  }
+  if (
+    !isRecord(draft.appScenarios) ||
+    Object.values(draft.appScenarios).some(
+      (scenario) => !isDnsScenario(scenario),
+    )
+  ) {
+    errors.appScenarios = "App scenarios must be public, tailnet, or local.";
+  }
   return errors;
 }
 
@@ -353,17 +363,8 @@ export function parseStoredNodes(value: unknown): Node[] | undefined {
     if (!isRecord(entry)) {
       continue;
     }
-    const {
-      slug,
-      name,
-      kind,
-      location,
-      status,
-      endpoint,
-      domainZone,
-      dnsScenario,
-      tailnetHost,
-    } = entry;
+    const { slug, name, kind, location, status, endpoint, domainZone, tailnetHost } =
+      entry;
     if (
       typeof slug !== "string" ||
       !slug ||
@@ -388,7 +389,6 @@ export function parseStoredNodes(value: unknown): Node[] | undefined {
       ...(typeof domainZone === "string" && isDomainZone(domainZone)
         ? { domainZone: domainZone.trim().toLowerCase() }
         : {}),
-      dnsScenario: isDnsScenario(dnsScenario) ? dnsScenario : "public",
       ...(typeof tailnetHost === "string" && isHostname(tailnetHost)
         ? { tailnetHost: tailnetHost.trim().toLowerCase() }
         : {}),
@@ -402,7 +402,14 @@ export function parseStoredSettings(value: unknown): WorkspaceSettings | undefin
   if (!isRecord(value)) {
     return undefined;
   }
-  const { workspaceName, defaultNode, devZone, tailnetDomain } = value;
+  const {
+    workspaceName,
+    defaultNode,
+    devZone,
+    tailnetDomain,
+    defaultScenario,
+    appScenarios,
+  } = value;
   if (
     typeof workspaceName !== "string" ||
     !workspaceName.trim() ||
@@ -412,6 +419,14 @@ export function parseStoredSettings(value: unknown): WorkspaceSettings | undefin
   }
   const tailnet =
     typeof tailnetDomain === "string" ? tailnetDomain.trim().toLowerCase() : "";
+  const apps: Partial<Record<string, DnsScenario>> = {};
+  if (isRecord(appScenarios)) {
+    for (const [slug, scenario] of Object.entries(appScenarios)) {
+      if (slug && isDnsScenario(scenario)) {
+        apps[slug] = scenario;
+      }
+    }
+  }
   return {
     workspaceName: workspaceName.trim(),
     defaultNode,
@@ -423,5 +438,7 @@ export function parseStoredSettings(value: unknown): WorkspaceSettings | undefin
       tailnet && isDomainZone(tailnet) && tailnet.endsWith(".ts.net")
         ? tailnet
         : "",
+    defaultScenario: isDnsScenario(defaultScenario) ? defaultScenario : "public",
+    appScenarios: apps,
   };
 }

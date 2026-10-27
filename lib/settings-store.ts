@@ -4,7 +4,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import type { Node } from "./control-plane";
-import { isDnsScenario, listNodes, listApps } from "./control-plane";
+import { listNodes, listApps } from "./control-plane";
 import {
   NODES_STORAGE_KEY,
   SETTINGS_STORAGE_KEY,
@@ -159,9 +159,6 @@ export function useManagedNodes() {
         name: draft.name.trim(),
         kind: draft.kind,
         location: draft.location.trim(),
-        dnsScenario: isDnsScenario(draft.dnsScenario)
-          ? draft.dnsScenario
-          : "public",
       };
       if (endpoint) {
         updated.endpoint = endpoint;
@@ -231,6 +228,8 @@ export function useWorkspaceSettings() {
         defaultNode: draft.defaultNode,
         devZone: draft.devZone.trim().toLowerCase(),
         tailnetDomain: draft.tailnetDomain.trim().toLowerCase(),
+        defaultScenario: draft.defaultScenario,
+        appScenarios: draft.appScenarios,
       };
       setSettings(next);
       try {

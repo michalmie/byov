@@ -28,6 +28,8 @@ export function ManagedEnvironmentCard({
     apps: listApps(),
     devZone: settings.devZone,
     tailnetDomain: settings.tailnetDomain,
+    defaultScenario: settings.defaultScenario,
+    appScenarios: settings.appScenarios,
   });
 
   return (

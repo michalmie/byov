@@ -20,7 +20,6 @@ const publicNode: Node = {
   location: "Frankfurt",
   status: "healthy",
   domainZone: "frankfurt-01.byov.xexo.io",
-  dnsScenario: "public",
 };
 
 const qaNode: Node = {
@@ -30,7 +29,6 @@ const qaNode: Node = {
   location: "QA lab",
   status: "healthy",
   domainZone: "qa-lab-01.byov.xexo.io",
-  dnsScenario: "public",
 };
 
 const bareNode: Node = {
@@ -39,7 +37,6 @@ const bareNode: Node = {
   kind: "Coolify",
   location: "Nowhere",
   status: "healthy",
-  dnsScenario: "public",
 };
 
 const devZoneNode: Node = {
@@ -50,7 +47,6 @@ const devZoneNode: Node = {
 const localNode: Node = {
   ...qaNode,
   domainZone: "qa-lab-01.byov.internal",
-  dnsScenario: "local",
 };
 
 const tailnetNode: Node = {
@@ -59,7 +55,6 @@ const tailnetNode: Node = {
   kind: "Coolify",
   location: "Branch office",
   status: "healthy",
-  dnsScenario: "tailnet",
   tailnetHost: "tail-01",
 };
 
@@ -85,6 +80,8 @@ function ctx(partial: Partial<ResolveContext> = {}): ResolveContext {
     apps: [],
     devZone: "",
     tailnetDomain: "",
+    defaultScenario: "public",
+    appScenarios: {},
     ...partial,
   };
 }
@@ -292,11 +289,15 @@ describe("resolveEnvUrl", () => {
     ).toBe("https://app.dev.byov.xexo.io");
   });
 
-  it("renders local envs under the node zone without the dev variant", () => {
+  it("prefers the per-app scenario over the workspace default", () => {
     const resolved = resolveEnvUrl(
       "invoice-triage",
       env("development", localNode.slug),
-      ctx({ nodes: [localNode], devZone: "dev.byov.xexo.io" }),
+      ctx({
+        nodes: [localNode],
+        defaultScenario: "public",
+        appScenarios: { "invoice-triage": "local" },
+      }),
     );
     expect(resolved.url).toBe(
       "https://invoice-triage-development.qa-lab-01.byov.internal",
@@ -305,12 +306,48 @@ describe("resolveEnvUrl", () => {
     expect(resolved.warning).toBeUndefined();
   });
 
+  it("keeps the dev-zone variant public-only under every layer", () => {
+    const resolved = resolveEnvUrl(
+      "invoice-triage",
+      env("development", localNode.slug),
+      ctx({
+        nodes: [localNode],
+        devZone: "dev.byov.xexo.io",
+        defaultScenario: "local",
+      }),
+    );
+    expect(resolved.source).toBe("local-zone");
+    expect(resolved.warning).toBeUndefined();
+  });
+
+  it("falls back to public for bogus selection values", () => {
+    const resolved = resolveEnvUrl(
+      "invoice-triage",
+      env("staging", qaNode.slug),
+      ctx({
+        nodes: [qaNode],
+        defaultScenario: "carrier-pigeon",
+        appScenarios: { "invoice-triage": "carrier-pigeon" },
+      } as unknown as ResolveContext),
+    );
+    expect(resolved.source).toBe("node-zone");
+    expect(resolved.url).toBe(
+      "https://invoice-triage-staging.qa-lab-01.byov.xexo.io",
+    );
+  });
+
   it("renders tailnet envs on the node name with a stable port", () => {
     const apps = [appOn("invoice-triage", "staging", tailnetNode.slug)];
+    const context = ctx({
+      nodes: [tailnetNode],
+      apps,
+      tailnetDomain: "yak-bebop.ts.net",
+      defaultScenario: "tailnet",
+    });
     const first = resolveEnvUrl(
       "invoice-triage",
       env("staging", tailnetNode.slug),
-      ctx({ nodes: [tailnetNode], apps, tailnetDomain: "yak-bebop.ts.net" }),
+      context,
     );
     expect(first.source).toBe("tailnet");
     expect(first.warning).toBeUndefined();
@@ -320,7 +357,7 @@ describe("resolveEnvUrl", () => {
     const second = resolveEnvUrl(
       "invoice-triage",
       env("staging", tailnetNode.slug),
-      ctx({ nodes: [tailnetNode], apps, tailnetDomain: "yak-bebop.ts.net" }),
+      context,
     );
     expect(second.url).toBe(first.url);
   });
@@ -334,6 +371,7 @@ describe("resolveEnvUrl", () => {
       nodes: [tailnetNode],
       apps,
       tailnetDomain: "yak-bebop.ts.net",
+      defaultScenario: "tailnet",
     });
     const first = resolveEnvUrl(
       "invoice-triage",
@@ -355,8 +393,9 @@ describe("resolveEnvUrl", () => {
       "invoice-triage",
       env("staging", bareNode.slug),
       ctx({
-        nodes: [{ ...bareNode, dnsScenario: "tailnet" }],
+        nodes: [bareNode],
         tailnetDomain: "yak-bebop.ts.net",
+        defaultScenario: "tailnet",
       }),
     );
     expect(noHost.url).toBeNull();
@@ -364,16 +403,17 @@ describe("resolveEnvUrl", () => {
     const noDomain = resolveEnvUrl(
       "invoice-triage",
       env("staging", tailnetNode.slug),
-      ctx({ nodes: [tailnetNode] }),
+      ctx({ nodes: [tailnetNode], defaultScenario: "tailnet" }),
     );
     expect(noDomain.url).toBeNull();
     expect(noDomain.warning).toContain("tailnet domain");
   });
 
-  it("resolves every sample environment to a URL", () => {
+  it("resolves every sample environment under default settings", () => {
     const nodes = listNodes();
     const apps = listApps();
-    const { devZone, tailnetDomain } = defaultWorkspaceSettings();
+    const { devZone, tailnetDomain, defaultScenario, appScenarios } =
+      defaultWorkspaceSettings();
     const sources: Record<string, number> = {};
     for (const app of apps) {
       for (const appEnv of app.envs) {
@@ -382,15 +422,26 @@ describe("resolveEnvUrl", () => {
           apps,
           devZone,
           tailnetDomain,
+          defaultScenario,
+          appScenarios,
         });
         expect(resolved.url).toBeTruthy();
         sources[resolved.source] = (sources[resolved.source] ?? 0) + 1;
       }
     }
-    expect(sources).toEqual({
-      override: 1,
-      "node-zone": 4,
-      "local-zone": 4,
+    expect(sources).toEqual({ override: 1, "node-zone": 8 });
+    const lab = apps.find((entry) => entry.slug === "lab-inventory")!;
+    const local = resolveEnvUrl("lab-inventory", lab.envs[0]!, {
+      nodes,
+      apps,
+      devZone,
+      tailnetDomain,
+      defaultScenario,
+      appScenarios: { "lab-inventory": "local" },
     });
+    expect(local.source).toBe("local-zone");
+    expect(local.url).toBe(
+      "https://lab-inventory-staging.qa-lab-01.byov.internal",
+    );
   });
 });

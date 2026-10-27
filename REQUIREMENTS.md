@@ -124,3 +124,14 @@ Operator runbook (tailnet, per node):
    certificate into the node's proxy (Traefik file provider or equivalent).
 3. Point the proxy's per-env ports at the apps; BYOV shows each env's URL
    with its stable port.
+
+### Dev URLs (third slice)
+
+- Scenario selection moves up a layer and replaces the per-node scenario
+  flag: a workspace default (Settings → DNS) with per-app overrides on each
+  app page. Nodes just provide materials — a zone, a tailnet machine name —
+  and serve whatever apps select.
+- The DNS page holds the default scenario picker plus the dev zone and
+  tailnet domain; per-app pickers inherit the default unless changed.
+- Env cards resolve through app override → workspace default → public
+  fallback, with setup guidance instead of dead links.

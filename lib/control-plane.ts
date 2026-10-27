@@ -60,9 +60,7 @@ export interface Node {
   endpoint?: string;
   /** DNS zone the node serves env URLs under; blank until configured. */
   domainZone?: string;
-  /** DNS scenario for this node's env URLs. */
-  dnsScenario: DnsScenario;
-  /** Machine name as known on the tailnet (tailnet scenario). */
+  /** Machine name as known on the tailnet; blank until configured. */
   tailnetHost?: string;
 }
 
@@ -195,7 +193,6 @@ const nodes: Node[] = [
     location: "Frankfurt",
     status: "healthy",
     domainZone: "frankfurt-01.byov.xexo.io",
-    dnsScenario: "public",
   },
   {
     slug: "coolify-qa-lab",
@@ -204,7 +201,6 @@ const nodes: Node[] = [
     location: "QA lab",
     status: "healthy",
     domainZone: "qa-lab-01.byov.internal",
-    dnsScenario: "local",
   },
 ];
 
