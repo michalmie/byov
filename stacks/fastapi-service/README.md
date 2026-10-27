@@ -1,4 +1,4 @@
-# Python API template
+# Python API tech stack
 
 FastAPI (async) + Uvicorn + typed Python 3.12 starter for automations
 and data APIs. pytest + httpx tests, Ruff lint, container build —

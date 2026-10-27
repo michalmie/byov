@@ -4,15 +4,15 @@ import { useState } from "react";
 import Link from "next/link";
 import { ControlPlaneShell } from "@/components/shell";
 import { StatusPill } from "@/components/data-ui";
-import { TemplateForm } from "@/components/template-form";
+import { StackForm } from "@/components/stack-form";
 import { SettingsSubnav } from "@/components/settings-subnav";
-import { useManagedTemplates } from "@/lib/template-store";
+import { useManagedStacks } from "@/lib/stack-store";
 import {
-  defaultTemplateDraft,
-  draftFromTemplate,
-  frameworkOf,
-  type TemplateDraft,
-} from "@/lib/templates";
+  defaultStackDraft,
+  draftFromStack,
+  primaryTechnologyOf,
+  type StackDraft,
+} from "@/lib/stacks";
 
 const statusTone = { draft: "info", stable: "ok", deprecated: "bad" } as const;
 const statusLabel = {
@@ -27,17 +27,17 @@ type Panel =
   | { mode: "edit"; slug: string }
   | null;
 
-export default function SettingsTemplates() {
+export default function SettingsStacks() {
   const {
-    templates,
-    customTemplates,
-    isCustom,
-    getManagedTemplate,
-    createTemplate,
-    updateTemplate,
-    deleteTemplate,
-    resetTemplates,
-  } = useManagedTemplates();
+    stacks,
+    customStacks,
+    isCustomStack,
+    getManagedStack,
+    createStack,
+    updateStack,
+    deleteStack,
+    resetStacks,
+  } = useManagedStacks();
   const [panel, setPanel] = useState<Panel>(null);
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -47,37 +47,35 @@ export default function SettingsTemplates() {
     setPanel(null);
   }
 
-  const panelTemplate =
-    panel && panel.mode !== "new"
-      ? getManagedTemplate(panel.slug)
-      : undefined;
+  const panelStack =
+    panel && panel.mode !== "new" ? getManagedStack(panel.slug) : undefined;
 
-  const panelInitial: TemplateDraft | undefined = panel
+  const panelInitial: StackDraft | undefined = panel
     ? panel.mode === "new"
-      ? defaultTemplateDraft()
-      : panelTemplate
+      ? defaultStackDraft()
+      : panelStack
         ? panel.mode === "clone"
-          ? draftFromTemplate(panelTemplate)
+          ? draftFromStack(panelStack)
           : {
-              ...draftFromTemplate(panelTemplate),
-              name: panelTemplate.name,
-              status: panelTemplate.status,
+              ...draftFromStack(panelStack),
+              name: panelStack.name,
+              status: panelStack.status,
             }
         : undefined
     : undefined;
 
   return (
-    <ControlPlaneShell crumb="Settings / Templates" subnav={<SettingsSubnav />}>
+    <ControlPlaneShell crumb="Settings / Tech stacks" subnav={<SettingsSubnav />}>
       <div className="grid gap-8">
         <div>
           <h1 className="text-xl font-semibold tracking-tight">
-            Templates
+            Tech stacks
           </h1>
           <p
             className="mt-2 max-w-[65ch] text-sm"
             style={{ color: "var(--color-muted)" }}
           >
-            Define and edit workspace templates. Shipped templates are
+            Define and edit workspace tech stacks. Shipped stacks are
             read-only — clone one to start an editable copy. Gates stay
             governed: customs inherit the five required checks.
           </p>
@@ -91,21 +89,21 @@ export default function SettingsTemplates() {
                   setNotice(null);
                 }}
               >
-                New template
+                New stack
               </button>
             )}
-            {customTemplates.length > 0 &&
+            {customStacks.length > 0 &&
               (confirmReset ? (
                 <>
                   <button
                     type="button"
                     className="btn-danger px-3 py-1.5 text-[13px]"
                     onClick={() => {
-                      resetTemplates();
+                      resetStacks();
                       closePanels();
                       setConfirmReset(false);
                       setNotice(
-                        "Workspace templates removed — shipped catalog restored.",
+                        "Workspace stacks removed — shipped catalog restored.",
                       );
                     }}
                   >
@@ -139,36 +137,36 @@ export default function SettingsTemplates() {
         )}
 
         {panel && panelInitial && (
-          <TemplateForm
+          <StackForm
             key={
               panel.mode === "new" ? "new" : `${panel.mode}-${panel.slug}`
             }
             formId={
-              panel.mode === "new" ? "new-template" : `${panel.mode}-template`
+              panel.mode === "new" ? "new-stack" : `${panel.mode}-stack`
             }
             heading={
               panel.mode === "new"
-                ? "New template"
+                ? "New tech stack"
                 : panel.mode === "clone"
-                  ? `Clone ${panelTemplate?.name ?? "template"}`
-                  : `Edit ${panelTemplate?.name ?? "template"}`
+                  ? `Clone ${panelStack?.name ?? "stack"}`
+                  : `Edit ${panelStack?.name ?? "stack"}`
             }
             lede={
               panel.mode === "edit"
                 ? `Slug ${panel.slug} never changes, so links keep working.`
-                : "Define the stack, gate commands and ship targets. Customs inherit the five required checks."
+                : "Define the tech stack, gate commands and ship targets. Customs inherit the five required checks."
             }
             initial={panelInitial}
             submitLabel={
               panel.mode === "new"
-                ? "Add template"
+                ? "Add stack"
                 : panel.mode === "clone"
-                  ? "Clone template"
-                  : "Save template"
+                  ? "Clone stack"
+                  : "Save stack"
             }
             onSubmit={(draft) => {
               if (panel.mode === "edit") {
-                const errors = updateTemplate(panel.slug, draft);
+                const errors = updateStack(panel.slug, draft);
                 if (errors) {
                   return errors;
                 }
@@ -176,14 +174,14 @@ export default function SettingsTemplates() {
                 setNotice(`Saved ${draft.name.trim()}.`);
                 return null;
               }
-              const errors = createTemplate(draft);
+              const errors = createStack(draft);
               if (errors) {
                 return errors;
               }
               closePanels();
               setNotice(
                 panel.mode === "clone"
-                  ? `Cloned ${panelTemplate?.name ?? "template"} as ${draft.name.trim()}.`
+                  ? `Cloned ${panelStack?.name ?? "stack"} as ${draft.name.trim()}.`
                   : `Added ${draft.name.trim()} as a draft.`,
               );
               return null;
@@ -196,33 +194,33 @@ export default function SettingsTemplates() {
           <table className="spec-table min-w-[820px]">
             <thead>
               <tr>
-                <th scope="col">Template</th>
+                <th scope="col">Stack</th>
                 <th scope="col">Source</th>
                 <th scope="col">Status</th>
-                <th scope="col">Stack</th>
+                <th scope="col">Headliner</th>
                 <th scope="col">
                   <span className="sr-only">Actions</span>
                 </th>
               </tr>
             </thead>
             <tbody>
-              {templates.map((template) => {
-                const custom = isCustom(template.slug);
-                const isConfirming = confirmingRemove === template.slug;
+              {stacks.map((stack) => {
+                const custom = isCustomStack(stack.slug);
+                const isConfirming = confirmingRemove === stack.slug;
                 return (
-                  <tr key={template.slug}>
+                  <tr key={stack.slug}>
                     <td>
                       <Link
-                        href={`/templates/${template.slug}`}
+                        href={`/stacks/${stack.slug}`}
                         className="font-semibold underline decoration-[var(--color-rule)] underline-offset-2 hover:decoration-[var(--color-accent-deep)]"
                       >
-                        {template.name}
+                        {stack.name}
                       </Link>
                       <span
                         className="mono block text-sm"
                         style={{ color: "var(--color-ink-2)" }}
                       >
-                        {template.slug}
+                        {stack.slug}
                       </span>
                     </td>
                     <td className="mono text-sm">
@@ -230,11 +228,13 @@ export default function SettingsTemplates() {
                     </td>
                     <td>
                       <StatusPill
-                        tone={statusTone[template.status]}
-                        label={statusLabel[template.status]}
+                        tone={statusTone[stack.status]}
+                        label={statusLabel[stack.status]}
                       />
                     </td>
-                    <td className="mono text-sm">{frameworkOf(template)}</td>
+                    <td className="mono text-sm">
+                      {primaryTechnologyOf(stack)}
+                    </td>
                     <td>
                       <div className="flex flex-wrap gap-2">
                         {custom && (
@@ -242,7 +242,7 @@ export default function SettingsTemplates() {
                             type="button"
                             className="btn-ghost px-3 py-1.5 text-sm"
                             onClick={() => {
-                              setPanel({ mode: "edit", slug: template.slug });
+                              setPanel({ mode: "edit", slug: stack.slug });
                               setConfirmingRemove(null);
                               setNotice(null);
                             }}
@@ -254,7 +254,7 @@ export default function SettingsTemplates() {
                           type="button"
                           className="btn-ghost px-3 py-1.5 text-sm"
                           onClick={() => {
-                            setPanel({ mode: "clone", slug: template.slug });
+                            setPanel({ mode: "clone", slug: stack.slug });
                             setConfirmingRemove(null);
                             setNotice(null);
                           }}
@@ -268,10 +268,10 @@ export default function SettingsTemplates() {
                                 type="button"
                                 className="btn-danger px-3 py-1.5 text-sm"
                                 onClick={() => {
-                                  deleteTemplate(template.slug);
+                                  deleteStack(stack.slug);
                                   setConfirmingRemove(null);
                                   closePanels();
-                                  setNotice(`Removed ${template.name}.`);
+                                  setNotice(`Removed ${stack.name}.`);
                                 }}
                               >
                                 Confirm
@@ -289,7 +289,7 @@ export default function SettingsTemplates() {
                               type="button"
                               className="btn-ghost px-3 py-1.5 text-sm"
                               onClick={() => {
-                                setConfirmingRemove(template.slug);
+                                setConfirmingRemove(stack.slug);
                                 setNotice(null);
                               }}
                             >
@@ -306,8 +306,8 @@ export default function SettingsTemplates() {
         </div>
 
         <p className="mono text-sm" style={{ color: "var(--color-ink-2)" }}>
-          Workspace templates live in this browser until the API lands.
-          Shipping a stack for everyone? See templates/README.md — manifest +
+          Workspace stacks live in this browser until the API lands.
+          Shipping a stack for everyone? See stacks/README.md — manifest +
           blueprint, no new dependencies.
         </p>
       </div>

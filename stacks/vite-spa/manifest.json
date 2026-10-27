@@ -4,12 +4,12 @@
   "tagline": "Vite + React dashboard starter for internal tools that need no backend — same gates, lighter runtime.",
   "status": "draft",
   "stack": [
-    { "label": "Framework", "value": "Vite 7 + React 19" },
-    { "label": "UI", "value": "Tailwind CSS 4" },
-    { "label": "Language", "value": "TypeScript 5 (strict)" },
-    { "label": "Tests", "value": "Vitest 4 + Testing Library" },
-    { "label": "Lint", "value": "ESLint 9" },
-    { "label": "Runtime", "value": "Node.js 20+ (build only)" }
+    { "category": "frontend", "label": "Framework", "value": "Vite 7 + React 19" },
+    { "category": "frontend", "label": "UI", "value": "Tailwind CSS 4" },
+    { "category": "language", "label": "Language", "value": "TypeScript 5 (strict)" },
+    { "category": "testing", "label": "Tests", "value": "Vitest 4 + Testing Library" },
+    { "category": "quality", "label": "Lint", "value": "ESLint 9" },
+    { "category": "runtime", "label": "Runtime", "value": "Node.js 20+ (build only)" }
   ],
   "packages": {
     "vite": "^7.0.0",
@@ -39,7 +39,7 @@
   "scaffold": [
     {
       "title": "Create the app from the blueprint",
-      "detail": "Copy the file tree in templates/vite-spa/blueprint.md into a new repository — same configs, same scripts, same gates."
+      "detail": "Copy the file tree in stacks/vite-spa/blueprint.md into a new repository — same configs, same scripts, same gates."
     },
     {
       "title": "Install dependencies",
@@ -68,8 +68,8 @@
   ],
   "starter": {
     "kind": "in-repo blueprint",
-    "ref": "templates/vite-spa/blueprint.md",
+    "ref": "stacks/vite-spa/blueprint.md",
     "note": "Versioned starter repos and one-command scaffolding arrive with the BYOV client."
   },
-  "docs": ["templates/vite-spa/README.md", "templates/vite-spa/blueprint.md"]
+  "docs": ["stacks/vite-spa/README.md", "stacks/vite-spa/blueprint.md"]
 }

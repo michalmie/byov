@@ -52,7 +52,7 @@ Employees keep their flow. Admins keep control. Everybody wins.
 | 🎛️ | **Control Plane** — one UI for apps, environments, deployments | Every vibe-coded app, visible and manageable |
 | 🖥️ | **Nodes** — admin-approved deployment targets (self-hosted Coolify first) | Apps land only where they're allowed to |
 | 🔌 | **Client** — connect straight from Muse, Codex, Claude & co. | Zero-friction path from prompt to production |
-| 🧩 | **App templates** — paved-road starters with gates built in | Start compliant on the BYOV stack; more stacks later |
+| 🧩 | **Tech stacks** — paved-road starters with gates built in | Start compliant on the BYOV stack; more stacks later |
 | ✅ | **Required checks** — unit tests, lint, builds, DLP scan, dependency audit | Nothing ships without passing the gates |
 | 🏥 | **Fleet health** — app health rolled up from envs + checks | Spot trouble before users do |
 | 📜 | **Audit trail & RBAC** — who shipped what, when, where | Compliance without spreadsheets |
@@ -71,11 +71,11 @@ Run it once and click through:
 | `/` | 📊 **Dashboard** — fleet figures, app health table, nodes, activity feed |
 | `/apps` | 📦 **Apps** — every app with health, home node, and last deploy |
 | `/apps/[slug]` | 🔍 **App detail** — environments, deployment history, required checks |
-| `/templates` | 🧩 **Templates** — starter stacks with gates and scaffold steps |
-| `/templates/[slug]` | 🔍 **Template detail** — stack, checks, scaffold, ship targets |
+| `/stacks` | 🧩 **Tech stacks** — starter stacks with gates and scaffold steps |
+| `/stacks/[slug]` | 🔍 **Stack detail** — tech stack, checks, scaffold, ship targets |
 | `/nodes` | 🖥️ **Nodes** — deployment targets and the apps pinned to each |
 | `/activity` | ⚡ **Activity** — every control plane event, newest first |
-| `/settings` | ⚙️ **Settings** — workspace preferences, templates and nodes |
+| `/settings` | ⚙️ **Settings** — workspace preferences, tech stacks and nodes |
 
 Sample fleet included: `shopfloor-tickets`, `leave-balancer` (watch the failed DLP gate ⛔), `invoice-triage`, and `lab-inventory` (mid-deploy 🛫).
 
@@ -152,10 +152,10 @@ npm run build       # production build
 Project layout:
 
 ```
-app/            # routes: dashboard (/), /apps, /apps/[slug], /templates, /templates/[slug], /nodes, /activity, /settings
+app/            # routes: dashboard (/), /apps, /apps/[slug], /stacks, /stacks/[slug], /nodes, /activity, /settings
 components/     # shell, sidebar, subnav, data UI
-lib/            # control-plane dataset + roll-up logic, site helpers, template registry
-templates/      # app templates: manifest + setup guide + blueprint per stack
+lib/            # control-plane dataset + roll-up logic, site helpers, stack registry
+stacks/         # tech stacks: manifest + setup guide + blueprint per stack
 tests/unit/     # Vitest suites
 deploy/         # deployment & preview adapters
 ```
@@ -165,11 +165,11 @@ deploy/         # deployment & preview adapters
 ## 🗺️ Roadmap
 
 - [x] Control Plane UI first slice (dashboard, apps, nodes) on sample data
-- [x] App templates catalog (BYOV stack first)
-- [ ] Real API behind the Control Plane (incl. workspace templates today kept in the browser)
+- [x] Tech stacks catalog (BYOV stack first)
+- [ ] Real API behind the Control Plane (incl. workspace stacks today kept in the browser)
 - [ ] Coolify node adapter — deploy for real
 - [ ] Client for Muse / Codex / Claude
-- [x] More app templates beyond the BYOV stack (AI chatbot, React SPA, Python API as drafts + workspace-defined customs)
+- [x] More tech stacks beyond the BYOV stack (AI chatbot, React SPA, Python API as drafts + workspace-defined customs)
 - [ ] Preview URLs per branch with SSO protection
 - [ ] Auth, RBAC, and audit trails
 - [ ] DLP + SIEM integrations

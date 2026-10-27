@@ -8,7 +8,7 @@ const sections = [
   { href: "/settings/general", label: "General", icon: DocIcon },
   { href: "/settings/nodes", label: "Nodes", icon: StackIcon },
   { href: "/settings/dns", label: "DNS", icon: GlobeIcon },
-  { href: "/settings/templates", label: "Templates", icon: LayersIcon },
+  { href: "/settings/stacks", label: "Tech stacks", icon: LayersIcon },
 ];
 
 export function SettingsSubnav() {
@@ -30,7 +30,7 @@ export function SettingsSubnav() {
             className="mt-1 text-[13px]"
             style={{ color: "var(--color-muted)" }}
           >
-            Preferences, templates, DNS and the nodes apps deploy to.
+            Preferences, tech stacks, DNS and the nodes apps deploy to.
           </p>
         </div>
         <nav aria-label="Settings sections" className="grid gap-0.5">

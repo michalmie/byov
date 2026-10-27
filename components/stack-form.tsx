@@ -2,12 +2,15 @@
 
 import { useState } from "react";
 import {
-  SUPPORTED_TEMPLATE_NODE_KINDS,
-  TEMPLATE_STATUSES,
-  type TemplateDraft,
-  type TemplateField,
-  type TemplateFieldErrors,
-} from "@/lib/templates";
+  STACK_CATEGORIES,
+  STACK_CATEGORY_LABELS,
+  STACK_STATUSES,
+  SUPPORTED_STACK_NODE_KINDS,
+  type StackCategory,
+  type StackDraft,
+  type StackField,
+  type StackFieldErrors,
+} from "@/lib/stacks";
 
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) {
@@ -26,7 +29,7 @@ const statusHints: Record<string, string> = {
   deprecated: "Deprecated — kept for reference, not for new apps.",
 };
 
-export function TemplateForm({
+export function StackForm({
   formId,
   heading,
   lede,
@@ -38,27 +41,37 @@ export function TemplateForm({
   formId: string;
   heading: string;
   lede: string;
-  initial: TemplateDraft;
+  initial: StackDraft;
   submitLabel: string;
-  onSubmit: (draft: TemplateDraft) => TemplateFieldErrors | null;
+  onSubmit: (draft: StackDraft) => StackFieldErrors | null;
   onCancel: () => void;
 }) {
-  const [draft, setDraft] = useState<TemplateDraft>(initial);
-  const [errors, setErrors] = useState<TemplateFieldErrors>({});
+  const [draft, setDraft] = useState<StackDraft>(initial);
+  const [errors, setErrors] = useState<StackFieldErrors>({});
 
-  function set(field: TemplateField, value: string | string[]) {
+  function set(field: StackField, value: string | string[]) {
     setDraft((prev) => ({ ...prev, [field]: value }));
     setErrors((prev) =>
       prev[field] ? { ...prev, [field]: undefined } : prev,
     );
   }
 
-  function setLayer(index: number, field: "label" | "value", value: string) {
+  function setLayer(
+    index: number,
+    field: "category" | "label" | "value",
+    value: string,
+  ) {
     setDraft((prev) => ({
       ...prev,
-      stack: prev.stack.map((item, position) =>
-        position === index ? { ...item, [field]: value } : item,
-      ),
+      stack: prev.stack.map((item, position) => {
+        if (position !== index) {
+          return item;
+        }
+        if (field === "category") {
+          return { ...item, category: value as StackCategory };
+        }
+        return { ...item, [field]: value };
+      }),
     }));
     setErrors((prev) =>
       prev.stack ? { ...prev, stack: undefined } : prev,
@@ -68,7 +81,7 @@ export function TemplateForm({
   function addLayer() {
     setDraft((prev) => ({
       ...prev,
-      stack: [...prev.stack, { label: "", value: "" }],
+      stack: [...prev.stack, { category: "runtime", label: "", value: "" }],
     }));
     setErrors((prev) =>
       prev.stack ? { ...prev, stack: undefined } : prev,
@@ -100,7 +113,7 @@ export function TemplateForm({
     }
   }
 
-  const describedBy = (field: TemplateField, hintId: string) =>
+  const describedBy = (field: StackField, hintId: string) =>
     errors[field] ? `${hintId} ${formId}-${field}-error` : hintId;
 
   return (
@@ -139,7 +152,7 @@ export function TemplateForm({
             onChange={(event) => set("name", event.target.value)}
           />
           <p id={`${formId}-name-hint`} className="hint">
-            Display name. The template slug derives from it and never changes.
+            Display name. The stack slug derives from it and never changes.
           </p>
           <FieldError id={`${formId}-name-error`} message={errors.name} />
         </div>
@@ -160,7 +173,7 @@ export function TemplateForm({
             onChange={(event) => set("tagline", event.target.value)}
           />
           <p id={`${formId}-tagline-hint`} className="hint">
-            Shown in the catalog next to the template name.
+            Shown in the catalog next to the stack name.
           </p>
           <FieldError id={`${formId}-tagline-error`} message={errors.tagline} />
         </div>
@@ -177,26 +190,40 @@ export function TemplateForm({
             aria-describedby={describedBy("status", `${formId}-status-hint`)}
             onChange={(event) => set("status", event.target.value)}
           >
-            {TEMPLATE_STATUSES.map((status) => (
+            {STACK_STATUSES.map((status) => (
               <option key={status} value={status}>
                 {statusHints[status]}
               </option>
             ))}
           </select>
           <p id={`${formId}-status-hint`} className="hint">
-            New templates start as drafts until the stack is verified.
+            New stacks start as drafts until the stack is verified.
           </p>
           <FieldError id={`${formId}-status-error`} message={errors.status} />
         </div>
 
         <fieldset className="field">
-          <legend className="field-label">Stack</legend>
+          <legend className="field-label">Tech stack</legend>
           <div className="grid gap-3">
             {draft.stack.map((item, index) => (
               <div
                 key={index}
-                className="grid gap-2 sm:grid-cols-[minmax(0,12rem)_minmax(0,1fr)_auto]"
+                className="grid gap-2 sm:grid-cols-[minmax(0,9rem)_minmax(0,11rem)_minmax(0,1fr)_auto]"
               >
+                <select
+                  className="input"
+                  aria-label={`Stack layer ${index + 1} category`}
+                  value={item.category}
+                  onChange={(event) =>
+                    setLayer(index, "category", event.target.value)
+                  }
+                >
+                  {STACK_CATEGORIES.map((category) => (
+                    <option key={category} value={category}>
+                      {STACK_CATEGORY_LABELS[category]}
+                    </option>
+                  ))}
+                </select>
                 <input
                   className="input"
                   type="text"
@@ -240,8 +267,8 @@ export function TemplateForm({
             </button>
           </div>
           <p id={`${formId}-stack-hint`} className="hint">
-            The tech stack embedded in this template — name a Framework layer
-            to show it in the catalog.
+            The technologies embedded in this stack, grouped by category —
+            name a Framework layer to show it in the catalog.
           </p>
           <FieldError id={`${formId}-stack-error`} message={errors.stack} />
         </fieldset>
@@ -316,7 +343,7 @@ export function TemplateForm({
         <fieldset className="field">
           <legend className="field-label">Node targets</legend>
           <div className="flex flex-wrap gap-4">
-            {SUPPORTED_TEMPLATE_NODE_KINDS.map((kind) => (
+            {SUPPORTED_STACK_NODE_KINDS.map((kind) => (
               <label
                 key={kind}
                 className="flex items-center gap-2 text-sm"

@@ -4,12 +4,12 @@
   "tagline": "The stack BYOV itself is built on — start compliant, stay shippable.",
   "status": "stable",
   "stack": [
-    { "label": "Framework", "value": "Next.js 16 (App Router)" },
-    { "label": "UI", "value": "React 19 + Tailwind CSS 4" },
-    { "label": "Language", "value": "TypeScript 5 (strict)" },
-    { "label": "Tests", "value": "Vitest 4 + Testing Library" },
-    { "label": "Lint", "value": "ESLint 9" },
-    { "label": "Runtime", "value": "Node.js 20+" }
+    { "category": "frontend", "label": "Framework", "value": "Next.js 16 (App Router)" },
+    { "category": "frontend", "label": "UI", "value": "React 19 + Tailwind CSS 4" },
+    { "category": "language", "label": "Language", "value": "TypeScript 5 (strict)" },
+    { "category": "testing", "label": "Tests", "value": "Vitest 4 + Testing Library" },
+    { "category": "quality", "label": "Lint", "value": "ESLint 9" },
+    { "category": "runtime", "label": "Runtime", "value": "Node.js 20+" }
   ],
   "packages": {
     "next": "16.2.6",
@@ -39,7 +39,7 @@
   "scaffold": [
     {
       "title": "Create the app from the blueprint",
-      "detail": "Copy the file tree in templates/byov-stack/blueprint.md into a new repository — same configs, same scripts, same gates."
+      "detail": "Copy the file tree in stacks/byov-stack/blueprint.md into a new repository — same configs, same scripts, same gates."
     },
     {
       "title": "Install dependencies",
@@ -72,8 +72,8 @@
   ],
   "starter": {
     "kind": "in-repo blueprint",
-    "ref": "templates/byov-stack/blueprint.md",
+    "ref": "stacks/byov-stack/blueprint.md",
     "note": "Versioned starter repos and one-command scaffolding arrive with the BYOV client."
   },
-  "docs": ["templates/byov-stack/README.md", "templates/byov-stack/blueprint.md"]
+  "docs": ["stacks/byov-stack/README.md", "stacks/byov-stack/blueprint.md"]
 }

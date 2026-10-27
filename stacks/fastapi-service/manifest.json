@@ -4,11 +4,12 @@
   "tagline": "FastAPI + Uvicorn service starter for automations and data APIs — pytest and Ruff gates included.",
   "status": "draft",
   "stack": [
-    { "label": "Framework", "value": "FastAPI (async)" },
-    { "label": "Runtime", "value": "Python 3.12 + Uvicorn" },
-    { "label": "Language", "value": "Python 3.12 (typed)" },
-    { "label": "Tests", "value": "pytest + httpx" },
-    { "label": "Lint", "value": "Ruff check + format" }
+    { "category": "server", "label": "Framework", "value": "FastAPI (async)" },
+    { "category": "language", "label": "Language", "value": "Python 3.12 (typed)" },
+    { "category": "database", "label": "Database", "value": "PostgreSQL 16 (external)" },
+    { "category": "runtime", "label": "Runtime", "value": "Python 3.12 + Uvicorn" },
+    { "category": "testing", "label": "Tests", "value": "pytest + httpx" },
+    { "category": "quality", "label": "Lint", "value": "Ruff check + format" }
   ],
   "packages": {
     "fastapi": "^0.115.0",
@@ -36,7 +37,7 @@
   "scaffold": [
     {
       "title": "Create the service from the blueprint",
-      "detail": "Copy the file tree in templates/fastapi-service/blueprint.md into a new repository — app package, tests and gates included."
+      "detail": "Copy the file tree in stacks/fastapi-service/blueprint.md into a new repository — app package, tests and gates included."
     },
     {
       "title": "Install dependencies",
@@ -65,8 +66,8 @@
   ],
   "starter": {
     "kind": "in-repo blueprint",
-    "ref": "templates/fastapi-service/blueprint.md",
+    "ref": "stacks/fastapi-service/blueprint.md",
     "note": "Versioned starter repos and one-command scaffolding arrive with the BYOV client."
   },
-  "docs": ["templates/fastapi-service/README.md", "templates/fastapi-service/blueprint.md"]
+  "docs": ["stacks/fastapi-service/README.md", "stacks/fastapi-service/blueprint.md"]
 }

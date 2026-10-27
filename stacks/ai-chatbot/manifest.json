@@ -4,13 +4,13 @@
   "tagline": "Next.js + AI SDK starter for support copilots and internal assistants — streaming chat UI with gates built in.",
   "status": "draft",
   "stack": [
-    { "label": "Framework", "value": "Next.js 16 (App Router)" },
-    { "label": "AI", "value": "Vercel AI SDK 5" },
-    { "label": "UI", "value": "React 19 + Tailwind CSS 4" },
-    { "label": "Language", "value": "TypeScript 5 (strict)" },
-    { "label": "Tests", "value": "Vitest 4 + Testing Library" },
-    { "label": "Lint", "value": "ESLint 9" },
-    { "label": "Runtime", "value": "Node.js 20+" }
+    { "category": "frontend", "label": "Framework", "value": "Next.js 16 (App Router)" },
+    { "category": "ai", "label": "AI", "value": "Vercel AI SDK 5" },
+    { "category": "frontend", "label": "UI", "value": "React 19 + Tailwind CSS 4" },
+    { "category": "language", "label": "Language", "value": "TypeScript 5 (strict)" },
+    { "category": "testing", "label": "Tests", "value": "Vitest 4 + Testing Library" },
+    { "category": "quality", "label": "Lint", "value": "ESLint 9" },
+    { "category": "runtime", "label": "Runtime", "value": "Node.js 20+" }
   ],
   "packages": {
     "next": "16.2.6",
@@ -41,7 +41,7 @@
   "scaffold": [
     {
       "title": "Create the app from the blueprint",
-      "detail": "Copy the file tree in templates/ai-chatbot/blueprint.md into a new repository — chat UI, API route and gates included."
+      "detail": "Copy the file tree in stacks/ai-chatbot/blueprint.md into a new repository — chat UI, API route and gates included."
     },
     {
       "title": "Install dependencies",
@@ -70,8 +70,8 @@
   ],
   "starter": {
     "kind": "in-repo blueprint",
-    "ref": "templates/ai-chatbot/blueprint.md",
+    "ref": "stacks/ai-chatbot/blueprint.md",
     "note": "Versioned starter repos and one-command scaffolding arrive with the BYOV client."
   },
-  "docs": ["templates/ai-chatbot/README.md", "templates/ai-chatbot/blueprint.md"]
+  "docs": ["stacks/ai-chatbot/README.md", "stacks/ai-chatbot/blueprint.md"]
 }

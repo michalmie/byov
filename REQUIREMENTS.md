@@ -59,23 +59,23 @@ The solution has three parts:
 - Managed nodes feed the dashboard, nodes page, app environments,
   sidebar counts and footer summary.
 
-### App templates (first slice)
+### Tech stacks (first slice)
 
-- Template catalog (`templates/`): one folder per stack with `manifest.json`,
+- Stack catalog (`stacks/`): one folder per stack with `manifest.json`,
   setup `README.md` and stack `blueprint.md`.
-- Registry (`lib/templates.ts`): typed list/get over the manifests; checks
+- Registry (`lib/stacks.ts`): typed list/get over the manifests; checks
   mirror the Control Plane required gates.
-- Catalog UI (`/templates`, `/templates/[slug]`): browse stacks, gates,
+- Catalog UI (`/stacks`, `/stacks/[slug]`): browse stacks, gates,
   scaffold steps and node targets.
-- First template `byov-stack`: the same Next.js + React + TypeScript +
+- First stack `byov-stack`: the same Next.js + React + TypeScript +
   Tailwind + Vitest stack BYOV is built on; versions track `package.json`.
 - Adding a stack = new folder + manifest + registry entry + tests; no
   new dependencies.
 
-### App templates (second slice)
+### Tech stacks (second slice)
 
-- Workspace templates: define, clone, edit and remove custom templates
-  in `/settings/templates`; customs live in the browser until the API lands.
+- Workspace stacks: define, clone, edit and remove custom stacks
+  in `/settings/stacks`; customs live in the browser until the API lands.
 - Shipped manifests stay the read-only catalog; cloning one starts an
   editable workspace copy, and the slug never changes after creation.
 - Gates stay governed: customs inherit the five required gate names and
@@ -83,6 +83,13 @@ The solution has three parts:
 - New draft stacks covering popular vibe-code scenarios: `ai-chatbot`
   (Next.js + AI SDK), `vite-spa` (client-only dashboards) and
   `fastapi-service` (Python APIs and automations).
+
+### Tech stacks (third slice)
+
+- Layers carry a category (frontend, server, database, language,
+  testing, quality, runtime, ai); the detail page groups by category.
+- The stack form edits category, label and value per layer; customs
+  saved before the taxonomy migrate with best-effort categories.
 
 ### Dev URLs (first slice)
 

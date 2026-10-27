@@ -1,36 +1,38 @@
-# React SPA blueprint
+# BYOV Stack blueprint
 
-File tree and configs a scaffolded dashboard starts from. Static
-output, same gates as every BYOV template.
+File tree and configs a scaffolded app starts from. Mirrors the BYOV
+repo layout minus the Control Plane domain code.
 
 ## File tree
 
 ```text
-src/
-  main.tsx          # entry point
-  App.tsx           # first route
-  index.css         # tailwind import + theme
+app/
+  layout.tsx        # root layout, metadata
+  page.tsx          # first route
+  globals.css       # tailwind import + theme
 components/         # UI building blocks
 lib/                # domain logic (pure, unit-tested)
 tests/unit/         # Vitest suites mirroring lib/
 public/             # static assets
-index.html          # Vite entry
 .env.example        # documented env vars, no values
 .gitignore          # node, build output, env files
-eslint.config.mjs   # eslint + typescript
+eslint.config.mjs   # eslint-config-next
+next.config.ts      # minimal Next config
+postcss.config.mjs  # @tailwindcss/postcss
 tsconfig.json       # strict, bundler resolution, @/* alias
-vite.config.ts      # react plugin + test setup
+vitest.config.ts    # jsdom + @ alias + setup file
 vitest.setup.ts     # testing-library matchers
 package.json        # scripts below, versions per manifest.json
+tokens.css          # design tokens (optional, recommended)
 ```
 
 ## Required scripts
 
 ```json
 {
-  "dev": "vite",
-  "build": "vite build",
-  "preview": "vite preview",
+  "dev": "next dev",
+  "build": "next build",
+  "start": "next start",
   "lint": "eslint",
   "typecheck": "tsc --noEmit",
   "test:unit": "vitest run",
@@ -41,17 +43,17 @@ package.json        # scripts below, versions per manifest.json
 ## Required configs
 
 - `tsconfig.json`: `strict: true`, `noEmit`, `@/*` path alias.
-- `eslint.config.mjs`: typescript + react-hooks rules.
-- `vite.config.ts`: react plugin, `jsdom`, `globals`, `@` alias.
+- `eslint.config.mjs`: `eslint-config-next` core-web-vitals + typescript.
+- `vitest.config.ts`: `jsdom`, `globals`, `@` alias, setup file.
 - `.env.example`: every variable documented, zero values.
-- `.gitignore`: dependencies, `dist/`, local env files.
+- `.gitignore`: dependencies, build output, local env files.
 
 ## Definition of done
 
-A scaffolded app is template-compliant when all of these hold:
+A scaffolded app is stack-compliant when all of these hold:
 
 - `npm run test:unit` green, with suites for `lib/` behavior.
 - `npm run lint` and `npm run typecheck` green.
-- `npm run build` produces a static `dist/` build.
+- `npm run build` produces a production build.
 - DLP scan and dependency audit pass in the Control Plane.
 - Deploys only to admin-approved nodes.
