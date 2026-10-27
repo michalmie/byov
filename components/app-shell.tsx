@@ -1,0 +1,68 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { fleetSummary } from "@/lib/control-plane";
+import { Sidebar } from "./sidebar";
+import { Topbar } from "./topbar";
+
+export function AppShell({
+  crumb,
+  children,
+}: {
+  crumb: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  const [open, setOpen] = useState(false);
+  const close = useCallback(() => setOpen(false), []);
+  const summary = fleetSummary();
+
+  useEffect(() => {
+    if (!open) {
+      return;
+    }
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      document.body.style.overflow = "";
+    };
+  }, [open ]);
+
+  return (
+    <div className="min-h-dvh">
+      <Sidebar open={open} onClose={close} />
+      <div
+        aria-hidden={!open}
+        onClick={close}
+        className={`scrim fixed inset-0 z-[var(--z-dropdown)] lg:hidden ${
+          open ? "opacity-100" : "pointer-events-none opacity-0"
+        }`}
+      />
+      <div className="flex min-h-dvh flex-col lg:pl-[260px]">
+        <Topbar onMenu={() => setOpen(true)} crumb={crumb} />
+        <main className="w-full max-w-6xl flex-1 px-4 py-8 sm:px-8 lg:py-10">
+          {children}
+        </main>
+        <footer className="w-full max-w-6xl px-4 pb-8 sm:px-8">
+          <p
+            className="mono rule-top flex flex-wrap gap-x-3 gap-y-1 pt-4 text-sm"
+            style={{ color: "var(--color-ink-2)" }}
+          >
+            <span>BYOV Control Plane</span>
+            <span aria-hidden="true">·</span>
+            <span>Sample data</span>
+            <span aria-hidden="true">·</span>
+            <span className="tnum">
+              {summary.projects} projects · {summary.nodes} nodes
+            </span>
+          </p>
+        </footer>
+      </div>
+    </div>
+  );
+}
