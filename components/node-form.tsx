@@ -175,6 +175,35 @@ export function NodeForm({
           />
         </div>
 
+        <div className="field">
+          <label className="field-label" htmlFor={`${formId}-domainZone`}>
+            Domain zone <span className="hint">(optional)</span>
+          </label>
+          <input
+            id={`${formId}-domainZone`}
+            className="input max-w-md"
+            type="text"
+            inputMode="url"
+            autoComplete="off"
+            placeholder="qa-lab-01.byov.xexo.io"
+            value={draft.domainZone}
+            aria-invalid={Boolean(errors.domainZone)}
+            aria-describedby={describedBy(
+              "domainZone",
+              `${formId}-domainZone-hint`,
+            )}
+            onChange={(event) => set("domainZone", event.target.value)}
+          />
+          <p id={`${formId}-domainZone-hint`} className="hint">
+            Zone this node serves env URLs under, without the *. prefix.
+            Envs on a zoneless node show no URL until you add one.
+          </p>
+          <FieldError
+            id={`${formId}-domainZone-error`}
+            message={errors.domainZone}
+          />
+        </div>
+
         <div className="flex flex-wrap gap-3">
           <button type="submit" className="btn-primary px-3 py-1.5 text-[13px]">
             {submitLabel}

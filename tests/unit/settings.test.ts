@@ -58,6 +58,7 @@ describe("validateNodeDraft", () => {
     kind: "Coolify",
     location: "Berlin",
     endpoint: "https://coolify.example.com",
+    domainZone: "",
   };
 
   it("accepts a complete draft", () => {
@@ -68,6 +69,34 @@ describe("validateNodeDraft", () => {
     expect(validateNodeDraft({ ...valid, endpoint: "  " }, sampleNodes)).toEqual(
       {},
     );
+  });
+
+  it("accepts a blank or valid domain zone", () => {
+    expect(validateNodeDraft({ ...valid, domainZone: "  " }, sampleNodes)).toEqual(
+      {},
+    );
+    expect(
+      validateNodeDraft(
+        { ...valid, domainZone: "berlin-01.byov.xexo.io" },
+        sampleNodes,
+      ),
+    ).toEqual({});
+  });
+
+  it("rejects a zone with a wildcard prefix", () => {
+    const errors = validateNodeDraft(
+      { ...valid, domainZone: "*.berlin-01.byov.xexo.io" },
+      sampleNodes,
+    );
+    expect(errors.domainZone).toMatch(/without the \*\. prefix/);
+  });
+
+  it("rejects a malformed domain zone", () => {
+    const errors = validateNodeDraft(
+      { ...valid, domainZone: "not a zone" },
+      sampleNodes,
+    );
+    expect(errors.domainZone).toMatch(/like .*byov/);
   });
 
   it("requires a name", () => {
@@ -162,6 +191,7 @@ describe("buildNode", () => {
         kind: "Coolify",
         location: " Berlin ",
         endpoint: "https://coolify.example.com/ ",
+        domainZone: " Berlin-01.byov.xexo.io ",
       },
       sampleNodes,
     );
@@ -171,16 +201,24 @@ describe("buildNode", () => {
       kind: "Coolify",
       location: "Berlin",
       endpoint: "https://coolify.example.com/",
+      domainZone: "berlin-01.byov.xexo.io",
       status: "pending",
     });
   });
 
   it("omits a blank endpoint", () => {
     const node = buildNode(
-      { name: "Berlin Edge", kind: "Coolify", location: "Berlin", endpoint: "" },
+      {
+        name: "Berlin Edge",
+        kind: "Coolify",
+        location: "Berlin",
+        endpoint: "",
+        domainZone: "",
+      },
       sampleNodes,
     );
     expect(node.endpoint).toBeUndefined();
+    expect(node.domainZone).toBeUndefined();
   });
 
   it("suffixes the slug when the name is taken", () => {
@@ -190,6 +228,7 @@ describe("buildNode", () => {
         kind: "Coolify",
         location: "Berlin",
         endpoint: "",
+        domainZone: "",
       },
       sampleNodes,
     );
@@ -234,7 +273,13 @@ describe("replaceNode", () => {
 describe("removeNodeGuarded", () => {
   it("removes a node nobody uses", () => {
     const extra = buildNode(
-      { name: "Spare", kind: "Coolify", location: "Berlin", endpoint: "" },
+      {
+        name: "Spare",
+        kind: "Coolify",
+        location: "Berlin",
+        endpoint: "",
+        domainZone: "",
+      },
       sampleNodes,
     );
     const result = removeNodeGuarded(
@@ -281,7 +326,7 @@ describe("validateWorkspaceSettings", () => {
 
   it("requires a workspace name", () => {
     const errors = validateWorkspaceSettings(
-      { workspaceName: "  ", defaultNode: "" },
+      { workspaceName: "  ", defaultNode: "", devZone: "" },
       sampleNodes,
     );
     expect(errors.workspaceName).toMatch(/workspace.*name/i);
@@ -289,7 +334,7 @@ describe("validateWorkspaceSettings", () => {
 
   it("caps the workspace name length", () => {
     const errors = validateWorkspaceSettings(
-      { workspaceName: "x".repeat(61), defaultNode: "" },
+      { workspaceName: "x".repeat(61), defaultNode: "", devZone: "" },
       sampleNodes,
     );
     expect(errors.workspaceName).toMatch(/60/);
@@ -298,13 +343,17 @@ describe("validateWorkspaceSettings", () => {
   it("accepts a known default node or none", () => {
     expect(
       validateWorkspaceSettings(
-        { workspaceName: "Acme", defaultNode: sampleNodes[0]!.slug },
+        {
+          workspaceName: "Acme",
+          defaultNode: sampleNodes[0]!.slug,
+          devZone: "",
+        },
         sampleNodes,
       ),
     ).toEqual({});
     expect(
       validateWorkspaceSettings(
-        { workspaceName: "Acme", defaultNode: "" },
+        { workspaceName: "Acme", defaultNode: "", devZone: "" },
         sampleNodes,
       ),
     ).toEqual({});
@@ -312,10 +361,41 @@ describe("validateWorkspaceSettings", () => {
 
   it("rejects an unknown default node", () => {
     const errors = validateWorkspaceSettings(
-      { workspaceName: "Acme", defaultNode: "no-such-node" },
+      { workspaceName: "Acme", defaultNode: "no-such-node", devZone: "" },
       sampleNodes,
     );
     expect(errors.defaultNode).toMatch(/known node/i);
+  });
+
+  it("accepts a blank or valid dev zone", () => {
+    expect(
+      validateWorkspaceSettings(
+        { workspaceName: "Acme", defaultNode: "", devZone: "  " },
+        sampleNodes,
+      ),
+    ).toEqual({});
+    expect(
+      validateWorkspaceSettings(
+        {
+          workspaceName: "Acme",
+          defaultNode: "",
+          devZone: "dev.byov.xexo.io",
+        },
+        sampleNodes,
+      ),
+    ).toEqual({});
+  });
+
+  it("rejects a malformed dev zone", () => {
+    const errors = validateWorkspaceSettings(
+      {
+        workspaceName: "Acme",
+        defaultNode: "",
+        devZone: "*.dev.byov.xexo.io",
+      },
+      sampleNodes,
+    );
+    expect(errors.devZone).toMatch(/without the \*\. prefix/);
   });
 });
 
@@ -350,7 +430,37 @@ describe("stored settings parsing", () => {
   it("parses stored workspace settings", () => {
     expect(
       parseStoredSettings({ workspaceName: "Acme", defaultNode: "" }),
-    ).toEqual({ workspaceName: "Acme", defaultNode: "" });
+    ).toEqual({ workspaceName: "Acme", defaultNode: "", devZone: "" });
+  });
+
+  it("normalizes a stored dev zone and drops a bad one", () => {
+    expect(
+      parseStoredSettings({
+        workspaceName: "Acme",
+        defaultNode: "",
+        devZone: " DEV.byov.xexo.io ",
+      }),
+    ).toEqual({
+      workspaceName: "Acme",
+      defaultNode: "",
+      devZone: "dev.byov.xexo.io",
+    });
+    expect(
+      parseStoredSettings({
+        workspaceName: "Acme",
+        defaultNode: "",
+        devZone: "nope",
+      }),
+    ).toEqual({ workspaceName: "Acme", defaultNode: "", devZone: "" });
+  });
+
+  it("drops an invalid stored zone but keeps the node", () => {
+    const parsed = parseStoredNodes([
+      { ...sampleNodes[0], domainZone: "not a zone" },
+    ]);
+    expect(parsed).toHaveLength(1);
+    expect(parsed![0]!.slug).toBe(sampleNodes[0]!.slug);
+    expect(parsed![0]!.domainZone).toBeUndefined();
   });
 
   it("rejects malformed workspace settings", () => {

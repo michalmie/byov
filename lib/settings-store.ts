@@ -152,6 +152,7 @@ export function useManagedNodes() {
         return null;
       }
       const endpoint = draft.endpoint.trim();
+      const domainZone = draft.domainZone.trim().toLowerCase();
       const updated: Node = {
         ...target,
         name: draft.name.trim(),
@@ -162,6 +163,11 @@ export function useManagedNodes() {
         updated.endpoint = endpoint;
       } else {
         delete updated.endpoint;
+      }
+      if (domainZone) {
+        updated.domainZone = domainZone;
+      } else {
+        delete updated.domainZone;
       }
       persist(replaceNode(nodes, slug, updated));
       return null;
@@ -214,6 +220,7 @@ export function useWorkspaceSettings() {
       const next = {
         workspaceName: draft.workspaceName.trim(),
         defaultNode: draft.defaultNode,
+        devZone: draft.devZone.trim().toLowerCase(),
       };
       setSettings(next);
       try {

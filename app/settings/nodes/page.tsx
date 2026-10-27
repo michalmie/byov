@@ -14,6 +14,7 @@ const blankDraft: NodeDraft = {
   kind: "Coolify",
   location: "",
   endpoint: "",
+  domainZone: "",
 };
 
 export default function SettingsNodes() {
@@ -29,6 +30,8 @@ export default function SettingsNodes() {
   const editingNode = editing
     ? nodes.find((node) => node.slug === editing)
     : undefined;
+  const zoned = nodes.filter((node) => node.domainZone);
+  const unzoned = nodes.filter((node) => !node.domainZone);
 
   function closePanels() {
     setAdding(false);
@@ -138,6 +141,7 @@ export default function SettingsNodes() {
               kind: editingNode.kind,
               location: editingNode.location,
               endpoint: editingNode.endpoint ?? "",
+              domainZone: editingNode.domainZone ?? "",
             }}
             submitLabel="Save node"
             onSubmit={(draft) => {
@@ -281,6 +285,57 @@ export default function SettingsNodes() {
             </tbody>
           </table>
         </div>
+
+        <section
+          aria-labelledby="dns-heading"
+          className="card grid gap-4 p-5 sm:p-6"
+        >
+          <div className="max-w-2xl">
+            <h2
+              id="dns-heading"
+              className="text-xl font-semibold tracking-tight"
+            >
+              DNS setup
+            </h2>
+            <p
+              className="mt-1 text-sm"
+              style={{ color: "var(--color-ink-2)" }}
+            >
+              One wildcard record per zoned node, pointing at the node.
+              Then request a wildcard certificate on the node itself.
+            </p>
+          </div>
+          {zoned.length > 0 ? (
+            <ul className="grid gap-2">
+              {zoned.map((node) => (
+                <li key={node.slug} className="mono text-sm">
+                  <span
+                    className="tag px-2 py-1 text-xs"
+                    style={{
+                      background: "var(--color-paper-2)",
+                      color: "var(--color-ink-2)",
+                    }}
+                  >
+                    A
+                  </span>{" "}
+                  *.{node.domainZone}{" "}
+                  <span style={{ color: "var(--color-ink-2)" }}>
+                    → {node.name}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="hint">
+              No node serves a zone yet — add one above to get env URLs.
+            </p>
+          )}
+          {unzoned.length > 0 && zoned.length > 0 && (
+            <p className="hint">
+              Without a zone: {unzoned.map((node) => node.name).join(", ")}.
+            </p>
+          )}
+        </section>
       </div>
     </ControlPlaneShell>
   );

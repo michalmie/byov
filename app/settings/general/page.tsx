@@ -170,6 +170,35 @@ export default function SettingsGeneral() {
               )}
             </div>
 
+            <div className="field">
+              <label className="field-label" htmlFor="dev-zone">
+                Development zone <span className="hint">(optional)</span>
+              </label>
+              <input
+                id="dev-zone"
+                className="input max-w-md"
+                type="text"
+                inputMode="url"
+                autoComplete="off"
+                placeholder="dev.byov.xexo.io"
+                value={draft.devZone}
+                aria-invalid={Boolean(errors.devZone)}
+                aria-describedby={
+                  errors.devZone ? "dev-zone-error" : "dev-zone-hint"
+                }
+                onChange={(event) => set("devZone", event.target.value)}
+              />
+              <p id="dev-zone-hint" className="hint">
+                Short URLs for development envs on the node serving this
+                zone, like app.dev.byov.xexo.io. Blank keeps node-zone URLs.
+              </p>
+              {errors.devZone && (
+                <p id="dev-zone-error" className="form-error">
+                  {errors.devZone}
+                </p>
+              )}
+            </div>
+
             <div className="flex flex-wrap gap-3">
               <button type="submit" className="btn-primary px-3 py-1.5 text-[13px]">
                 Save changes

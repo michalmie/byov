@@ -3,6 +3,7 @@
 // rule stays unit-testable; lib/settings-store.ts owns the hooks.
 
 import type { App, Health, Node } from "./control-plane";
+import { MAX_ZONE_LENGTH, isDomainZone } from "./dev-urls";
 
 export const SUPPORTED_NODE_KINDS = ["Coolify"] as const;
 
@@ -20,9 +21,10 @@ export interface NodeDraft {
   kind: string;
   location: string;
   endpoint: string;
+  domainZone: string;
 }
 
-export type NodeField = "name" | "kind" | "location" | "endpoint";
+export type NodeField = "name" | "kind" | "location" | "endpoint" | "domainZone";
 export type NodeFieldErrors = Partial<Record<NodeField, string>>;
 
 export function slugifyNodeName(name: string): string {
@@ -97,6 +99,19 @@ export function validateNodeDraft(
     }
   }
 
+  const domainZone = draft.domainZone.trim();
+  if (domainZone) {
+    if (domainZone.startsWith("*.")) {
+      errors.domainZone =
+        "Enter the zone without the *. prefix, e.g. qa-lab-01.byov.xexo.io.";
+    } else if (domainZone.length > MAX_ZONE_LENGTH) {
+      errors.domainZone = `Keep the zone under ${MAX_ZONE_LENGTH} characters.`;
+    } else if (!isDomainZone(domainZone)) {
+      errors.domainZone =
+        "Enter a zone like qa-lab-01.byov.xexo.io (no scheme, at least two labels).";
+    }
+  }
+
   return errors;
 }
 
@@ -115,6 +130,7 @@ export function buildNode(
   existing: readonly Node[],
 ): Node {
   const endpoint = draft.endpoint.trim();
+  const domainZone = draft.domainZone.trim().toLowerCase();
   return {
     slug: uniqueNodeSlug(
       draft.name,
@@ -125,6 +141,7 @@ export function buildNode(
     location: draft.location.trim(),
     status: "pending",
     ...(endpoint ? { endpoint } : {}),
+    ...(domainZone ? { domainZone } : {}),
   };
 }
 
@@ -193,13 +210,15 @@ export interface WorkspaceSettings {
   workspaceName: string;
   /** Node slug, or "" for none. */
   defaultNode: string;
+  /** Zone for short development URLs, or "" to stay on node zones. */
+  devZone: string;
 }
 
 export function defaultWorkspaceSettings(): WorkspaceSettings {
-  return { workspaceName: "BYOV workspace", defaultNode: "" };
+  return { workspaceName: "BYOV workspace", defaultNode: "", devZone: "" };
 }
 
-export type WorkspaceField = "workspaceName" | "defaultNode";
+export type WorkspaceField = "workspaceName" | "defaultNode" | "devZone";
 export type WorkspaceFieldErrors = Partial<Record<WorkspaceField, string>>;
 
 export function validateWorkspaceSettings(
@@ -215,6 +234,16 @@ export function validateWorkspaceSettings(
   }
   if (draft.defaultNode && !nodes.some((node) => node.slug === draft.defaultNode)) {
     errors.defaultNode = "Choose one of the known nodes.";
+  }
+  const devZone = draft.devZone.trim();
+  if (devZone) {
+    if (devZone.startsWith("*.")) {
+      errors.devZone =
+        "Enter the zone without the *. prefix, e.g. dev.byov.xexo.io.";
+    } else if (!isDomainZone(devZone)) {
+      errors.devZone =
+        "Enter a zone like dev.byov.xexo.io (no scheme, at least two labels).";
+    }
   }
   return errors;
 }
@@ -241,7 +270,7 @@ export function parseStoredNodes(value: unknown): Node[] | undefined {
     if (!isRecord(entry)) {
       continue;
     }
-    const { slug, name, kind, location, status, endpoint } = entry;
+    const { slug, name, kind, location, status, endpoint, domainZone } = entry;
     if (
       typeof slug !== "string" ||
       !slug ||
@@ -263,6 +292,9 @@ export function parseStoredNodes(value: unknown): Node[] | undefined {
       location,
       status: status as Health,
       ...(typeof endpoint === "string" && endpoint ? { endpoint } : {}),
+      ...(typeof domainZone === "string" && isDomainZone(domainZone)
+        ? { domainZone: domainZone.trim().toLowerCase() }
+        : {}),
     });
   }
   return nodes;
@@ -273,7 +305,7 @@ export function parseStoredSettings(value: unknown): WorkspaceSettings | undefin
   if (!isRecord(value)) {
     return undefined;
   }
-  const { workspaceName, defaultNode } = value;
+  const { workspaceName, defaultNode, devZone } = value;
   if (
     typeof workspaceName !== "string" ||
     !workspaceName.trim() ||
@@ -281,5 +313,12 @@ export function parseStoredSettings(value: unknown): WorkspaceSettings | undefin
   ) {
     return undefined;
   }
-  return { workspaceName: workspaceName.trim(), defaultNode };
+  return {
+    workspaceName: workspaceName.trim(),
+    defaultNode,
+    devZone:
+      typeof devZone === "string" && isDomainZone(devZone.trim())
+        ? devZone.trim().toLowerCase()
+        : "",
+  };
 }
