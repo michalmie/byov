@@ -176,12 +176,12 @@ export function NodeForm({
         </div>
 
         <div className="flex flex-wrap gap-3">
-          <button type="submit" className="btn-primary px-4 py-2 text-sm">
+          <button type="submit" className="btn-primary px-3 py-1.5 text-[13px]">
             {submitLabel}
           </button>
           <button
             type="button"
-            className="btn-ghost px-4 py-2 text-sm"
+            className="btn-ghost px-3 py-1.5 text-[13px]"
             onClick={onCancel}
           >
             Cancel

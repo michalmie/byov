@@ -19,28 +19,28 @@ export default function Nodes() {
     <ControlPlaneShell crumb="Nodes">
       <div className="grid gap-8">
         <div>
-          <h1 className="text-[clamp(2rem,3.5vw+0.75rem,3rem)] font-bold leading-[1.05] tracking-tight">
+          <h1 className="text-xl font-semibold tracking-tight">
             Nodes
           </h1>
           <p
-            className="mt-3 max-w-[65ch] text-base"
-            style={{ color: "var(--color-ink-2)" }}
+            className="mt-2 max-w-[65ch] text-sm"
+            style={{ color: "var(--color-muted)" }}
           >
             Where apps land. Administrators pin each environment to a
             node — the first fleet is self-hosted Coolify.
           </p>
-          <div className="mt-6">
+          <div className="mt-4">
             <Link
               href="/settings/nodes"
-              className="btn-ghost px-4 py-2 text-sm"
+              className="btn-ghost px-3 py-1.5 text-[13px]"
             >
               Manage nodes
-              <ArrowRightIcon className="h-4 w-4" />
+              <ArrowRightIcon className="h-3.5 w-3.5" />
             </Link>
           </div>
         </div>
 
-        <div className="rule-top pt-8">
+        <div className="rule-top pt-6">
           <StatStrip
             items={[
               { value: String(nodes.length), qualifier: "Nodes" },

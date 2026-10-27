@@ -134,3 +134,47 @@ export function GearIcon({ className }: IconProps) {
     </Base>
   );
 }
+
+export function SearchIcon({ className }: IconProps) {
+  return (
+    <Base className={className}>
+      <circle cx="11" cy="11" r="6.5" />
+      <path d="m16 16 4 4" />
+    </Base>
+  );
+}
+
+export function BellIcon({ className }: IconProps) {
+  return (
+    <Base className={className}>
+      <path d="M6 16v-5a6 6 0 0 1 12 0v5l1.5 2.5h-15L6 16Z" />
+      <path d="M10 21a2 2 0 0 0 4 0" />
+    </Base>
+  );
+}
+
+export function PlusIcon({ className }: IconProps) {
+  return (
+    <Base className={className}>
+      <path d="M12 5v14M5 12h14" />
+    </Base>
+  );
+}
+
+export function ChevronDownIcon({ className }: IconProps) {
+  return (
+    <Base className={className}>
+      <path d="m6 9 6 6 6-6" />
+    </Base>
+  );
+}
+
+export function DocIcon({ className }: IconProps) {
+  return (
+    <Base className={className}>
+      <path d="M6 3.5h8L19 8.5V20.5H6V3.5Z" />
+      <path d="M14 3.5v5h5" />
+      <path d="M9 13h6M9 16.5h6" />
+    </Base>
+  );
+}

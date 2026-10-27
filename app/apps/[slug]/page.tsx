@@ -69,49 +69,37 @@ export default async function AppDetail({
         />
       }
     >
-      <div className="grid gap-10">
+      <div className="grid gap-8">
         <div id="overview" className="scroll-mt-24">
           <Link
             href="/apps"
-            className="inline-flex items-center gap-2 text-sm font-semibold lg:hidden"
-            style={{ color: "var(--color-ink-2)" }}
+            className="inline-flex items-center gap-1.5 text-[13px] font-medium"
+            style={{ color: "var(--color-muted)" }}
           >
-            <ArrowLeftIcon className="h-4 w-4" />
+            <ArrowLeftIcon className="h-3.5 w-3.5" />
             Apps
           </Link>
-          <h1 className="mt-3 text-[clamp(2rem,3.5vw+0.75rem,3rem)] font-bold leading-[1.05] tracking-tight">
-            {app.name}
-          </h1>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            <span
-              className="tag px-2 py-1 text-xs"
-              style={{
-                background: "var(--color-paper-2)",
-                color: "var(--color-ink-2)",
-              }}
-            >
-              {app.slug}
-            </span>
-            <span
-              className="tag px-2 py-1 text-xs"
-              style={{
-                background: "var(--color-paper-2)",
-                color: "var(--color-ink-2)",
-              }}
-            >
-              {app.stack}
-            </span>
+          <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+            <h1 className="text-xl font-semibold tracking-tight">
+              {app.name}
+            </h1>
             <HealthPill health={health} />
           </div>
           <p
-            className="mt-4 max-w-[65ch] text-base"
+            className="mt-1 text-[13px]"
+            style={{ color: "var(--color-muted)" }}
+          >
+            {app.slug} / {app.stack}
+          </p>
+          <p
+            className="mt-3 max-w-[65ch] text-sm"
             style={{ color: "var(--color-ink-2)" }}
           >
             {app.description}
           </p>
         </div>
 
-        <div className="rule-top pt-8">
+        <div className="rule-top pt-6">
           <StatStrip
             items={[
               {

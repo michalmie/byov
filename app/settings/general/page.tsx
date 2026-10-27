@@ -71,12 +71,12 @@ export default function SettingsGeneral() {
     >
       <div className="grid gap-8">
         <div>
-          <h1 className="text-[clamp(2rem,3.5vw+0.75rem,3rem)] font-bold leading-[1.05] tracking-tight">
+          <h1 className="text-xl font-semibold tracking-tight">
             General
           </h1>
           <p
-            className="mt-3 max-w-[65ch] text-base"
-            style={{ color: "var(--color-ink-2)" }}
+            className="mt-2 max-w-[65ch] text-sm"
+            style={{ color: "var(--color-muted)" }}
           >
             How this workspace presents itself. Settings stay in this browser
             until the API lands.
@@ -171,21 +171,21 @@ export default function SettingsGeneral() {
             </div>
 
             <div className="flex flex-wrap gap-3">
-              <button type="submit" className="btn-primary px-4 py-2 text-sm">
+              <button type="submit" className="btn-primary px-3 py-1.5 text-[13px]">
                 Save changes
               </button>
               {confirmReset ? (
                 <>
                   <button
                     type="button"
-                    className="btn-danger px-4 py-2 text-sm"
+                    className="btn-danger px-3 py-1.5 text-[13px]"
                     onClick={handleReset}
                   >
                     Confirm reset
                   </button>
                   <button
                     type="button"
-                    className="btn-ghost px-4 py-2 text-sm"
+                    className="btn-ghost px-3 py-1.5 text-[13px]"
                     onClick={() => setConfirmReset(false)}
                   >
                     Keep
@@ -194,7 +194,7 @@ export default function SettingsGeneral() {
               ) : (
                 <button
                   type="button"
-                  className="btn-ghost px-4 py-2 text-sm"
+                  className="btn-ghost px-3 py-1.5 text-[13px]"
                   onClick={() => setConfirmReset(true)}
                 >
                   Reset to defaults
