@@ -1,9 +1,8 @@
 <div align="center">
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="public/byov-logo-dark.svg" />
-  <img src="public/byov-logo.svg" alt="BYOV — Bring Your Own Vibe" width="360" />
-</picture>
+<img src="public/byov-octopus.jpg" alt="BYOV mascot — a pink DJ octopus in sunglasses and headphones" width="180" />
+
+# BYOV — Bring Your Own Vibe
 
 **The secure framework for vibe-coded apps at work.**
 Let employees build the tools they actually need — governed, deployed, and watched from one place.
