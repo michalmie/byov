@@ -30,32 +30,30 @@ export default function Dashboard() {
 
   return (
     <ControlPlaneShell crumb="Dashboard">
-      <div className="grid gap-10">
+      <div className="grid gap-8">
         <div>
-          <h1 className="flex flex-wrap items-baseline gap-x-4 text-[clamp(2rem,3.5vw+0.75rem,3rem)] font-bold leading-[1.05] tracking-tight">
+          <h1 className="text-xl font-semibold tracking-tight">
             <span aria-hidden="true" className="tnum">
               {summary.apps}
-            </span>
-            <span className="max-w-[16ch]">
-              apps ship from this control plane.
-            </span>
+            </span>{" "}
+            apps ship from this control plane.
           </h1>
           <p
-            className="mt-4 max-w-[65ch] text-base"
-            style={{ color: "var(--color-ink-2)" }}
+            className="mt-2 max-w-[65ch] text-sm"
+            style={{ color: "var(--color-muted)" }}
           >
             Every vibe-coded app your teams rely on — governed, deployed and
             watched from one place.
           </p>
-          <div className="mt-6">
-            <Link href="/apps" className="btn-ghost px-4 py-2 text-sm">
+          <div className="mt-4">
+            <Link href="/apps" className="btn-ghost px-3 py-1.5 text-[13px]">
               Browse apps
-              <ArrowRightIcon className="h-4 w-4" />
+              <ArrowRightIcon className="h-3.5 w-3.5" />
             </Link>
           </div>
         </div>
 
-        <div className="rule-top pt-8">
+        <div className="rule-top pt-6">
           <StatStrip
             items={[
               { value: String(summary.apps), qualifier: "Apps" },

@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { DocIcon, StackIcon } from "./icons";
 
 const sections = [
-  { href: "/settings/general", label: "General" },
-  { href: "/settings/nodes", label: "Nodes" },
+  { href: "/settings/general", label: "General", icon: DocIcon },
+  { href: "/settings/nodes", label: "Nodes", icon: StackIcon },
 ];
 
 export function SettingsSubnav() {
@@ -14,31 +15,34 @@ export function SettingsSubnav() {
   return (
     <>
       <div
-        className="fixed bottom-0 left-[260px] top-0 hidden w-[248px] flex-col gap-6 overflow-y-auto border-r px-5 pb-8 pt-10 lg:flex"
+        className="fixed bottom-0 left-[216px] top-0 hidden w-[232px] flex-col gap-5 overflow-y-auto border-r px-3 py-5 lg:flex"
         style={{
-          background: "var(--color-paper)",
+          background: "var(--color-card)",
           borderColor: "var(--color-rule)",
         }}
       >
-        <div>
-          <p className="text-base font-semibold tracking-tight">Settings</p>
+        <p className="rail-label px-2">Settings</p>
+        <div className="px-2">
+          <p className="text-[15px] font-semibold tracking-tight">Workspace</p>
           <p
-            className="mt-2 text-sm"
-            style={{ color: "var(--color-ink-2)" }}
+            className="mt-1 text-[13px]"
+            style={{ color: "var(--color-muted)" }}
           >
-            Workspace preferences and the nodes apps deploy to.
+            Preferences and the nodes apps deploy to.
           </p>
         </div>
-        <nav aria-label="Settings sections" className="grid gap-1">
+        <nav aria-label="Settings sections" className="grid gap-0.5">
           {sections.map((section) => {
             const active = pathname === section.href;
+            const Icon = section.icon;
             return (
               <Link
                 key={section.href}
                 href={section.href}
                 aria-current={active || undefined}
-                className="subnav-link px-3 py-2 text-sm"
+                className="subnav-link px-2 py-1.5 text-sm"
               >
+                <Icon className="h-4 w-4 shrink-0" />
                 {section.label}
               </Link>
             );
@@ -56,7 +60,7 @@ export function SettingsSubnav() {
               key={section.href}
               href={section.href}
               aria-current={active || undefined}
-              className="btn-ghost shrink-0 px-3 py-1.5 text-sm"
+              className="btn-ghost shrink-0 px-3 py-1.5 text-[13px]"
               style={
                 active
                   ? { borderColor: "var(--color-accent-deep)" }

@@ -2,7 +2,8 @@ import { render, screen } from "@testing-library/react";
 import { ActivityFeed } from "@/components/activity-feed";
 import { AppSubnav } from "@/components/app-subnav";
 import { EnvironmentCard } from "@/components/environment-card";
-import { appSections } from "@/lib/control-plane";
+import { filterApps } from "@/components/sidebar";
+import { appSections, listApps } from "@/lib/control-plane";
 
 function renderSubnav() {
   return render(
@@ -84,6 +85,21 @@ describe("EnvironmentCard", () => {
       />,
     );
     expect(screen.getByText("—")).toBeInTheDocument();
+  });
+});
+
+describe("filterApps", () => {
+  it("returns everything on a blank query", () => {
+    expect(filterApps(listApps(), "   ")).toHaveLength(listApps().length);
+  });
+
+  it("matches names case-insensitively", () => {
+    const matches = filterApps(listApps(), "leave");
+    expect(matches.map((app) => app.slug)).toEqual(["leave-balancer"]);
+  });
+
+  it("returns nothing when no name matches", () => {
+    expect(filterApps(listApps(), "no-such-app")).toHaveLength(0);
   });
 });
 

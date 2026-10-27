@@ -1,19 +1,19 @@
 import type { AppEnvironment, Deployment } from "@/lib/control-plane";
-import { HealthPill } from "./data-ui";
+import { HealthPill, StatusPill } from "./data-ui";
 
 function Fact({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <dt
-        className="mono text-xs uppercase"
-        style={{ color: "var(--color-ink-2)", letterSpacing: "0.1em" }}
-      >
+      <dt className="text-xs" style={{ color: "var(--color-muted)" }}>
         {label}
       </dt>
-      <dd className="mt-1 text-sm">{children}</dd>
+      <dd className="mt-1 text-[13px]">{children}</dd>
     </div>
   );
 }
+
+const deployTone = { live: "ok", failed: "bad", running: "info" } as const;
+const deployLabel = { live: "Live", failed: "Failed", running: "Running" } as const;
 
 export function EnvironmentCard({
   env,
@@ -28,29 +28,39 @@ export function EnvironmentCard({
   checksPassing: number;
   checksTotal: number;
 }) {
+  const checksOk = checksPassing === checksTotal;
   return (
     <article
       aria-label={`${env.name} environment`}
-      className="card grid gap-5 p-5 sm:p-6"
+      className="card grid gap-4 p-5"
     >
-      <div className="flex flex-wrap items-center gap-3">
-        <h3 className="text-lg font-semibold tracking-tight">{env.name}</h3>
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-[15px] font-semibold tracking-tight">{env.name}</h3>
         <HealthPill health={env.status} />
+        {lastDeploy && (
+          <StatusPill
+            tone={deployTone[lastDeploy.status]}
+            label={deployLabel[lastDeploy.status]}
+          />
+        )}
       </div>
-      <dl className="tnum grid gap-x-6 gap-y-4 sm:grid-cols-2">
+      <p className="mono text-xs" style={{ color: "var(--color-muted)" }}>
+        {env.node}
+      </p>
+      <dl className="tnum rule-top grid gap-x-6 gap-y-4 pt-4 sm:grid-cols-3">
         <Fact label="URL">
-          <span className="mono block truncate">{env.url}</span>
+          <span className="mono block truncate text-[13px]">{env.url}</span>
         </Fact>
         <Fact label="Node">
-          <span className="mono">{nodeName}</span>
+          <span className="mono text-[13px]">{nodeName}</span>
         </Fact>
         <Fact label="Last deploy">
           {lastDeploy ? (
             <>
-              <span className="mono">{lastDeploy.id}</span>
+              <span className="mono text-[13px]">{lastDeploy.id}</span>
               <span
-                className="block"
-                style={{ color: "var(--color-ink-2)" }}
+                className="block text-xs"
+                style={{ color: "var(--color-muted)" }}
               >
                 {lastDeploy.when} · by {lastDeploy.by}
               </span>
@@ -60,7 +70,13 @@ export function EnvironmentCard({
           )}
         </Fact>
         <Fact label="Checks">
-          {checksPassing}/{checksTotal} passing
+          <span className="inline-flex items-center gap-2">
+            {checksPassing}/{checksTotal} passing
+            <StatusPill
+              tone={checksOk ? "ok" : "warn"}
+              label={checksOk ? "Passing" : "Attention"}
+            />
+          </span>
         </Fact>
       </dl>
     </article>

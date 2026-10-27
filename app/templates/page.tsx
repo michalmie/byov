@@ -29,12 +29,12 @@ export default function Templates() {
     <ControlPlaneShell crumb="Templates">
       <div className="grid gap-8">
         <div>
-          <h1 className="text-[clamp(2rem,3.5vw+0.75rem,3rem)] font-bold leading-[1.05] tracking-tight">
+          <h1 className="text-xl font-semibold tracking-tight">
             Templates
           </h1>
           <p
-            className="mt-3 max-w-[65ch] text-base"
-            style={{ color: "var(--color-ink-2)" }}
+            className="mt-2 max-w-[65ch] text-sm"
+            style={{ color: "var(--color-muted)" }}
           >
             Paved-road starters for vibe-coded apps. Every template ships
             with the required gates built in — starting with the stack BYOV
@@ -42,7 +42,7 @@ export default function Templates() {
           </p>
         </div>
 
-        <div className="rule-top pt-8">
+        <div className="rule-top pt-6">
           <StatStrip
             items={[
               { value: String(templates.length), qualifier: "Templates" },

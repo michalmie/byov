@@ -10,12 +10,12 @@ export default function Apps() {
     <ControlPlaneShell crumb="Apps">
       <div className="grid gap-8">
         <div>
-          <h1 className="text-[clamp(2rem,3.5vw+0.75rem,3rem)] font-bold leading-[1.05] tracking-tight">
+          <h1 className="text-xl font-semibold tracking-tight">
             Apps
           </h1>
           <p
-            className="mt-3 max-w-[65ch] text-base"
-            style={{ color: "var(--color-ink-2)" }}
+            className="mt-2 max-w-[65ch] text-sm"
+            style={{ color: "var(--color-muted)" }}
           >
             Every vibe-coded app governed by this control plane. Open one to
             see its environments, deployments and checks.

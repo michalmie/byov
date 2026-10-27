@@ -1,7 +1,8 @@
-/* Hallmark · macrostructure: Stat-Led · T4 stat strip knobs: layout=4-up, number=display, qualifier=under
- * theme: custom · vibe: "warm control room, signal orange" · paper: oklch(96.5% 0.012 95) · accent: oklch(60% 0.2 42)
- * display: Space Grotesk · body: Space Grotesk · axes: light / geometric-sans / warm
- * studied: no · context: inferred · nav: app-shell rail (N3-adapted) · footer: Ft2
+/* Hallmark · macrostructure: Stat-Led · T4 stat strip knobs: layout=4-up, number=text-2xl, qualifier=under
+ * theme: custom · vibe: "quiet ops console, near-black actions" · paper: oklch(95.5% 0.003 90) · accent: oklch(25% 0.004 90)
+ * display: system sans · body: system sans · axes: light / neutral-sans / neutral
+ * studied: yes · DNA-source: image (user reference: 3-column ops console)
+ * context: inferred · nav: app-shell dual rail (N3-adapted) · footer: Ft2
  * contrast: pass (40-41) · slop: pass (42-45) · honest: pass (46) · chrome: pass (47)
  * tokens: pass (48) · responsive: pass (49) · icons: pass (30) · mobile: pass (34, 49, 50-57)
  */
@@ -23,8 +24,8 @@ body {
   background: var(--color-paper);
   color: var(--color-ink);
   font-family: var(--font-body);
-  font-size: var(--text-base);
-  line-height: 1.55;
+  font-size: 0.875rem;
+  line-height: 1.5;
   -webkit-font-smoothing: antialiased;
 }
 
@@ -54,12 +55,12 @@ a:active {
 /* Focus is instant and visible — never transitioned in. */
 :focus-visible {
   outline: 2px solid var(--color-focus);
-  outline-offset: 3px;
+  outline-offset: 2px;
   border-radius: var(--radius-tag);
 }
 
 ::selection {
-  background: var(--color-lime);
+  background: var(--color-paper-2);
   color: var(--color-ink);
 }
 
@@ -71,25 +72,23 @@ a:active {
 }
 
 .rail-well {
-  background: var(--color-rail-2);
+  background: var(--color-paper);
   border: 1px solid var(--color-rail-line);
   border-radius: var(--radius-well);
 }
 
 .rail-label {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--color-rail-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--color-muted);
 }
 
 .rail-link {
   display: flex;
   align-items: center;
-  gap: var(--space-sm);
-  border-radius: var(--radius-well);
-  color: var(--color-rail-muted);
+  gap: var(--space-xs);
+  border-radius: var(--radius-tag);
+  color: var(--color-ink-2);
   white-space: nowrap;
   transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
 }
@@ -101,24 +100,26 @@ a:active {
 
 .rail-link[aria-current="page"] {
   background: var(--color-rail-2);
-  color: var(--color-lime);
+  color: var(--color-rail-ink);
+  font-weight: 500;
 }
 
 .btn-ghost {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-2xs);
   border: 1px solid var(--color-rule);
   border-radius: var(--radius-pill);
   background: var(--color-card);
   color: var(--color-ink);
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
-  transition: border-color var(--dur-micro) var(--ease-out), transform 100ms var(--ease-out);
+  transition: border-color var(--dur-micro) var(--ease-out), background-color var(--dur-micro) var(--ease-out), transform 100ms var(--ease-out);
 }
 
 .btn-ghost:hover {
-  border-color: var(--color-accent-deep);
+  border-color: var(--color-ink-2);
+  background: var(--color-paper);
 }
 
 .btn-ghost:active {
@@ -140,7 +141,7 @@ a:active {
 }
 
 .icon-btn:hover {
-  background: color-mix(in oklch, currentColor 12%, transparent);
+  background: color-mix(in oklch, currentColor 10%, transparent);
 }
 
 .icon-btn:active {
@@ -159,8 +160,44 @@ a:active {
   align-items: center;
   gap: var(--space-2xs);
   border-radius: var(--radius-tag);
-  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  font-weight: 500;
+  line-height: 1.4;
   white-space: nowrap;
+}
+
+.kbd {
+  display: inline-grid;
+  place-items: center;
+  min-width: 1.25rem;
+  padding: 0 var(--space-3xs);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-tag);
+  background: var(--color-card);
+  color: var(--color-muted);
+  font-size: 0.6875rem;
+  line-height: 1.4;
+}
+
+.menu {
+  background: var(--color-card);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  box-shadow: var(--shadow-menu);
+}
+
+.menu-link {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  border-radius: var(--radius-tag);
+  color: var(--color-ink-2);
+  white-space: nowrap;
+}
+
+.menu-link:hover {
+  background: var(--color-paper-2);
+  color: var(--color-ink);
 }
 
 .rule-top {
@@ -174,14 +211,11 @@ a:active {
 }
 
 .spec-table th {
-  font-family: var(--font-mono);
-  font-size: var(--text-sm);
+  font-size: 0.75rem;
   font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--color-ink-2);
+  color: var(--color-muted);
   text-align: left;
-  padding: var(--space-sm) var(--space-md);
+  padding: var(--space-xs) var(--space-md);
   border-bottom: 1px solid var(--color-rule);
   white-space: nowrap;
 }
@@ -213,7 +247,8 @@ a:active {
 .subnav-link {
   display: flex;
   align-items: center;
-  border-radius: var(--radius-well);
+  gap: var(--space-xs);
+  border-radius: var(--radius-tag);
   color: var(--color-ink-2);
   white-space: nowrap;
   transition: background-color var(--dur-micro) var(--ease-out), color var(--dur-micro) var(--ease-out);
@@ -227,7 +262,7 @@ a:active {
 .subnav-link[aria-current="true"] {
   background: var(--color-paper-2);
   color: var(--color-ink);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .field {
@@ -237,7 +272,7 @@ a:active {
 
 .field-label {
   font-size: var(--text-sm);
-  font-weight: 600;
+  font-weight: 500;
 }
 
 .input {
@@ -276,18 +311,18 @@ a:active {
 .btn-primary {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-2xs);
   border: 1px solid var(--color-accent-deep);
   border-radius: var(--radius-pill);
   background: var(--color-accent);
-  color: var(--color-ink);
-  font-weight: 600;
+  color: var(--color-card);
+  font-weight: 500;
   white-space: nowrap;
   transition: background-color var(--dur-micro) var(--ease-out), transform 100ms var(--ease-out);
 }
 
 .btn-primary:hover {
-  background: color-mix(in oklch, var(--color-accent) 88%, var(--color-ink));
+  background: var(--color-accent-deep);
 }
 
 .btn-primary:active {
@@ -304,12 +339,12 @@ a:active {
 .btn-danger {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-xs);
+  gap: var(--space-2xs);
   border: 1px solid var(--color-bad);
   border-radius: var(--radius-pill);
   background: transparent;
   color: var(--color-bad);
-  font-weight: 600;
+  font-weight: 500;
   white-space: nowrap;
   transition: background-color var(--dur-micro) var(--ease-out), transform 100ms var(--ease-out);
 }
@@ -328,7 +363,7 @@ a:active {
 }
 
 .scrim {
-  background: color-mix(in oklch, var(--color-ink) 45%, transparent);
+  background: color-mix(in oklch, var(--color-ink) 40%, transparent);
   transition: opacity var(--dur-short) var(--ease-out);
 }
 

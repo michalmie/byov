@@ -14,12 +14,12 @@ export function StatusPill({ tone, label }: { tone: Tone; label: string }) {
   const vars = toneVars[tone];
   return (
     <span
-      className="tag px-2 py-1 text-xs font-medium"
+      className="tag px-1.5 py-0.5"
       style={{ background: vars.soft, color: "var(--color-ink)" }}
     >
       <span
         aria-hidden="true"
-        className="h-2 w-2 rounded-full"
+        className="h-1.5 w-1.5 rounded-full"
         style={{ background: vars.dot }}
       />
       {label}
@@ -47,18 +47,18 @@ export interface StatItem {
 
 export function StatStrip({ items }: { items: StatItem[] }) {
   return (
-    <dl className="tnum grid grid-cols-2 gap-x-6 gap-y-8 lg:grid-cols-4">
+    <dl className="tnum grid grid-cols-2 gap-x-6 gap-y-6 lg:grid-cols-4">
       {items.map((item) => (
         <div key={item.qualifier}>
           <dd
-            className="text-4xl font-bold tracking-tight"
+            className="text-2xl font-semibold tracking-tight"
             style={item.accent ? { color: "var(--color-warn-deep)" } : undefined}
           >
             {item.value}
           </dd>
           <dt
-            className="mt-1 text-sm"
-            style={{ color: "var(--color-ink-2)" }}
+            className="mt-0.5 text-[13px]"
+            style={{ color: "var(--color-muted)" }}
           >
             {item.qualifier}
           </dt>
@@ -77,8 +77,8 @@ export function SectionHead({
 }) {
   return (
     <div className="max-w-2xl">
-      <h2 className="text-xl font-semibold tracking-tight">{title}</h2>
-      <p className="mt-1 text-sm" style={{ color: "var(--color-ink-2)" }}>
+      <h2 className="text-[15px] font-semibold tracking-tight">{title}</h2>
+      <p className="mt-0.5 text-[13px]" style={{ color: "var(--color-muted)" }}>
         {lede}
       </p>
     </div>

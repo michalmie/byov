@@ -1,48 +1,47 @@
 /* Hallmark · pre-emit critique: P5 H4 E5 S4 R5 V5 — token block only, scored with the build. */
 
 :root {
-  /* Paper (light band, warm-tinted toward the signal-orange anchor) */
-  --color-paper: oklch(96.5% 0.012 95);
-  --color-paper-2: oklch(93.2% 0.014 92);
-  --color-card: oklch(99% 0.006 95);
+  /* Paper — neutral light gray page band, white cards */
+  --color-paper: oklch(95.5% 0.003 90);
+  --color-paper-2: oklch(91.5% 0.003 90);
+  --color-card: oklch(100% 0 0);
 
-  /* Ink */
-  --color-ink: oklch(20% 0.012 60);
-  --color-ink-2: oklch(38% 0.012 65);
-  --color-muted: oklch(52% 0.01 70);
+  /* Ink — neutral scale */
+  --color-ink: oklch(24% 0.004 90);
+  --color-ink-2: oklch(45% 0.003 90);
+  --color-muted: oklch(55% 0.003 90);
 
   /* Rules */
-  --color-rule: oklch(86% 0.01 85);
-  --color-rule-2: oklch(90% 0.01 90);
+  --color-rule: oklch(89.5% 0.002 90);
+  --color-rule-2: oklch(93.5% 0.002 90);
 
-  /* Signal orange — the one brand accent. Small footprint: active states,
-     primary action fill, wordmark spark. Ink text sits on it. */
-  --color-accent: oklch(60% 0.2 42);
-  --color-accent-deep: oklch(52% 0.19 40);
-  --color-focus: oklch(56% 0.22 42);
+  /* Primary action — near-black fill, white text. Small footprint:
+     primary buttons, logo mark, avatar. */
+  --color-accent: oklch(25% 0.004 90);
+  --color-accent-deep: oklch(17% 0.003 90);
+  --color-focus: oklch(55% 0.18 260);
 
-  /* Dark rail (sidebar) */
-  --color-rail: oklch(22% 0.016 65);
-  --color-rail-2: oklch(27.5% 0.018 65);
-  --color-rail-line: oklch(32% 0.014 65);
-  --color-rail-ink: oklch(93% 0.008 90);
-  --color-rail-muted: oklch(68% 0.01 85);
-  --color-lime: oklch(84% 0.19 128);
+  /* Sidebar (light rail) */
+  --color-rail: oklch(100% 0 0);
+  --color-rail-2: oklch(91.5% 0.003 90);
+  --color-rail-line: oklch(89.5% 0.002 90);
+  --color-rail-ink: oklch(24% 0.004 90);
+  --color-rail-muted: oklch(45% 0.003 90);
 
   /* Semantic status — always paired with a text label, never color alone */
-  --color-ok: oklch(60% 0.165 152);
-  --color-ok-soft: oklch(92% 0.05 152);
-  --color-warn: oklch(70% 0.16 82);
-  --color-warn-soft: oklch(93% 0.055 85);
-  --color-warn-deep: oklch(54% 0.15 80);
-  --color-bad: oklch(58% 0.2 24);
-  --color-bad-soft: oklch(92% 0.05 25);
-  --color-info: oklch(62% 0.12 205);
-  --color-info-soft: oklch(92% 0.045 205);
+  --color-ok: oklch(55% 0.14 150);
+  --color-ok-soft: oklch(93.5% 0.045 150);
+  --color-warn: oklch(60% 0.14 80);
+  --color-warn-soft: oklch(94% 0.05 85);
+  --color-warn-deep: oklch(50% 0.13 80);
+  --color-bad: oklch(55% 0.21 25);
+  --color-bad-soft: oklch(93% 0.045 25);
+  --color-info: oklch(55% 0.17 260);
+  --color-info-soft: oklch(92.5% 0.045 260);
 
-  /* Type — faces come from next/font variables set on <html> (offline-safe) */
-  --font-display: var(--font-grotesk), "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
-  --font-body: var(--font-grotesk), "Space Grotesk", ui-sans-serif, system-ui, sans-serif;
+  /* Type — system sans for UI (matches reference), Plex Mono for data */
+  --font-display: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-body: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: var(--font-plex), "IBM Plex Mono", ui-monospace, SFMono-Regular, monospace;
 
   --text-xs: 0.64rem;
@@ -66,11 +65,11 @@
   --space-2xl: 4rem;
   --space-3xl: 6rem;
 
-  /* Radii — varied on purpose, never one radius everywhere */
+  /* Radii — small and quiet: 6px controls, 8px cards */
   --radius-tag: 6px;
-  --radius-well: 10px;
-  --radius-card: 14px;
-  --radius-pill: 999px;
+  --radius-well: 6px;
+  --radius-card: 8px;
+  --radius-pill: 6px;
 
   /* Motion */
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
@@ -81,6 +80,7 @@
   --dur-long: 420ms;
 
   /* Depth */
+  --shadow-menu: 0 12px 32px oklch(20% 0 0 / 0.12), 0 2px 6px oklch(20% 0 0 / 0.08);
   --z-base: 1;
   --z-raised: 10;
   --z-dropdown: 100;

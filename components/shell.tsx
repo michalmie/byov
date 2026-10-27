@@ -49,24 +49,28 @@ export function ControlPlaneShell({
       />
       <div
         className={`flex min-h-dvh flex-col ${
-          subnav ? "lg:pl-[508px]" : "lg:pl-[260px]"
+          subnav ? "lg:pl-[448px]" : "lg:pl-[216px]"
         }`}
       >
-        <Topbar onMenu={() => setOpen(true)} crumb={crumb} />
-        <main className="w-full max-w-6xl flex-1 px-4 py-8 sm:px-8 lg:py-10">
+        <Topbar
+          onMenu={() => setOpen(true)}
+          crumb={crumb}
+          attention={summary.attention}
+        />
+        <main className="w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">
           {subnav}
           {children}
         </main>
-        <footer className="w-full max-w-6xl px-4 pb-8 sm:px-8">
+        <footer className="w-full max-w-6xl px-4 pb-6 sm:px-6">
           <p
-            className="mono rule-top flex flex-wrap gap-x-3 gap-y-1 pt-4 text-sm"
-            style={{ color: "var(--color-ink-2)" }}
+            className="tnum rule-top flex flex-wrap gap-x-3 gap-y-1 pt-3 text-xs"
+            style={{ color: "var(--color-muted)" }}
           >
             <span>BYOV Control Plane</span>
             <span aria-hidden="true">·</span>
             <span>Sample data</span>
             <span aria-hidden="true">·</span>
-            <span className="tnum">
+            <span>
               {summary.apps} apps · {summary.nodes} nodes
             </span>
           </p>
