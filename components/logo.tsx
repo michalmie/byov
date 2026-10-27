@@ -6,14 +6,14 @@ interface LogoProps {
   className?: string;
 }
 
-export function LogoMark({ className = "h-6 w-6" }: LogoProps) {
+export function LogoMark({ className = "h-8 w-8" }: LogoProps) {
   return (
     <Image
       src="/byov-octopus.jpg"
       alt=""
-      width={48}
-      height={48}
-      className={`${className} rounded-[6px]`}
+      width={64}
+      height={64}
+      className={`${className} rounded-[8px]`}
     />
   );
 }
@@ -21,7 +21,7 @@ export function LogoMark({ className = "h-6 w-6" }: LogoProps) {
 export function Logo({ className = "" }: LogoProps) {
   return (
     <span className={`inline-flex items-center gap-2 ${className}`}>
-      <LogoMark className="h-6 w-6" />
+      <LogoMark />
       <span className="text-[15px] font-bold tracking-tight">BYOV</span>
     </span>
   );

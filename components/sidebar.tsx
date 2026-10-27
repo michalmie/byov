@@ -123,7 +123,7 @@ export function Sidebar({
           onClick={onClose}
           className="inline-flex items-center gap-2 text-[15px] font-bold tracking-tight"
         >
-          <LogoMark className="h-6 w-6" />
+          <LogoMark className="h-8 w-8" />
           BYOV
         </Link>
         <button
