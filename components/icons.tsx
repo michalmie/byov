@@ -129,7 +129,7 @@ export function PulseIcon({ className }: IconProps) {
 export function GearIcon({ className }: IconProps) {
   return (
     <Base className={className}>
-      <circle cx="12" cy="12" r="7.2" strokeDasharray="3.2 2.5" />
+      <path d="M18 9.6l2.9 1 0 2.8-2.9 1-.1.1 1.3 2.7-2 2-2.7-1.3-.1.1-1 2.9-2.8 0-1-2.9-.1-.1-2.7 1.3-2-2 1.3-2.7-.1-.1-2.9-1 0-2.8 2.9-1 .1-.1-1.3-2.7 2-2 2.7 1.3.1-.1 1-2.9 2.8 0 1 2.9.1.1 2.7-1.3 2 2-1.3 2.7Z" />
       <circle cx="12" cy="12" r="2.6" />
     </Base>
   );
