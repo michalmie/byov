@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "services": [
+    "web"
+  ],
+  "normalPorts": [
+    3014
+  ],
+  "requiredCommands": [
+    "node",
+    "npm"
+  ],
+  "publicService": "web",
+  "files": [
+    "deploy/preview.sh",
+    "deploy/preview.mjs"
+  ],
+  "healthPath": "/",
+  "pagePath": "/",
+  "links": [
+    {
+      "label": "Website",
+      "path": "/"
+    }
+  ]
+}
