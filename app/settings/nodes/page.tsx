@@ -5,6 +5,7 @@ import { ControlPlaneShell } from "@/components/shell";
 import { HealthPill, StatusPill } from "@/components/data-ui";
 import { DnsTestButton } from "@/components/dns-test-button";
 import { NodeForm } from "@/components/node-form";
+import { NodeSetupGuide } from "@/components/node-setup-guide";
 import { SettingsSubnav } from "@/components/settings-subnav";
 import { listApps } from "@/lib/control-plane";
 import { useManagedNodes, useWorkspaceSettings } from "@/lib/settings-store";
@@ -29,6 +30,7 @@ export default function SettingsNodes() {
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
+  const [nextStepsFor, setNextStepsFor] = useState<string | null>(null);
 
   const editingNode = editing
     ? nodes.find((node) => node.slug === editing)
@@ -66,6 +68,7 @@ export default function SettingsNodes() {
                 onClick={() => {
                   setAdding(true);
                   setNotice(null);
+                  setNextStepsFor(null);
                 }}
               >
                 Add node
@@ -81,6 +84,7 @@ export default function SettingsNodes() {
                     closePanels();
                     setConfirmReset(false);
                     setNotice("Nodes are back to sample data.");
+                    setNextStepsFor(null);
                   }}
                 >
                   Confirm reset
@@ -113,26 +117,58 @@ export default function SettingsNodes() {
         )}
 
         {adding && (
-          <NodeForm
-            key="new"
-            formId="add-node"
-            heading="Add node"
-            lede="Register a deployment target. It stays Pending until first contact."
-            initial={blankDraft}
-            submitLabel="Add node"
-            onSubmit={(draft) => {
-              const errors = createNode(draft);
-              if (errors) {
-                return errors;
-              }
-              closePanels();
-              setNotice(
-                `Added ${draft.name.trim()} — pending first contact.`,
-              );
-              return null;
-            }}
-            onCancel={closePanels}
-          />
+          <div className="grid gap-6">
+            <NodeSetupGuide />
+            <NodeForm
+              key="new"
+              formId="add-node"
+              heading="Add node"
+              lede="Register a deployment target. It stays Pending until first contact."
+              initial={blankDraft}
+              submitLabel="Add node"
+              onSubmit={(draft) => {
+                const errors = createNode(draft);
+                if (errors) {
+                  return errors;
+                }
+                closePanels();
+                setNotice(
+                  `Added ${draft.name.trim()} — pending first contact.`,
+                );
+                setNextStepsFor(draft.name.trim());
+                return null;
+              }}
+              onCancel={closePanels}
+            />
+          </div>
+        )}
+
+        {nextStepsFor && !adding && !editing && (
+          <section
+            aria-labelledby="node-next-steps-heading"
+            className="card grid gap-3 p-5 sm:p-6"
+          >
+            <h2
+              id="node-next-steps-heading"
+              className="text-lg font-semibold tracking-tight"
+            >
+              Next steps for {nextStepsFor}
+            </h2>
+            <ul className="grid max-w-2xl list-disc gap-2 pl-5 text-sm">
+              <li>
+                The node stays Pending until the control plane first
+                contacts it — no passing test is needed to save.
+              </li>
+              <li>
+                Set its zone (Edit the node) and add the wildcard DNS
+                record in DNS setup below.
+              </li>
+              <li>
+                Use the Tests in DNS setup to verify DNS, TLS, and HTTP
+                from the BYOV server.
+              </li>
+            </ul>
+          </section>
         )}
 
         {editingNode && (
@@ -157,6 +193,7 @@ export default function SettingsNodes() {
               }
               closePanels();
               setNotice(`Saved ${draft.name.trim()}.`);
+              setNextStepsFor(null);
               return null;
             }}
             onCancel={closePanels}
@@ -232,6 +269,7 @@ export default function SettingsNodes() {
                             setEditing(node.slug);
                             setConfirmingRemove(null);
                             setNotice(null);
+                            setNextStepsFor(null);
                           }}
                         >
                           Edit
@@ -259,6 +297,7 @@ export default function SettingsNodes() {
                                   closePanels();
                                   setNotice(`Removed ${node.name}.`);
                                 }
+                                setNextStepsFor(null);
                               }}
                             >
                               Confirm
@@ -278,6 +317,7 @@ export default function SettingsNodes() {
                             onClick={() => {
                               setConfirmingRemove(node.slug);
                               setNotice(null);
+                              setNextStepsFor(null);
                             }}
                           >
                             Remove
