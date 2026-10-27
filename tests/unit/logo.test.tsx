@@ -9,6 +9,12 @@ describe("LogoMark", () => {
     expect(img?.getAttribute("alt")).toBe("");
     expect(img?.getAttribute("src")).toContain("byov-octopus");
   });
+
+  it("defaults to the 32px sidebar size so the mascot stays legible", () => {
+    const { container } = render(<LogoMark />);
+    const img = container.querySelector("img");
+    expect(img?.getAttribute("class")).toContain("h-8 w-8");
+  });
 });
 
 describe("Logo", () => {
