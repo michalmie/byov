@@ -265,6 +265,36 @@ a:active {
   font-weight: 500;
 }
 
+/* Third level: in-content tab bar over the page's anchor sections. */
+.page-tabs {
+  border-bottom: 1px solid var(--color-rule);
+  background: var(--color-paper);
+  scrollbar-width: thin;
+}
+
+.page-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-sm) var(--space-3xs);
+  margin-bottom: -1px;
+  border-bottom: 2px solid transparent;
+  color: var(--color-muted);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+  transition: color var(--dur-micro) var(--ease-out), border-color var(--dur-micro) var(--ease-out);
+}
+
+.page-tab:hover {
+  color: var(--color-ink);
+}
+
+.page-tab[aria-current="true"] {
+  border-bottom-color: var(--color-accent-deep);
+  color: var(--color-ink);
+}
+
 .field {
   display: grid;
   gap: var(--space-2xs);

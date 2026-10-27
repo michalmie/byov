@@ -2,6 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { ActivityFeed } from "@/components/activity-feed";
 import { AppSubnav } from "@/components/app-subnav";
 import { EnvironmentCard } from "@/components/environment-card";
+import { PageTabs } from "@/components/page-tabs";
 import { filterApps } from "@/components/sidebar";
 import { appSections, listApps } from "@/lib/control-plane";
 
@@ -35,6 +36,25 @@ describe("AppSubnav", () => {
     for (const link of current) {
       expect(link).toHaveAttribute("aria-current", "true");
     }
+  });
+});
+
+describe("PageTabs", () => {
+  it("renders every section as an anchor tab", () => {
+    render(<PageTabs sections={appSections} label="Probe tabs" />);
+    const tabs = screen.getByRole("navigation", { name: "Probe tabs" });
+    for (const section of appSections) {
+      const link = tabs.querySelector(`a[href="#${section.id}"]`);
+      expect(link).not.toBeNull();
+      expect(link).toHaveTextContent(section.label);
+    }
+  });
+
+  it("marks overview current by default", () => {
+    render(<PageTabs sections={appSections} />);
+    const tabs = screen.getByRole("navigation", { name: "Page sections" });
+    const overview = tabs.querySelector('a[href="#overview"]');
+    expect(overview).toHaveAttribute("aria-current", "true");
   });
 });
 

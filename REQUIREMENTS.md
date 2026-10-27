@@ -59,6 +59,15 @@ The solution has three parts:
 - Managed nodes feed the dashboard, nodes page, app environments,
   sidebar counts and footer summary.
 
+### Control Plane UI (fourth slice)
+
+- Third-level tab bar on app detail (`/apps/[slug]`): Overview,
+  Environments, Deployments, Checks as anchor tabs with scroll-spy,
+  sticky under the topbar and sharing anchors with the app rail.
+- The app rail keeps its desktop section list; the tab bar is the
+  in-content navigation on all sizes and the section navigation on
+  small screens.
+
 ### Tech stacks (first slice)
 
 - Stack catalog (`stacks/`): one folder per stack with `manifest.json`,
