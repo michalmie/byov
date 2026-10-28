@@ -27,14 +27,14 @@ if [ ! -d node_modules ]; then
   npm install
 fi
 
-echo "Running unit tests for $ENVIRONMENT"
-npm run test:unit
+echo "Running unit tests for $ENVIRONMENT (clean environment, like CI)"
+env -i "PATH=$PATH" "HOME=$HOME" "CI=true" npm run test:unit
 
 echo "Building Next.js app"
 NODE_ENV=production npm run build
 
 if [ "$ENVIRONMENT" = "local" ]; then
-  echo "Starting local server on port $LOCAL_PORT"
+  echo "Starting Sandbox server on port $LOCAL_PORT"
 
   PID_FILE="$ROOT_DIR/logs/server.pid"
   if [ -f "$PID_FILE" ]; then
@@ -80,12 +80,12 @@ if [ "$ENVIRONMENT" = "local" ]; then
       else
         echo "$SERVER_PID" > "$PID_FILE"
       fi
-      echo "Local server started at http://localhost:3014 (PID ${LISTENER_PID:-$SERVER_PID})"
+      echo "Sandbox server started at http://localhost:3014 (PID ${LISTENER_PID:-$SERVER_PID})"
       exit 0
     fi
   done
 
-  echo "Local server failed to start on port $LOCAL_PORT. Check logs/server.log for details."
+  echo "Sandbox server failed to start on port $LOCAL_PORT. Check logs/server.log for details."
   exit 1
 fi
 
