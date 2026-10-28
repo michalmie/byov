@@ -76,7 +76,7 @@ back to register the node.
 
 ## 5. Register the node in BYOV
 
-Go to **Settings → Nodes → Add node**. The form is grouped in three
+Go to **Settings → Nodes → New node**. The form is grouped in three
 sections; every field is explained in place.
 
 ### About the server

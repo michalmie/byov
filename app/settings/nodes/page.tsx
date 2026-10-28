@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 import { ControlPlaneShell } from "@/components/shell";
-import { HealthPill, StatusPill } from "@/components/data-ui";
+import { StatusPill } from "@/components/data-ui";
 import { DnsTestButton } from "@/components/dns-test-button";
+import { NodeCard } from "@/components/node-card";
 import { NodeForm } from "@/components/node-form";
 import { NodeSetupGuide } from "@/components/node-setup-guide";
 import { SettingsSubnav } from "@/components/settings-subnav";
@@ -61,19 +62,6 @@ export default function SettingsNodes() {
             environments cannot be removed.
           </p>
           <div className="mt-4 flex flex-wrap gap-3">
-            {!adding && !editing && (
-              <button
-                type="button"
-                className="btn-primary px-3 py-1.5 text-[13px]"
-                onClick={() => {
-                  setAdding(true);
-                  setNotice(null);
-                  setNextStepsFor(null);
-                }}
-              >
-                Add node
-              </button>
-            )}
             {confirmReset ? (
               <>
                 <button
@@ -160,7 +148,7 @@ export default function SettingsNodes() {
                 contacts it — no passing test is needed to save.
               </li>
               <li>
-                Set its zone (Edit the node) and add the wildcard DNS
+                Set its zone (Manage the node) and add the wildcard DNS
                 record in DNS setup below.
               </li>
               <li>
@@ -200,137 +188,85 @@ export default function SettingsNodes() {
           />
         )}
 
-        <div className="overflow-x-auto">
-          <table className="spec-table min-w-[820px]">
-            <thead>
-              <tr>
-                <th scope="col">Node</th>
-                <th scope="col">Type</th>
-                <th scope="col">Location</th>
-                <th scope="col">Endpoint</th>
-                <th scope="col">Status</th>
-                <th scope="col">Envs</th>
-                <th scope="col">
-                  <span className="sr-only">Actions</span>
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {nodes.map((node) => {
-                const usage = nodeUsage(node.slug, apps);
-                const pinned = usage.length > 0;
-                const isConfirming = confirmingRemove === node.slug;
-                return (
-                  <tr key={node.slug}>
-                    <td>
-                      <span className="mono text-sm font-semibold">
-                        {node.name}
-                      </span>
-                      <span
-                        className="mono block text-sm"
-                        style={{ color: "var(--color-ink-2)" }}
-                      >
-                        {node.slug}
-                      </span>
-                    </td>
-                    <td>{node.kind}</td>
-                    <td className="text-sm">{node.location}</td>
-                    <td
-                      className="mono max-w-[220px] truncate text-sm"
-                      title={node.endpoint ?? "No endpoint configured"}
-                    >
-                      {node.endpoint ?? "—"}
-                    </td>
-                    <td>
-                      <HealthPill health={node.status} />
-                    </td>
-                    <td
-                      className="text-sm"
-                      title={
-                        pinned
-                          ? usage
-                              .map(
-                                (entry) =>
-                                  `${entry.appName} / ${entry.env}`,
-                              )
-                              .join(", ")
-                          : "No environments pinned"
+        <section
+          aria-labelledby="configured-nodes-heading"
+          className="grid gap-4"
+        >
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <div>
+              <h2
+                id="configured-nodes-heading"
+                className="text-[15px] font-semibold tracking-tight"
+              >
+                Configured nodes
+              </h2>
+              <p
+                className="mt-0.5 text-[13px]"
+                style={{ color: "var(--color-muted)" }}
+              >
+                {nodes.length === 0
+                  ? "No nodes available"
+                  : `${nodes.length} node${nodes.length === 1 ? "" : "s"} available`}
+              </p>
+            </div>
+            {!adding && !editing && (
+              <button
+                type="button"
+                className="btn-ghost px-3 py-1.5 text-[13px]"
+                onClick={() => {
+                  setAdding(true);
+                  setNotice(null);
+                  setNextStepsFor(null);
+                }}
+              >
+                New node
+              </button>
+            )}
+          </div>
+          <ul className="grid gap-4">
+            {nodes.map((node) => {
+              const usage = nodeUsage(node.slug, apps);
+              const pinned = usage.length > 0;
+              const isConfirming = confirmingRemove === node.slug;
+              return (
+                <li key={node.slug}>
+                  <NodeCard
+                    node={node}
+                    isDefault={settings.defaultNode === node.slug}
+                    usage={usage}
+                    removeState={
+                      pinned ? "pinned" : isConfirming ? "confirming" : "ready"
+                    }
+                    onManage={() => {
+                      setAdding(false);
+                      setEditing(node.slug);
+                      setConfirmingRemove(null);
+                      setNotice(null);
+                      setNextStepsFor(null);
+                    }}
+                    onRemove={() => {
+                      setConfirmingRemove(node.slug);
+                      setNotice(null);
+                      setNextStepsFor(null);
+                    }}
+                    onConfirmRemove={() => {
+                      const reason = deleteNode(node.slug);
+                      setConfirmingRemove(null);
+                      if (reason) {
+                        setNotice(reason);
+                      } else {
+                        closePanels();
+                        setNotice(`Removed ${node.name}.`);
                       }
-                    >
-                      {pinned ? `${usage.length} pinned` : "—"}
-                    </td>
-                    <td>
-                      <div className="flex flex-wrap gap-2">
-                        <button
-                          type="button"
-                          className="btn-ghost px-3 py-1.5 text-sm"
-                          onClick={() => {
-                            setAdding(false);
-                            setEditing(node.slug);
-                            setConfirmingRemove(null);
-                            setNotice(null);
-                            setNextStepsFor(null);
-                          }}
-                        >
-                          Edit
-                        </button>
-                        {pinned ? (
-                          <button
-                            type="button"
-                            disabled
-                            title="Environments are still pinned to this node."
-                            className="btn-ghost px-3 py-1.5 text-sm"
-                          >
-                            Remove
-                          </button>
-                        ) : isConfirming ? (
-                          <>
-                            <button
-                              type="button"
-                              className="btn-danger px-3 py-1.5 text-sm"
-                              onClick={() => {
-                                const reason = deleteNode(node.slug);
-                                setConfirmingRemove(null);
-                                if (reason) {
-                                  setNotice(reason);
-                                } else {
-                                  closePanels();
-                                  setNotice(`Removed ${node.name}.`);
-                                }
-                                setNextStepsFor(null);
-                              }}
-                            >
-                              Confirm
-                            </button>
-                            <button
-                              type="button"
-                              className="btn-ghost px-3 py-1.5 text-sm"
-                              onClick={() => setConfirmingRemove(null)}
-                            >
-                              Keep
-                            </button>
-                          </>
-                        ) : (
-                          <button
-                            type="button"
-                            className="btn-ghost px-3 py-1.5 text-sm"
-                            onClick={() => {
-                              setConfirmingRemove(node.slug);
-                              setNotice(null);
-                              setNextStepsFor(null);
-                            }}
-                          >
-                            Remove
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
+                      setNextStepsFor(null);
+                    }}
+                    onCancelRemove={() => setConfirmingRemove(null)}
+                  />
+                </li>
+              );
+            })}
+          </ul>
+        </section>
 
         <section
           aria-labelledby="dns-heading"
