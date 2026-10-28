@@ -2,10 +2,9 @@
  * OAuth2/OIDC flow helpers for the four external providers (entra, github,
  * google, apple). Web Crypto + fetch only — no new dependencies.
  *
- * NOTE (dedup on merge): the session-cookie signing and `isEmailAllowed`
- * below intentionally mirror the sibling auth-core slice (`lib/auth.ts`,
- * built in parallel and therefore not importable here). Both implement the
- * same shared auth contract; the parent task dedups them at merge time.
+ * Session signing, the email allowlist and the `next` guard are canonical
+ * in `lib/auth.ts`; this module re-exports or delegates to them so all
+ * sign-in methods share one implementation.
  */
 
 import {
@@ -14,6 +13,7 @@ import {
   type OAuthProviderId,
   type ProviderCredentials,
 } from "./auth-providers";
+import { createSession, sanitizeNextPath } from "./auth";
 
 /* ------------------------------------------------------------------ */
 /* base64url (Web-API only, no Buffer so this also runs on the edge)   */
@@ -514,51 +514,35 @@ export function getOAuthRedirectUri(
 /* `next` redirect target                                              */
 /* ------------------------------------------------------------------ */
 
-/** Contract: only relative targets (a single leading `/`) are honored. */
+/**
+ * Contract: only relative targets (a single leading `/`) are honored.
+ * A value is safe exactly when the canonical guard leaves it untouched.
+ */
 export function isSafeNext(value: string | null | undefined): value is string {
-  if (!value || !value.startsWith("/")) return false;
-  if (value.startsWith("//") || value.startsWith("/\\")) return false;
-  return true;
+  return typeof value === "string" && sanitizeNextPath(value) === value;
 }
 
 export function resolveNext(value: string | null | undefined): string {
-  return isSafeNext(value) ? value : "/";
+  return sanitizeNextPath(value);
 }
 
 /* ------------------------------------------------------------------ */
-/* session cookie (local mirror of the auth-core slice)                */
+/* session cookie (canonical in `lib/auth.ts`)                         */
 /* ------------------------------------------------------------------ */
 
-export const SESSION_COOKIE_NAME = "byov_session";
-export const SESSION_MAX_AGE_SECONDS = 43200; // 12h
+export {
+  SESSION_COOKIE_NAME,
+  SESSION_MAX_AGE_SECONDS,
+} from "./auth";
+export { isEmailAllowed } from "./auth";
 
 export const OAUTH_STATE_COOKIE = "oauth_state";
 export const OAUTH_VERIFIER_COOKIE = "oauth_verifier";
 export const OAUTH_NEXT_COOKIE = "oauth_next";
 export const OAUTH_COOKIE_MAX_AGE_SECONDS = 600; // 10 minutes
 
-const DEV_FALLBACK_SECRET = "dev-only-insecure-secret";
-
-export function getAuthSecret(): string {
-  const secret = (process.env.AUTH_SECRET ?? "").trim();
-  if (secret) return secret;
-  console.warn(
-    "[auth] AUTH_SECRET is not set; using an insecure dev-only fallback secret.",
-  );
-  return DEV_FALLBACK_SECRET;
-}
-
 export function shouldUseSecureCookies(): boolean {
   return process.env.NODE_ENV === "production";
-}
-
-export interface SessionPayload {
-  sub: string;
-  email: string;
-  name?: string;
-  provider: string;
-  iat: number;
-  exp: number;
 }
 
 export interface CreateSessionInput {
@@ -569,68 +553,16 @@ export interface CreateSessionInput {
 }
 
 /**
- * Contract session value: `<base64url(payloadJSON)>.<base64url(hmacSig)>`
- * where sig = HMAC-SHA256 over the payload segment with AUTH_SECRET.
+ * OAuth-flavored session signer: the provider subject becomes `sub`.
+ * Delegates to the canonical `createSession` in `lib/auth.ts`.
  */
 export async function createSessionValue(
   input: CreateSessionInput,
 ): Promise<string> {
-  const nowSec = Math.floor(Date.now() / 1000);
-  const payload: SessionPayload = {
+  return createSession({
     sub: input.sub,
     email: input.email,
     ...(input.name ? { name: input.name } : {}),
     provider: input.provider,
-    iat: nowSec,
-    exp: nowSec + SESSION_MAX_AGE_SECONDS,
-  };
-  const encodedPayload = base64UrlEncodeJson(payload);
-  const key = await crypto.subtle.importKey(
-    "raw",
-    new TextEncoder().encode(getAuthSecret()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign"],
-  );
-  const signature = await crypto.subtle.sign(
-    "HMAC",
-    key,
-    new TextEncoder().encode(encodedPayload),
-  );
-  return `${encodedPayload}.${base64UrlEncodeBytes(new Uint8Array(signature))}`;
-}
-
-/* ------------------------------------------------------------------ */
-/* email allowlist (local mirror of the auth-core slice)               */
-/* ------------------------------------------------------------------ */
-
-function parseList(value: string | undefined): string[] {
-  return (value ?? "")
-    .split(",")
-    .map((entry) => entry.trim().toLowerCase())
-    .filter((entry) => entry.length > 0);
-}
-
-/**
- * Contract allowlist: exact-email match wins, then domain match, then the
- * dev default (both lists empty -> allow + warn), else deny.
- */
-export function isEmailAllowed(email: string): boolean {
-  const normalized = email.trim().toLowerCase();
-  const allowedEmails = parseList(process.env.AUTH_ALLOWED_EMAILS);
-  const allowedDomains = parseList(process.env.AUTH_ALLOWED_DOMAINS);
-  if (allowedEmails.length > 0 && allowedEmails.includes(normalized)) {
-    return true;
-  }
-  const domain = normalized.split("@")[1] ?? "";
-  if (allowedDomains.length > 0 && domain.length > 0) {
-    if (allowedDomains.includes(domain)) return true;
-  }
-  if (allowedEmails.length === 0 && allowedDomains.length === 0) {
-    console.warn(
-      "[auth] Neither AUTH_ALLOWED_EMAILS nor AUTH_ALLOWED_DOMAINS is configured; allowing all emails (dev default).",
-    );
-    return true;
-  }
-  return false;
+  });
 }

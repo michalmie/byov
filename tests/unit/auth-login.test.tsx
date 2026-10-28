@@ -310,6 +310,36 @@ describe("magic-link flow", () => {
     );
   });
 
+  it("forwards a non-default next target with the link request", async () => {
+    const fetchMock = mockFetch((url) => {
+      if (url.includes("/api/auth/magic-link/request")) {
+        return jsonResponse({ ok: true });
+      }
+      return jsonResponse({ ok: false }, false, 404);
+    });
+    render(<LoginView nextParam="/apps/shopfloor-tickets" />);
+    expect(await screen.findByTestId("magic-link-request")).toBeInTheDocument();
+
+    fireEvent.change(screen.getByTestId("login-email"), {
+      target: { value: "ada@byov.example" },
+    });
+    fireEvent.click(screen.getByTestId("magic-link-request"));
+
+    expect(await screen.findByTestId("login-success")).toHaveTextContent(
+      "Check your inbox",
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/auth/magic-link/request",
+      expect.objectContaining({
+        method: "POST",
+        body: JSON.stringify({
+          email: "ada@byov.example",
+          next: "/apps/shopfloor-tickets",
+        }),
+      }),
+    );
+  });
+
   it("disables the magic-link button while sending", async () => {
     let resolveRequest!: (value: Response) => void;
     mockFetch((url) => {

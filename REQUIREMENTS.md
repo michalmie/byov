@@ -185,3 +185,38 @@ Local bootstrap runbook:
    mkcert only covers a single admin machine.
 3. Trust: install the CA root on every client and on the BYOV server, then
    verify with the Nodes-row Test before pointing apps at local URLs.
+
+### Auth (first slice)
+
+- Every route requires a session except `/login`, `/auth/*`,
+  `/api/auth/*` and static assets. Pages redirect to `/login?next=…`;
+  `/api/*` answers 401. The middleware verifies the session cookie and
+  hands the email downstream as `x-byov-user-email`.
+- Sessions are stateless HMAC-signed cookies (`byov_session`, 12h,
+  HttpOnly, SameSite=Lax, Secure in production). The signing secret is
+  `AUTH_SECRET`; an unset secret falls back to an insecure dev value
+  with a warning.
+- Default sign-in is passwordless: a 6-digit emailed code (10-minute
+  TTL, 5 attempts) or a magic link (stateless token, 15-minute TTL).
+  Request endpoints always answer ok so responses never reveal the
+  access list; all endpoints are rate-limited (5/min per key).
+- OAuth sign-in via Microsoft Entra ID, GitHub, Google and Apple:
+  PKCE S256 for all, state-as-nonce for the OIDC providers, verified
+  emails only, failures redirect to `/login?error=…` without details.
+  Each provider needs its `AUTH_*_ENABLED` flag plus credentials; the
+  callback URLs are `{site}/api/auth/oauth/<provider>/callback`.
+- Access is restricted by `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS`
+  (exact email wins, then domain; both empty allows all with a warning).
+  Outbound mail uses SMTP env config, else logs to the console in dev.
+- OTP codes and rate limits live in server memory (single-instance
+  limit, noted in code); `id_token` signatures are not yet verified
+  against provider JWKS (TLS + PKCE-bound exchange for now).
+- Standalone public `/login` page (no shell): code form with resend
+  cooldown, magic-link button, OAuth links for enabled providers,
+  `?next=` deep-link preservation and friendly `?error=` copy.
+- Settings → Auth: workspace sign-in preferences (methods, provider
+  toggles, access lists, session lifetime) kept in the browser until
+  the API lands; enforcement stays server-side and the UI says so.
+- Settings → Users: workspace member list with invite by email, roles
+  (admin/member) and last-admin removal/demotion guards, kept in the
+  browser until the API lands.

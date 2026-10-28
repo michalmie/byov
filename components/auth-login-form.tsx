@@ -160,7 +160,11 @@ export function AuthLoginForm({
       const response = await fetch("/api/auth/magic-link/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: address }),
+        // The API honors `next` for the post-login redirect; omit it when
+        // it is the default so the request stays minimal.
+        body: JSON.stringify(
+          next === "/" ? { email: address } : { email: address, next },
+        ),
       });
       if (!response.ok) {
         setError(

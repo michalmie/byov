@@ -213,18 +213,24 @@ export function isValidEmail(email: string): boolean {
 // Sessions (`byov_session` cookie value)
 // ---------------------------------------------------------------------------
 
-/** `<base64url(payloadJSON)>.<base64url(hmacSigBytes)>`. */
+/**
+ * `<base64url(payloadJSON)>.<base64url(hmacSigBytes)>`.
+ * `sub` defaults to the email (passwordless); OAuth passes the provider's
+ * subject. This is the single canonical session signer — `lib/auth-oauth.ts`
+ * delegates to it.
+ */
 export async function createSession(input: {
   email: string;
   provider: AuthProviderId;
   name?: string;
   ttlSec?: number;
+  sub?: string;
 }): Promise<string> {
   const email = input.email.trim().toLowerCase();
   const nowSec = Math.floor(Date.now() / 1000);
   const ttlSec = input.ttlSec ?? SESSION_MAX_AGE_SECONDS;
   const payload: SessionPayload = {
-    sub: email,
+    sub: input.sub ?? email,
     email,
     provider: input.provider,
     iat: nowSec,
