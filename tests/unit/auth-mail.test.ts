@@ -138,6 +138,25 @@ describe("auth email templates", () => {
     expect(mail.html).toContain("Sign in to BYOV</a>");
   });
 
+  it("centers the code and button with table cells for Outlook", () => {
+    const mail = signInEmail({
+      code: "123456",
+      link: "https://byov.test/api/auth/magic-link/verify?token=x",
+    });
+    // Bulletproof centering: the align attribute on the cell, not div CSS
+    // alone, which Outlook renders inconsistently.
+    expect(mail.html).toMatch(/<td align="center"[^>]*>123456<\/td>/);
+    expect(mail.html).toMatch(
+      /<td align="center"[^>]*><a [^>]*>Sign in to BYOV<\/a>/,
+    );
+  });
+
+  it("keeps a long pasted link from stretching the card", () => {
+    const mail = magicLinkEmail(`https://byov.test/${"x".repeat(500)}`);
+    expect(mail.html).toContain("table-layout:fixed");
+    expect(mail.html).toContain("word-break:break-all");
+  });
+
   it("escapes markup smuggled into template inputs", () => {
     const mail = signInEmail({
       code: "12<script>alert(1)</script>",
