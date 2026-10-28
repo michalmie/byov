@@ -329,6 +329,21 @@ export function sessionToUser(payload: SessionPayload): AuthUser {
   };
 }
 
+/** Minimal cookie reader surface; NextRequest satisfies this. */
+export interface CookieRequest {
+  cookies: {
+    get(name: string): { value: string } | undefined;
+  };
+}
+
+/** Verified session from the request cookies, or null when signed out. */
+export async function sessionFromRequest(
+  request: CookieRequest,
+): Promise<SessionPayload | null> {
+  const token = request.cookies.get(SESSION_COOKIE_NAME)?.value;
+  return token ? verifySession(token) : null;
+}
+
 export interface SessionCookieOptions {
   httpOnly: true;
   sameSite: "lax";

@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
+  BellIcon,
   DocIcon,
   GlobeIcon,
   GridIcon,
@@ -18,6 +19,7 @@ const sections = [
   { href: "/settings/stacks", label: "Tech stacks", icon: LayersIcon },
   { href: "/settings/auth", label: "Auth", icon: ShieldCheckIcon },
   { href: "/settings/users", label: "Users", icon: GridIcon },
+  { href: "/settings/email", label: "Email", icon: BellIcon },
 ];
 
 export function SettingsSubnav() {

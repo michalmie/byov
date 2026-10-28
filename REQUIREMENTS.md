@@ -215,7 +215,14 @@ Local bootstrap runbook:
   callback URLs are `{site}/api/auth/oauth/<provider>/callback`.
 - Access is restricted by `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS`
   (exact email wins, then domain; both empty allows all with a warning).
-  Outbound mail uses SMTP env config, else logs to the console in dev.
+- Outbound mail goes through the default sending account: the
+  Settings-saved account (Settings → Email, admin-only, stored
+  owner-only on the server) wins, else `SMTP_*` env, else mail is
+  logged to the console in dev. The Email page shows which source is
+  active, saves/clears the account, and can send a test email that
+  reports provider errors. A wrong saved account breaks sign-in mail;
+  recovery is deleting `data/mail.json` on the server (falls back to
+  env, then console).
 - OTP codes and rate limits live in server memory (single-instance
   limit, noted in code); `id_token` signatures are not yet verified
   against provider JWKS (TLS + PKCE-bound exchange for now).

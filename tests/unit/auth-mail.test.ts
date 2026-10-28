@@ -1,3 +1,6 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import {
   isMailConfigured,
@@ -6,6 +9,7 @@ import {
   sendMail,
   signInEmail,
 } from "@/lib/auth-mail";
+import { saveStoredMailAccount } from "@/lib/mail-config";
 
 const savedEnv = { ...process.env };
 
@@ -15,10 +19,16 @@ beforeEach(() => {
   delete process.env.SMTP_USER;
   delete process.env.SMTP_PASS;
   delete process.env.SMTP_FROM;
+  // Fresh temp data dir: config resolution must never see the real ./data.
+  process.env.AUTH_DATA_DIR = mkdtempSync(join(tmpdir(), "byov-mail-test-"));
   vi.spyOn(console, "log").mockImplementation(() => {});
 });
 
 afterEach(() => {
+  const dataDir = process.env.AUTH_DATA_DIR;
+  if (dataDir && dataDir.startsWith(tmpdir())) {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
   vi.restoreAllMocks();
   process.env = { ...savedEnv };
 });
@@ -30,6 +40,19 @@ describe("isMailConfigured", () => {
     expect(isMailConfigured()).toBe(true);
     process.env.SMTP_HOST = "   ";
     expect(isMailConfigured()).toBe(false);
+  });
+
+  it("is true with a Settings-saved account even without env", () => {
+    expect(isMailConfigured()).toBe(false);
+    saveStoredMailAccount({
+      host: "smtp.example.com",
+      port: 587,
+      security: "auto",
+      user: "",
+      pass: "",
+      from: "",
+    });
+    expect(isMailConfigured()).toBe(true);
   });
 });
 

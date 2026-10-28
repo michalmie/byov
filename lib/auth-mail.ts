@@ -1,12 +1,18 @@
 /**
  * Outbound auth mail: one-time codes and magic links.
  *
- * Uses SMTP via nodemailer when SMTP_HOST is configured; otherwise logs the
- * message to the console so passwordless sign-in still works in development
- * (the code/link is readable in the server log). Server-only: never import
- * this module from `middleware.ts` or client components.
+ * Sends through the default sending account (Settings-saved wins, else
+ * SMTP_* env); otherwise logs the message to the console so
+ * passwordless sign-in still works in development (the code/link is
+ * readable in the server log). Server-only: never import this module
+ * from `middleware.ts` or client components.
  */
 import nodemailer from "nodemailer";
+import {
+  DEFAULT_FROM,
+  getEffectiveMailAccount,
+  type EffectiveMailAccount,
+} from "./mail-config";
 
 export interface SendMailInput {
   to: string;
@@ -16,35 +22,42 @@ export interface SendMailInput {
 }
 
 export function isMailConfigured(): boolean {
-  return Boolean(process.env.SMTP_HOST?.trim());
+  return getEffectiveMailAccount() !== null;
 }
 
-function smtpPort(): number {
-  const parsed = Number.parseInt(process.env.SMTP_PORT ?? "", 10);
-  return Number.isFinite(parsed) && parsed > 0 ? parsed : 587;
+function transportSecurity(account: EffectiveMailAccount): {
+  secure: boolean;
+  requireTLS?: true;
+} {
+  if (account.security === "ssl") {
+    return { secure: true };
+  }
+  if (account.security === "starttls") {
+    return { secure: false, requireTLS: true };
+  }
+  return { secure: account.port === 465 };
 }
 
 export async function sendMail(input: SendMailInput): Promise<void> {
-  const host = process.env.SMTP_HOST?.trim();
-  if (!host) {
+  const account = getEffectiveMailAccount();
+  if (!account) {
     console.log(
-      `[auth-mail] dev fallback — no SMTP configured. To: ${input.to} | Subject: ${input.subject}\n${input.text}`,
+      `[auth-mail] dev fallback — no sending account configured. To: ${input.to} | Subject: ${input.subject}\n${input.text}`,
     );
     return;
   }
 
-  const port = smtpPort();
-  const user = process.env.SMTP_USER?.trim();
-  const pass = process.env.SMTP_PASS;
   const transporter = nodemailer.createTransport({
-    host,
-    port,
-    secure: port === 465,
-    ...(user && pass ? { auth: { user, pass } } : {}),
+    host: account.host,
+    port: account.port,
+    ...transportSecurity(account),
+    ...(account.user && account.pass
+      ? { auth: { user: account.user, pass: account.pass } }
+      : {}),
   });
 
   await transporter.sendMail({
-    from: process.env.SMTP_FROM?.trim() || "BYOV <no-reply@byov.local>",
+    from: account.from || DEFAULT_FROM,
     to: input.to,
     subject: input.subject,
     text: input.text,
