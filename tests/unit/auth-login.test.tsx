@@ -18,16 +18,25 @@ function jsonResponse(body: unknown, ok = true, status = ok ? 200 : 400) {
 type RouteHandler = (url: string, init?: RequestInit) => Promise<Response> | Response;
 
 /** Install a fetch mock routing by URL; unmatched routes 404. */
-function mockFetch(handler: RouteHandler) {
+function mockFetch(handler: RouteHandler, providers = ALL_PROVIDERS) {
   const fetchMock = vi.fn(async (input: unknown, init?: RequestInit) => {
     const url = String(input);
     if (url.includes("/api/auth/providers")) {
-      return jsonResponse(ALL_PROVIDERS);
+      return jsonResponse(providers);
     }
     return handler(url, init);
   });
   vi.stubGlobal("fetch", fetchMock);
   return fetchMock;
+}
+
+/** Providers payload with only the given email method(s) switched on. */
+function emailOnlyProviders(...on: string[]) {
+  return ALL_PROVIDERS.map((provider) =>
+    provider.id === "passwordless" || provider.id === "magic-link"
+      ? { ...provider, enabled: on.includes(provider.id) }
+      : { ...provider, enabled: false },
+  );
 }
 
 let assignSpy: ReturnType<typeof vi.fn>;
@@ -117,8 +126,15 @@ describe("passwordless code flow", () => {
       "/api/auth/otp/request",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ email: "ada@byov.example" }),
+        body: JSON.stringify({
+          email: "ada@byov.example",
+          next: "/apps/shopfloor",
+        }),
       }),
+    );
+    // One request sends a single email carrying both artifacts.
+    expect(await screen.findByTestId("login-success")).toHaveTextContent(
+      "We emailed a 6-digit code and a sign-in link",
     );
 
     const codeInput = screen.getByTestId("login-code");
@@ -289,7 +305,7 @@ describe("magic-link flow", () => {
         return jsonResponse({ ok: true });
       }
       return jsonResponse({ ok: false }, false, 404);
-    });
+    }, emailOnlyProviders("magic-link"));
     render(<LoginView />);
     expect(await screen.findByTestId("magic-link-request")).toBeInTheDocument();
 
@@ -316,7 +332,7 @@ describe("magic-link flow", () => {
         return jsonResponse({ ok: true });
       }
       return jsonResponse({ ok: false }, false, 404);
-    });
+    }, emailOnlyProviders("magic-link"));
     render(<LoginView nextParam="/apps/shopfloor-tickets" />);
     expect(await screen.findByTestId("magic-link-request")).toBeInTheDocument();
 
@@ -349,7 +365,7 @@ describe("magic-link flow", () => {
         });
       }
       return jsonResponse({ ok: false }, false, 404);
-    });
+    }, emailOnlyProviders("magic-link"));
     render(<LoginView />);
     expect(await screen.findByTestId("magic-link-request")).toBeInTheDocument();
 
@@ -363,6 +379,47 @@ describe("magic-link flow", () => {
       resolveRequest(jsonResponse({ ok: true }));
     });
     expect(await screen.findByTestId("login-success")).toBeInTheDocument();
+  });
+});
+
+describe("single email flow", () => {
+  it("shows one request with both methods on (no separate link button)", async () => {
+    mockFetch(() => jsonResponse({ ok: true }));
+    render(<LoginView />);
+    expect(await screen.findByTestId("request-code")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("magic-link-request"),
+    ).not.toBeInTheDocument();
+  });
+
+  it("shows only the code form when the link method is off", async () => {
+    mockFetch(
+      () => jsonResponse({ ok: true }),
+      emailOnlyProviders("passwordless"),
+    );
+    render(<LoginView />);
+    expect(await screen.findByTestId("request-code")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("magic-link-request"),
+    ).not.toBeInTheDocument();
+
+    signInWithCode();
+    expect(await screen.findByTestId("login-success")).toHaveTextContent(
+      "We emailed a 6-digit code to ada@byov.example.",
+    );
+  });
+
+  it("shows only the link request when codes are off", async () => {
+    mockFetch(
+      () => jsonResponse({ ok: true }),
+      emailOnlyProviders("magic-link"),
+    );
+    render(<LoginView />);
+    expect(
+      await screen.findByTestId("magic-link-request"),
+    ).toBeInTheDocument();
+    expect(screen.queryByTestId("request-code")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("login-code")).not.toBeInTheDocument();
   });
 });
 
@@ -447,8 +504,11 @@ describe("providers failure fallback", () => {
     expect(await screen.findByTestId("providers-warning")).toHaveTextContent(
       "Could not load sign-in options",
     );
+    // Fallback enables everything, so the single code-first flow shows.
     expect(screen.getByTestId("request-code")).toBeInTheDocument();
-    expect(screen.getByTestId("magic-link-request")).toBeInTheDocument();
+    expect(
+      screen.queryByTestId("magic-link-request"),
+    ).not.toBeInTheDocument();
     expect(screen.getByTestId("oauth-github")).toBeInTheDocument();
     expect(screen.getByTestId("oauth-entra")).toBeInTheDocument();
   });

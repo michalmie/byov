@@ -13,7 +13,11 @@ import {
   type OAuthProviderId,
   type ProviderCredentials,
 } from "./auth-providers";
-import { createSession, sanitizeNextPath } from "./auth";
+import {
+  createSession,
+  sanitizeNextPath,
+  type UserRole,
+} from "./auth";
 
 /* ------------------------------------------------------------------ */
 /* base64url (Web-API only, no Buffer so this also runs on the edge)   */
@@ -550,6 +554,7 @@ export interface CreateSessionInput {
   email: string;
   name?: string;
   provider: OAuthProviderId;
+  role?: UserRole;
 }
 
 /**
@@ -564,5 +569,6 @@ export async function createSessionValue(
     email: input.email,
     ...(input.name ? { name: input.name } : {}),
     provider: input.provider,
+    ...(input.role ? { role: input.role } : {}),
   });
 }

@@ -9,6 +9,7 @@ import {
   sessionCookieOptions,
   verifyOtp,
 } from "@/lib/auth";
+import { resolveLoginRole } from "@/lib/auth-bootstrap";
 
 /** Verify a one-time code; on success sets the `byov_session` cookie. */
 export async function POST(request: Request) {
@@ -60,6 +61,7 @@ export async function POST(request: Request) {
   const token = await createSession({
     email: normalized,
     provider: "passwordless",
+    role: resolveLoginRole(normalized),
   });
   const response = NextResponse.json({
     ok: true,

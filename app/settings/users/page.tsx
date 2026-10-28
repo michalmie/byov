@@ -68,8 +68,9 @@ export default function SettingsUsers() {
             style={{ color: "var(--color-muted)" }}
           >
             Who belongs to this workspace and what they may do. The list
-            stays in this browser until the API lands. The first signed-in
-            allowed user becomes admin.
+            stays in this browser until the API lands. Server-side, the
+            first user to sign in becomes admin unless admins are
+            configured (AUTH_ADMIN_EMAILS).
           </p>
           <p
             className="mt-2 text-sm"

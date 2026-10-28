@@ -4,13 +4,18 @@ import {
   isEmailAllowed,
   isProviderEnabled,
   isValidEmail,
+  issueMagicLinkToken,
   issueOtp,
+  resolveRequestOrigin,
+  sanitizeNextPath,
 } from "@/lib/auth";
-import { otpEmail, sendMail } from "@/lib/auth-mail";
+import { sendMail, signInEmail } from "@/lib/auth-mail";
 
 /**
- * Request a one-time sign-in code. Always answers `{ok:true}` so the
- * response never reveals whether an email is on the access list.
+ * Request sign-in by email: one message carrying both the one-time code
+ * and the sign-in link (whichever methods are enabled). Always answers
+ * `{ok:true}` so the response never reveals whether an email is on the
+ * access list.
  */
 export async function POST(request: Request) {
   let body: unknown;
@@ -22,7 +27,10 @@ export async function POST(request: Request) {
       { status: 400 },
     );
   }
-  const { email } = (body ?? {}) as { email?: unknown };
+  const { email, next } = (body ?? {}) as {
+    email?: unknown;
+    next?: unknown;
+  };
   if (typeof email !== "string" || !isValidEmail(email)) {
     return NextResponse.json(
       { ok: false, error: "Expected a valid email address." },
@@ -39,12 +47,20 @@ export async function POST(request: Request) {
 
   if (isProviderEnabled("passwordless") && isEmailAllowed(normalized)) {
     const { code } = issueOtp(normalized);
-    const mail = otpEmail(code);
+    let link: string | undefined;
+    if (isProviderEnabled("magic-link")) {
+      const token = await issueMagicLinkToken(normalized);
+      link =
+        `${resolveRequestOrigin(request)}/api/auth/magic-link/verify` +
+        `?token=${encodeURIComponent(token)}` +
+        `&next=${encodeURIComponent(sanitizeNextPath(next))}`;
+    }
+    const mail = signInEmail({ code, link });
     try {
       await sendMail({ to: normalized, subject: mail.subject, text: mail.text });
     } catch {
       return NextResponse.json(
-        { ok: false, error: "Could not send the code. Try again later." },
+        { ok: false, error: "Could not send the sign-in email. Try again later." },
         { status: 500 },
       );
     }

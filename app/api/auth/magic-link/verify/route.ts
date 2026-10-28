@@ -8,6 +8,7 @@ import {
   sessionCookieOptions,
   verifyMagicLinkToken,
 } from "@/lib/auth";
+import { resolveLoginRole } from "@/lib/auth-bootstrap";
 
 /**
  * Consume a magic-link token: sets the `byov_session` cookie and redirects
@@ -30,6 +31,7 @@ export async function GET(request: Request) {
   const session = await createSession({
     email: verified.email,
     provider: "magic-link",
+    role: resolveLoginRole(verified.email),
   });
   const response = NextResponse.redirect(new URL(next, url));
   response.cookies.set(SESSION_COOKIE_NAME, session, sessionCookieOptions());

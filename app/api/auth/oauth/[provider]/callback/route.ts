@@ -19,6 +19,7 @@ import {
   timingSafeEqual,
   shouldUseSecureCookies,
 } from "@/lib/auth-oauth";
+import { resolveLoginRole } from "@/lib/auth-bootstrap";
 
 function readCookie(request: Request, name: string): string | null {
   const header = request.headers.get("cookie");
@@ -155,6 +156,7 @@ async function handleCallback(request: Request, providerParam: string) {
     email: identity.email,
     ...(identity.name ? { name: identity.name } : {}),
     provider,
+    role: resolveLoginRole(identity.email),
   });
   const response = NextResponse.redirect(
     new URL(resolveNext(nextCookie), baseUrl),

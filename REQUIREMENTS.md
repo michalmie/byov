@@ -193,11 +193,19 @@ Local bootstrap runbook:
   `/api/*` answers 401. The middleware verifies the session cookie and
   hands the email downstream as `x-byov-user-email`.
 - Sessions are stateless HMAC-signed cookies (`byov_session`, 12h,
-  HttpOnly, SameSite=Lax, Secure in production). The signing secret is
-  `AUTH_SECRET`; an unset secret falls back to an insecure dev value
-  with a warning.
-- Default sign-in is passwordless: a 6-digit emailed code (10-minute
-  TTL, 5 attempts) or a magic link (stateless token, 15-minute TTL).
+  HttpOnly, SameSite=Lax, Secure in production) carrying the user's
+  role (admin/member). The signing secret is `AUTH_SECRET`; an unset
+  secret falls back to an insecure dev value with a warning.
+- Admins come from `AUTH_ADMIN_EMAILS`, plus a first-login bootstrap:
+  when no admins are configured anywhere, the first user to sign in
+  becomes admin and the claim is recorded on disk (`AUTH_DATA_DIR`,
+  default `./data`, atomic so concurrent first logins elect one).
+  Role enforcement (RBAC gates) rides a later slice; the session API
+  and `x-byov-user-role` already expose the role.
+- Default sign-in is passwordless: one request sends a single email
+  carrying both a 6-digit code (10-minute TTL, 5 attempts) and a magic
+  link (stateless token, 10-minute TTL); the user completes either.
+  When only one method is enabled the email carries just that one.
   Request endpoints always answer ok so responses never reveal the
   access list; all endpoints are rate-limited (5/min per key).
 - OAuth sign-in via Microsoft Entra ID, GitHub, Google and Apple:
@@ -211,9 +219,11 @@ Local bootstrap runbook:
 - OTP codes and rate limits live in server memory (single-instance
   limit, noted in code); `id_token` signatures are not yet verified
   against provider JWKS (TLS + PKCE-bound exchange for now).
-- Standalone public `/login` page (no shell): code form with resend
-  cooldown, magic-link button, OAuth links for enabled providers,
-  `?next=` deep-link preservation and friendly `?error=` copy.
+- Standalone public `/login` page (no shell): one email request sends
+  the combined code + link email, the code is entered here with resend
+  cooldown, OAuth links for enabled providers, `?next=` deep-link
+  preservation and friendly `?error=` copy. With codes off the page
+  falls back to a link-only request.
 - Settings → Auth: workspace sign-in preferences (methods, provider
   toggles, access lists, session lifetime) kept in the browser until
   the API lands; enforcement stays server-side and the UI says so.

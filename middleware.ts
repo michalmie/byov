@@ -2,12 +2,13 @@
  * Route protection: every route requires a valid `byov_session` cookie
  * except the public paths below. Pages redirect to /login?next=<path>;
  * /api/* routes get a 401 JSON response. Authenticated requests carry the
- * verified email downstream as the `x-byov-user-email` header.
+ * verified email and role downstream as headers.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE_NAME, verifySession } from "@/lib/auth";
 
 export const USER_EMAIL_HEADER = "x-byov-user-email";
+export const USER_ROLE_HEADER = "x-byov-user-role";
 
 /** Public paths that never require a session. */
 export function isPublicPath(pathname: string): boolean {
@@ -45,8 +46,9 @@ export async function middleware(request: NextRequest) {
   if (session) {
     const response = NextResponse.next();
     response.headers.set(USER_EMAIL_HEADER, session.email);
+    response.headers.set(USER_ROLE_HEADER, session.role);
     // Pages can read the login state server-side from the cookie; the
-    // header is the cheap verified-email handoff to route handlers.
+    // headers are the cheap verified-identity handoff to route handlers.
     return response;
   }
 

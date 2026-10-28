@@ -5,13 +5,17 @@ import {
   isProviderEnabled,
   isValidEmail,
   issueMagicLinkToken,
+  issueOtp,
+  resolveRequestOrigin,
   sanitizeNextPath,
 } from "@/lib/auth";
-import { magicLinkEmail, sendMail } from "@/lib/auth-mail";
+import { sendMail, signInEmail } from "@/lib/auth-mail";
 
 /**
- * Request a magic sign-in link. Always answers `{ok:true}` so the response
- * never reveals whether an email is on the access list.
+ * Request sign-in by email: one message carrying both the sign-in link
+ * and the one-time code (whichever methods are enabled). Always answers
+ * `{ok:true}` so the response never reveals whether an email is on the
+ * access list.
  */
 export async function POST(request: Request) {
   let body: unknown;
@@ -43,18 +47,19 @@ export async function POST(request: Request) {
 
   if (isProviderEnabled("magic-link") && isEmailAllowed(normalized)) {
     const token = await issueMagicLinkToken(normalized);
-    const siteUrl = process.env.NEXT_PUBLIC_SITE_URL?.trim().replace(/\/+$/, "");
-    const origin = siteUrl || new URL(request.url).origin;
     const link =
-      `${origin}/api/auth/magic-link/verify` +
+      `${resolveRequestOrigin(request)}/api/auth/magic-link/verify` +
       `?token=${encodeURIComponent(token)}` +
       `&next=${encodeURIComponent(sanitizeNextPath(next))}`;
-    const mail = magicLinkEmail(link);
+    const code = isProviderEnabled("passwordless")
+      ? issueOtp(normalized).code
+      : undefined;
+    const mail = signInEmail({ code, link });
     try {
       await sendMail({ to: normalized, subject: mail.subject, text: mail.text });
     } catch {
       return NextResponse.json(
-        { ok: false, error: "Could not send the link. Try again later." },
+        { ok: false, error: "Could not send the sign-in email. Try again later." },
         { status: 500 },
       );
     }

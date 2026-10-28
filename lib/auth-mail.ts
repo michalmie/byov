@@ -62,6 +62,38 @@ export function otpEmail(code: string): { subject: string; text: string } {
 export function magicLinkEmail(link: string): { subject: string; text: string } {
   return {
     subject: "Your BYOV sign-in link",
-    text: `Sign in to BYOV with this link (expires in 15 minutes):\n\n${link}\n\nIf you did not request this link, you can ignore this email.`,
+    text: `Sign in to BYOV with this link (expires in 10 minutes):\n\n${link}\n\nIf you did not request this link, you can ignore this email.`,
   };
+}
+
+export interface SignInEmailInput {
+  code?: string;
+  link?: string;
+}
+
+/**
+ * The sign-in email: one message carrying both artifacts so the user picks
+ * either. Falls back to the single-method template when only one method is
+ * enabled. At least one of code/link is required.
+ */
+export function signInEmail(input: SignInEmailInput): {
+  subject: string;
+  text: string;
+} {
+  if (input.code && input.link) {
+    return {
+      subject: "Your BYOV sign-in code and link",
+      text:
+        `Your BYOV sign-in code is ${input.code}. It expires in 10 minutes.\n\n` +
+        `Or sign in with this link (expires in 10 minutes):\n\n${input.link}\n\n` +
+        `If you did not request this email, you can ignore it.`,
+    };
+  }
+  if (input.code) {
+    return otpEmail(input.code);
+  }
+  if (input.link) {
+    return magicLinkEmail(input.link);
+  }
+  throw new Error("signInEmail needs a code, a link, or both.");
 }

@@ -16,11 +16,14 @@ export type AuthProviderId =
   | "google"
   | "apple";
 
+export type UserRole = "admin" | "member";
+
 export interface SessionPayload {
   sub: string;
   email: string;
   name?: string;
   provider: AuthProviderId;
+  role: UserRole;
   iat: number;
   exp: number;
 }
@@ -29,6 +32,7 @@ export interface AuthUser {
   email: string;
   name: string | null;
   provider: AuthProviderId;
+  role: UserRole;
 }
 
 export interface AuthProviderInfo {
@@ -42,7 +46,7 @@ export const SESSION_COOKIE_NAME = "byov_session";
 export const SESSION_MAX_AGE_SECONDS = 43200;
 const OTP_TTL_MS = 10 * 60 * 1000;
 const OTP_MAX_ATTEMPTS = 5;
-const MAGIC_LINK_TTL_SECONDS = 15 * 60;
+const MAGIC_LINK_TTL_SECONDS = 10 * 60;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX_HITS = 5;
 
@@ -210,14 +214,53 @@ export function isValidEmail(email: string): boolean {
 }
 
 // ---------------------------------------------------------------------------
+// Roles: configured admins plus the first-login bootstrap claim
+// ---------------------------------------------------------------------------
+
+/** Lowercased admin emails from AUTH_ADMIN_EMAILS (may be empty). */
+export function getAdminEmails(): string[] {
+  return parseList(process.env.AUTH_ADMIN_EMAILS);
+}
+
+export function isAdminEmail(
+  email: string,
+  adminEmails: readonly string[] = getAdminEmails(),
+): boolean {
+  return adminEmails.includes(email.trim().toLowerCase());
+}
+
+export interface RoleResolution {
+  adminEmails: readonly string[];
+  /** Email holding the bootstrap claim, or null when unclaimed. */
+  bootstrapEmail: string | null;
+}
+
+/**
+ * Pure role decision: configured admins and the bootstrap holder are
+ * admins, everyone else is a member. Reading and claiming the bootstrap
+ * record is file I/O and lives in `lib/auth-bootstrap.ts` (Node-only).
+ */
+export function resolveRole(email: string, input: RoleResolution): UserRole {
+  const normalized = email.trim().toLowerCase();
+  if (input.adminEmails.includes(normalized)) {
+    return "admin";
+  }
+  if (input.bootstrapEmail && input.bootstrapEmail === normalized) {
+    return "admin";
+  }
+  return "member";
+}
+
+// ---------------------------------------------------------------------------
 // Sessions (`byov_session` cookie value)
 // ---------------------------------------------------------------------------
 
 /**
  * `<base64url(payloadJSON)>.<base64url(hmacSigBytes)>`.
  * `sub` defaults to the email (passwordless); OAuth passes the provider's
- * subject. This is the single canonical session signer — `lib/auth-oauth.ts`
- * delegates to it.
+ * subject. `role` defaults to member (fail closed); login routes pass the
+ * resolved role. This is the single canonical session signer —
+ * `lib/auth-oauth.ts` delegates to it.
  */
 export async function createSession(input: {
   email: string;
@@ -225,6 +268,7 @@ export async function createSession(input: {
   name?: string;
   ttlSec?: number;
   sub?: string;
+  role?: UserRole;
 }): Promise<string> {
   const email = input.email.trim().toLowerCase();
   const nowSec = Math.floor(Date.now() / 1000);
@@ -233,6 +277,7 @@ export async function createSession(input: {
     sub: input.sub ?? email,
     email,
     provider: input.provider,
+    role: input.role ?? "member",
     iat: nowSec,
     exp: nowSec + ttlSec,
     ...(input.name ? { name: input.name } : {}),
@@ -268,7 +313,11 @@ export async function verifySession(
   if (payload.exp <= Math.floor(Date.now() / 1000)) {
     return null;
   }
-  return payload;
+  // Sessions minted before roles existed carry no role; fail closed.
+  return {
+    ...payload,
+    role: payload.role === "admin" ? "admin" : "member",
+  };
 }
 
 export function sessionToUser(payload: SessionPayload): AuthUser {
@@ -276,6 +325,7 @@ export function sessionToUser(payload: SessionPayload): AuthUser {
     email: payload.email,
     name: payload.name ?? null,
     provider: payload.provider,
+    role: payload.role,
   };
 }
 
@@ -500,6 +550,17 @@ export function sanitizeNextPath(next: unknown): string {
     return "/";
   }
   return next;
+}
+
+/** Base URL for emailed links: NEXT_PUBLIC_SITE_URL wins, else the request origin. */
+export function resolveRequestOrigin(request: Request): string {
+  const configured = (process.env.NEXT_PUBLIC_SITE_URL ?? "")
+    .trim()
+    .replace(/\/+$/, "");
+  if (configured) {
+    return configured;
+  }
+  return new URL(request.url).origin;
 }
 
 /** Test-only reset for the in-memory rate-limiter and OTP stores. */

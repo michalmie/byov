@@ -1,11 +1,14 @@
 "use client";
 
-// Passwordless (email code) + magic-link sign-in forms for /login.
+// Email sign-in form for /login: one request sends a single email carrying
+// both the 6-digit code and the sign-in link (whichever methods are on),
+// and the user completes either. The code is entered here; the link works
+// straight from the inbox.
 //
 // Contracts (shared auth slice):
-// - POST /api/auth/otp/request {email} -> {ok:true}
+// - POST /api/auth/otp/request {email,next?} -> {ok:true}
 // - POST /api/auth/otp/verify {email,code} -> {ok:true,...} or 401 {ok:false,error}
-// - POST /api/auth/magic-link/request {email} -> {ok:true}
+// - POST /api/auth/magic-link/request {email,next?} -> {ok:true}
 // On verify success the browser navigates to `next` via window.location.assign.
 
 import { useEffect, useState } from "react";
@@ -40,6 +43,35 @@ async function readErrorMessage(
     // Non-JSON error body: fall through to the generic message.
   }
   return fallback;
+}
+
+function EmailField({
+  email,
+  onChange,
+  disabled,
+}: {
+  email: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="field">
+      <label htmlFor="login-email" className="field-label">
+        Email address
+      </label>
+      <input
+        id="login-email"
+        data-testid="login-email"
+        type="email"
+        autoComplete="email"
+        placeholder="you@company.com"
+        className="input"
+        value={email}
+        onChange={(event) => onChange(event.target.value)}
+        disabled={disabled}
+      />
+    </div>
+  );
 }
 
 export function AuthLoginForm({
@@ -86,7 +118,11 @@ export function AuthLoginForm({
       const response = await fetch("/api/auth/otp/request", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: address }),
+        // The API honors `next` for the emailed sign-in link; omit it when
+        // it is the default so the request stays minimal.
+        body: JSON.stringify(
+          next === "/" ? { email: address } : { email: address, next },
+        ),
       });
       if (!response.ok) {
         setError(
@@ -99,7 +135,11 @@ export function AuthLoginForm({
       }
       setCodeSent(true);
       setCooldown(RESEND_COOLDOWN_SECONDS);
-      setSuccess(`We emailed a 6-digit code to ${address}.`);
+      setSuccess(
+        magicLinkEnabled
+          ? `We emailed a 6-digit code and a sign-in link to ${address} — use either.`
+          : `We emailed a 6-digit code to ${address}.`,
+      );
     } catch {
       setError("Could not send the code. Check your connection and try again.");
     } finally {
@@ -206,24 +246,13 @@ export function AuthLoginForm({
         </p>
       )}
 
-      {passwordlessEnabled && (
+      {passwordlessEnabled ? (
         <form onSubmit={codeSent ? verifyCode : requestCode} className="grid gap-3">
-          <div className="field">
-            <label htmlFor="login-email" className="field-label">
-              Email address
-            </label>
-            <input
-              id="login-email"
-              data-testid="login-email"
-              type="email"
-              autoComplete="email"
-              placeholder="you@company.com"
-              className="input"
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              disabled={requestPending || verifyPending}
-            />
-          </div>
+          <EmailField
+            email={email}
+            onChange={setEmail}
+            disabled={requestPending || verifyPending}
+          />
 
           {!codeSent ? (
             <button
@@ -277,18 +306,25 @@ export function AuthLoginForm({
             </>
           )}
         </form>
-      )}
-
-      {magicLinkEnabled && (
-        <button
-          type="button"
-          data-testid="magic-link-request"
-          className="btn-ghost w-full items-center justify-center px-3 py-2 text-sm"
-          disabled={magicPending}
-          onClick={requestMagicLink}
-        >
-          {magicPending ? "Sending…" : "Email me a sign-in link"}
-        </button>
+      ) : (
+        // Link-only fallback: with codes off there is nothing to enter,
+        // so the single request just sends the link.
+        <>
+          <EmailField
+            email={email}
+            onChange={setEmail}
+            disabled={magicPending}
+          />
+          <button
+            type="button"
+            data-testid="magic-link-request"
+            className="btn-primary w-full items-center justify-center px-3 py-2 text-sm"
+            disabled={magicPending}
+            onClick={requestMagicLink}
+          >
+            {magicPending ? "Sending…" : "Email me a sign-in link"}
+          </button>
+        </>
       )}
     </div>
   );

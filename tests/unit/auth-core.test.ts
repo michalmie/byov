@@ -1,13 +1,19 @@
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { NextRequest } from "next/server";
 import {
   _resetAuthStoresForTests,
   checkRateLimit,
   createSession,
+  getAdminEmails,
   getAuthProviders,
+  isAdminEmail,
   isEmailAllowed,
   issueMagicLinkToken,
   issueOtp,
+  resolveRole,
   sanitizeNextPath,
   SESSION_COOKIE_NAME,
   sessionCookieOptions,
@@ -15,6 +21,11 @@ import {
   verifyOtp,
   verifySession,
 } from "@/lib/auth";
+import {
+  getBootstrapEmail,
+  getBootstrapFilePath,
+  resolveLoginRole,
+} from "@/lib/auth-bootstrap";
 import { isPublicPath } from "@/middleware";
 import { sendMail } from "@/lib/auth-mail";
 import { POST as otpRequest } from "@/app/api/auth/otp/request/route";
@@ -51,6 +62,10 @@ function clearAuthEnv() {
     AUTH_SECRET: "test-secret-for-unit-tests",
     AUTH_ALLOWED_EMAILS: undefined,
     AUTH_ALLOWED_DOMAINS: undefined,
+    AUTH_ADMIN_EMAILS: undefined,
+    // Fresh temp data dir per test: login routes resolve roles through the
+    // bootstrap record, which must never touch the real ./data in tests.
+    AUTH_DATA_DIR: mkdtempSync(join(tmpdir(), "byov-auth-test-")),
     AUTH_PASSWORDLESS_ENABLED: undefined,
     AUTH_MAGIC_LINK_ENABLED: undefined,
     AUTH_ENTRA_ENABLED: undefined,
@@ -59,6 +74,16 @@ function clearAuthEnv() {
     AUTH_APPLE_ENABLED: undefined,
     NEXT_PUBLIC_SITE_URL: undefined,
   });
+}
+
+/** Session cookie value out of a login response's set-cookie header. */
+function sessionCookieFrom(response: Response): string {
+  const header = response.headers.get("set-cookie") ?? "";
+  const match = header.match(/byov_session=([^;]+)/);
+  if (!match?.[1]) {
+    throw new Error("expected a byov_session cookie");
+  }
+  return decodeURIComponent(match[1]);
 }
 
 function jsonRequest(url: string, body: unknown): Request {
@@ -79,6 +104,10 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  const dataDir = process.env.AUTH_DATA_DIR;
+  if (dataDir && dataDir.startsWith(tmpdir())) {
+    rmSync(dataDir, { recursive: true, force: true });
+  }
   vi.restoreAllMocks();
   process.env = { ...savedEnv };
   vi.useRealTimers();
@@ -141,6 +170,126 @@ describe("sessions", () => {
       maxAge: 43200,
       secure: false,
     });
+  });
+
+  it("round-trips the role and defaults to member", async () => {
+    const admin = await createSession({
+      email: "ada@example.com",
+      provider: "passwordless",
+      role: "admin",
+    });
+    expect((await verifySession(admin))?.role).toBe("admin");
+    const member = await createSession({
+      email: "ada@example.com",
+      provider: "passwordless",
+    });
+    expect((await verifySession(member))?.role).toBe("member");
+  });
+
+  it("treats role-less legacy sessions as member", async () => {
+    const nowSec = Math.floor(Date.now() / 1000);
+    const encoded = Buffer.from(
+      JSON.stringify({
+        sub: "ada@example.com",
+        email: "ada@example.com",
+        provider: "passwordless",
+        iat: nowSec,
+        exp: nowSec + 43200,
+      }),
+    ).toString("base64url");
+    const key = await crypto.subtle.importKey(
+      "raw",
+      new TextEncoder().encode("test-secret-for-unit-tests"),
+      { name: "HMAC", hash: "SHA-256" },
+      false,
+      ["sign"],
+    );
+    const signature = await crypto.subtle.sign(
+      "HMAC",
+      key,
+      new TextEncoder().encode(encoded),
+    );
+    const token = `${encoded}.${Buffer.from(signature).toString("base64url")}`;
+    expect((await verifySession(token))?.role).toBe("member");
+  });
+});
+
+describe("admin roles", () => {
+  it("reads AUTH_ADMIN_EMAILS case-insensitively", () => {
+    expect(getAdminEmails()).toEqual([]);
+    setEnv({ AUTH_ADMIN_EMAILS: "Ada@Example.com, root@example.org" });
+    expect(getAdminEmails()).toEqual(["ada@example.com", "root@example.org"]);
+    expect(isAdminEmail("ADA@example.com")).toBe(true);
+    expect(isAdminEmail("mallory@evil.com")).toBe(false);
+  });
+
+  it("resolveRole prefers configured admins, then the bootstrap holder", () => {
+    expect(
+      resolveRole("ada@example.com", {
+        adminEmails: ["ada@example.com"],
+        bootstrapEmail: null,
+      }),
+    ).toBe("admin");
+    expect(
+      resolveRole("Ada@Example.com", {
+        adminEmails: [],
+        bootstrapEmail: "ada@example.com",
+      }),
+    ).toBe("admin");
+    expect(
+      resolveRole("bob@example.com", {
+        adminEmails: [],
+        bootstrapEmail: "ada@example.com",
+      }),
+    ).toBe("member");
+    expect(
+      resolveRole("bob@example.com", { adminEmails: [], bootstrapEmail: null }),
+    ).toBe("member");
+  });
+});
+
+describe("bootstrap claim", () => {
+  it("first login claims admin and persists the record", () => {
+    expect(getBootstrapEmail()).toBeNull();
+    expect(resolveLoginRole("Ada@Example.com")).toBe("admin");
+    expect(getBootstrapEmail()).toBe("ada@example.com");
+    expect(readFileSync(getBootstrapFilePath(), "utf8")).toContain(
+      "ada@example.com",
+    );
+  });
+
+  it("later logins are members while the holder stays admin", () => {
+    expect(resolveLoginRole("ada@example.com")).toBe("admin");
+    expect(resolveLoginRole("bob@example.com")).toBe("member");
+    expect(resolveLoginRole("ADA@example.com")).toBe("admin");
+    expect(getBootstrapEmail()).toBe("ada@example.com");
+  });
+
+  it("uses AUTH_ADMIN_EMAILS without claiming the bootstrap", () => {
+    setEnv({ AUTH_ADMIN_EMAILS: "root@example.org" });
+    expect(resolveLoginRole("root@example.org")).toBe("admin");
+    expect(resolveLoginRole("ada@example.com")).toBe("member");
+    expect(getBootstrapEmail()).toBeNull();
+  });
+
+  it("ignores a corrupt bootstrap record", () => {
+    writeFileSync(getBootstrapFilePath(), "not json{{{");
+    expect(getBootstrapEmail()).toBeNull();
+  });
+
+  it("fails closed to member when the record is unwritable", () => {
+    const blockFile = join(
+      process.env.AUTH_DATA_DIR ?? tmpdir(),
+      "block",
+    );
+    writeFileSync(blockFile, "in the way");
+    setEnv({ AUTH_DATA_DIR: join(blockFile, "nested") });
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(resolveLoginRole("ada@example.com")).toBe("member");
+    expect(error).toHaveBeenCalledWith(
+      expect.stringContaining("bootstrap admin record"),
+    );
+    rmSync(blockFile, { force: true });
   });
 });
 
@@ -386,7 +535,41 @@ describe("isPublicPath", () => {
 });
 
 describe("POST /api/auth/otp/request", () => {
-  it("sends a code and answers ok", async () => {
+  it("sends one email with both code and link, and answers ok", async () => {
+    const response = await otpRequest(
+      jsonRequest("http://localhost/api/auth/otp/request", {
+        email: "ada@example.com",
+        next: "/apps",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    const sent = sendMailMock.mock.calls[0]?.[0];
+    expect(sent).toMatchObject({ to: "ada@example.com" });
+    expect(sent?.subject).toContain("code and link");
+    expect(sent?.text).toMatch(/sign-in code is \d{6}/);
+    const link = String(sent?.text ?? "").match(/https?:\/\/\S+/)?.[0];
+    expect(link).toContain("/api/auth/magic-link/verify?token=");
+    expect(link).toContain(`next=${encodeURIComponent("/apps")}`);
+  });
+
+  it("sends a code-only email when the link method is off", async () => {
+    setEnv({ AUTH_MAGIC_LINK_ENABLED: "false" });
+    const response = await otpRequest(
+      jsonRequest("http://localhost/api/auth/otp/request", {
+        email: "ada@example.com",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    const sent = sendMailMock.mock.calls[0]?.[0];
+    expect(sent?.subject).toBe("Your BYOV sign-in code");
+    expect(sent?.text).not.toContain("http");
+  });
+
+  it("answers ok without sending when the code method is off", async () => {
+    setEnv({ AUTH_PASSWORDLESS_ENABLED: "false" });
     const response = await otpRequest(
       jsonRequest("http://localhost/api/auth/otp/request", {
         email: "ada@example.com",
@@ -394,10 +577,7 @@ describe("POST /api/auth/otp/request", () => {
     );
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ ok: true });
-    expect(sendMailMock).toHaveBeenCalledTimes(1);
-    expect(sendMailMock.mock.calls[0]?.[0]).toMatchObject({
-      to: "ada@example.com",
-    });
+    expect(sendMailMock).not.toHaveBeenCalled();
   });
 
   it("answers ok without sending when the email is denied", async () => {
@@ -456,6 +636,45 @@ describe("POST /api/auth/otp/verify", () => {
     expect(setCookie).toContain("Max-Age=43200");
   });
 
+  it("grants the configured admin role on verify", async () => {
+    setEnv({ AUTH_ADMIN_EMAILS: "ada@example.com" });
+    const { code } = issueOtp("ada@example.com");
+    const response = await otpVerify(
+      jsonRequest("http://localhost/api/auth/otp/verify", {
+        email: "ada@example.com",
+        code,
+      }),
+    );
+    expect(response.status).toBe(200);
+    const payload = await verifySession(sessionCookieFrom(response));
+    expect(payload?.role).toBe("admin");
+  });
+
+  it("first verified login claims bootstrap admin, later ones are members", async () => {
+    const first = issueOtp("ada@example.com");
+    const firstResponse = await otpVerify(
+      jsonRequest("http://localhost/api/auth/otp/verify", {
+        email: "ada@example.com",
+        code: first.code,
+      }),
+    );
+    expect(
+      (await verifySession(sessionCookieFrom(firstResponse)))?.role,
+    ).toBe("admin");
+
+    const second = issueOtp("bob@example.com");
+    const secondResponse = await otpVerify(
+      jsonRequest("http://localhost/api/auth/otp/verify", {
+        email: "bob@example.com",
+        code: second.code,
+      }),
+    );
+    expect(
+      (await verifySession(sessionCookieFrom(secondResponse)))?.role,
+    ).toBe("member");
+    expect(getBootstrapEmail()).toBe("ada@example.com");
+  });
+
   it("rejects wrong codes with a generic 401", async () => {
     issueOtp("ada@example.com");
     const response = await otpVerify(
@@ -491,7 +710,7 @@ describe("POST /api/auth/otp/verify", () => {
 });
 
 describe("magic-link routes", () => {
-  it("emails a verify link and consumes it with a redirect", async () => {
+  it("emails one message with link and code, and consumes the link", async () => {
     const requestResponse = await magicLinkRequest(
       jsonRequest("http://localhost/api/auth/magic-link/request", {
         email: "ada@example.com",
@@ -502,7 +721,10 @@ describe("magic-link routes", () => {
     expect(await requestResponse.json()).toEqual({ ok: true });
     expect(sendMailMock).toHaveBeenCalledTimes(1);
 
-    const text = String(sendMailMock.mock.calls[0]?.[0]?.text ?? "");
+    const sent = sendMailMock.mock.calls[0]?.[0];
+    expect(sent?.subject).toContain("code and link");
+    const text = String(sent?.text ?? "");
+    expect(text).toMatch(/sign-in code is \d{6}/);
     const link = text.match(/https?:\/\/\S+/)?.[0];
     expect(link).toBeDefined();
     const token = new URL(link ?? "").searchParams.get("token") ?? "";
@@ -544,6 +766,32 @@ describe("magic-link routes", () => {
       "http://localhost/login?error=not-allowed",
     );
   });
+
+  it("sends a link-only email when the code method is off", async () => {
+    setEnv({ AUTH_PASSWORDLESS_ENABLED: "false" });
+    const response = await magicLinkRequest(
+      jsonRequest("http://localhost/api/auth/magic-link/request", {
+        email: "ada@example.com",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    const sent = sendMailMock.mock.calls[0]?.[0];
+    expect(sent?.subject).toBe("Your BYOV sign-in link");
+    expect(sent?.text).not.toMatch(/sign-in code is \d{6}/);
+  });
+
+  it("answers ok without sending when the link method is off", async () => {
+    setEnv({ AUTH_MAGIC_LINK_ENABLED: "false" });
+    const response = await magicLinkRequest(
+      jsonRequest("http://localhost/api/auth/magic-link/request", {
+        email: "ada@example.com",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual({ ok: true });
+    expect(sendMailMock).not.toHaveBeenCalled();
+  });
 });
 
 describe("GET + DELETE /api/auth/session", () => {
@@ -556,6 +804,7 @@ describe("GET + DELETE /api/auth/session", () => {
     const token = await createSession({
       email: "ada@example.com",
       provider: "magic-link",
+      role: "admin",
     });
     const signedIn = await sessionGet(
       new NextRequest("http://localhost/api/auth/session", {
@@ -567,6 +816,7 @@ describe("GET + DELETE /api/auth/session", () => {
         email: "ada@example.com",
         name: null,
         provider: "magic-link",
+        role: "admin",
       },
     });
   });

@@ -1,4 +1,7 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getAppleCredentials,
   getEntraCredentials,
@@ -37,11 +40,25 @@ import {
   GET as callbackGET,
   POST as callbackPOST,
 } from "@/app/api/auth/oauth/[provider]/callback/route";
+import { verifySession } from "@/lib/auth";
+
+const tempDataDirs: string[] = [];
+
+// The OAuth callback resolves login roles through the bootstrap record;
+// point it at temp dirs so tests never touch the real ./data.
+beforeEach(() => {
+  const dir = mkdtempSync(join(tmpdir(), "byov-oauth-test-"));
+  tempDataDirs.push(dir);
+  vi.stubEnv("AUTH_DATA_DIR", dir);
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
+  for (const dir of tempDataDirs.splice(0)) {
+    rmSync(dir, { recursive: true, force: true });
+  }
 });
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -824,6 +841,27 @@ describe("createSessionValue", () => {
     ).not.toHaveProperty("name");
     expect(warn).toHaveBeenCalledWith(expect.stringContaining("AUTH_SECRET"));
   });
+
+  it("passes the role through and defaults to member", async () => {
+    vi.stubEnv("AUTH_SECRET", "test-secret");
+    const admin = await createSessionValue({
+      sub: "sub-1",
+      email: "ada@example.com",
+      provider: "google",
+      role: "admin",
+    });
+    expect(
+      base64UrlDecodeJson<Record<string, unknown>>(admin.split(".")[0]!),
+    ).toMatchObject({ role: "admin" });
+    const member = await createSessionValue({
+      sub: "sub-2",
+      email: "bob@example.com",
+      provider: "google",
+    });
+    expect(
+      base64UrlDecodeJson<Record<string, unknown>>(member.split(".")[0]!),
+    ).toMatchObject({ role: "member" });
+  });
 });
 
 describe("isEmailAllowed", () => {
@@ -1042,6 +1080,11 @@ describe("GET|POST /api/auth/oauth/[provider]/callback", () => {
     expect(session).toBeDefined();
     expect(session).toContain("HttpOnly");
     expect(session!.split(";")[0]!.length).toBeGreaterThan(40);
+    // First login claims the bootstrap admin record (fresh temp data dir).
+    const sessionValue = decodeURIComponent(
+      session!.split(";")[0]!.slice("byov_session=".length),
+    );
+    expect((await verifySession(sessionValue))?.role).toBe("admin");
     for (const name of ["oauth_state", "oauth_verifier", "oauth_next"]) {
       expect(setCookies.some((h) => h.startsWith(`${name}=;`))).toBe(true);
     }
