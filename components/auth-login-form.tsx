@@ -12,6 +12,7 @@
 // On verify success the browser navigates to `next` via window.location.assign.
 
 import { useEffect, useState } from "react";
+import { OtpInput, type OtpStatus } from "./otp-input";
 
 const RESEND_COOLDOWN_SECONDS = 30;
 
@@ -82,6 +83,7 @@ export function AuthLoginForm({
 }: AuthLoginFormProps) {
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [codeStatus, setCodeStatus] = useState<OtpStatus>("idle");
   const [codeSent, setCodeSent] = useState(false);
   const [requestPending, setRequestPending] = useState(false);
   const [verifyPending, setVerifyPending] = useState(false);
@@ -107,8 +109,8 @@ export function AuthLoginForm({
     return email.trim();
   }
 
-  async function requestCode(event: React.FormEvent) {
-    event.preventDefault();
+  async function requestCode(event?: React.FormEvent) {
+    event?.preventDefault();
     const address = emailOrError();
     if (address === null || requestPending) return;
     setRequestPending(true);
@@ -135,6 +137,9 @@ export function AuthLoginForm({
       }
       setCodeSent(true);
       setCooldown(RESEND_COOLDOWN_SECONDS);
+      // A fresh code was issued: clear stale digits and the box state.
+      setCode("");
+      setCodeStatus("idle");
       setSuccess(
         magicLinkEnabled
           ? `We emailed a 6-digit code and a sign-in link to ${address} — use either.`
@@ -147,22 +152,23 @@ export function AuthLoginForm({
     }
   }
 
-  async function verifyCode(event: React.FormEvent) {
-    event.preventDefault();
-    if (!/^\d{6}$/.test(code.trim())) {
+  async function doVerify(value: string) {
+    if (!/^\d{6}$/.test(value.trim())) {
       setError("Enter the 6-digit code from your email.");
       setSuccess(null);
+      setCodeStatus("error");
       return;
     }
-    if (verifyPending) return;
+    if (verifyPending || codeStatus === "success") return;
     setVerifyPending(true);
+    setCodeStatus("verifying");
     setError(null);
     setSuccess(null);
     try {
       const response = await fetch("/api/auth/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim(), code: code.trim() }),
+        body: JSON.stringify({ email: email.trim(), code: value.trim() }),
       });
       const body: unknown = await response.json().catch(() => null);
       const ok =
@@ -180,14 +186,23 @@ export function AuthLoginForm({
             ? serverError
             : "That code did not work. Please try again.",
         );
+        setCodeStatus("error");
         return;
       }
-      window.location.assign(next);
+      // Let the boxes fold into the "Verified" chip before leaving.
+      setCodeStatus("success");
+      window.setTimeout(() => window.location.assign(next), 950);
     } catch {
       setError("Could not verify the code. Check your connection and try again.");
+      setCodeStatus("error");
     } finally {
       setVerifyPending(false);
     }
+  }
+
+  function verifyCode(event: React.FormEvent) {
+    event.preventDefault();
+    void doVerify(code);
   }
 
   async function requestMagicLink() {
@@ -225,9 +240,14 @@ export function AuthLoginForm({
     }
   }
 
+  // Code failures render inside the OTP boxes' own message slot (under the
+  // same login-error test id); email and request failures keep the top alert.
+  // The two never show together.
+  const codeError = codeStatus === "error" ? error : null;
+
   return (
     <div className="grid gap-4">
-      {error !== null && (
+      {error !== null && codeError === null && (
         <p role="alert" data-testid="login-error" className="form-error">
           {error}
         </p>
@@ -269,17 +289,29 @@ export function AuthLoginForm({
                 <label htmlFor="login-code" className="field-label">
                   Verification code
                 </label>
-                <input
+                <OtpInput
                   id="login-code"
-                  data-testid="login-code"
-                  inputMode="numeric"
-                  autoComplete="one-time-code"
-                  maxLength={6}
-                  placeholder="6-digit code"
-                  className="input mono tnum"
+                  inputTestId="login-code"
+                  resendTestId="resend-code"
+                  errorTestId="login-error"
                   value={code}
-                  onChange={(event) => setCode(event.target.value)}
+                  onChange={(next) => {
+                    setCode(next);
+                    // Retyping after a failure starts fresh: the message folds
+                    // away instead of jumping back to the top alert.
+                    if (codeStatus === "error") {
+                      setCodeStatus("idle");
+                      setError(null);
+                    }
+                  }}
+                  onComplete={(done) => void doVerify(done)}
+                  status={codeStatus}
+                  errorMessage={codeError ?? undefined}
                   disabled={verifyPending}
+                  autoFocus
+                  onResend={() => void requestCode()}
+                  resendIn={cooldown}
+                  resendDisabled={requestPending}
                 />
               </div>
               <button
@@ -289,19 +321,6 @@ export function AuthLoginForm({
                 disabled={verifyPending}
               >
                 {verifyPending ? "Verifying…" : "Verify"}
-              </button>
-              <button
-                type="button"
-                data-testid="resend-code"
-                className="btn-ghost w-full items-center justify-center px-3 py-2 text-sm"
-                disabled={requestPending || cooldown > 0}
-                onClick={requestCode}
-              >
-                {requestPending
-                  ? "Sending…"
-                  : cooldown > 0
-                    ? `Resend code in ${cooldown}s`
-                    : "Resend code"}
               </button>
             </>
           )}
