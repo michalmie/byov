@@ -12,6 +12,12 @@ fi
 
 cd "$ROOT_DIR"
 
+echo "Installing dependencies"
+npm install
+
+echo "Running unit tests for $ENVIRONMENT (clean environment, like CI)"
+npm run test:unit
+
 if [ -f "$ENV_FILE" ]; then
   COMMAND_CENTER_DEPLOY_DRY_RUN="${DEPLOY_DRY_RUN:-}"
   set -a
@@ -22,13 +28,6 @@ if [ -f "$ENV_FILE" ]; then
     DEPLOY_DRY_RUN="$COMMAND_CENTER_DEPLOY_DRY_RUN"
   fi
 fi
-
-if [ ! -d node_modules ]; then
-  npm install
-fi
-
-echo "Running unit tests for $ENVIRONMENT"
-npm run test:unit
 
 echo "Building Next.js app"
 NODE_ENV=production npm run build
