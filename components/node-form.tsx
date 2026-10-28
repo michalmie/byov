@@ -7,6 +7,7 @@ import {
   type NodeField,
   type NodeFieldErrors,
 } from "@/lib/settings";
+import { NodeTestButton } from "./node-test-button";
 
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) {
@@ -76,7 +77,14 @@ export function NodeForm({
           {lede}
         </p>
       </div>
-      <form onSubmit={handleSubmit} noValidate className="grid gap-5">
+      <form onSubmit={handleSubmit} noValidate className="grid gap-6">
+        <fieldset className="grid gap-5">
+          <legend className="text-sm font-semibold">
+            About the server
+          </legend>
+          <p className="hint -mt-3">
+            How this node appears in lists and dashboards.
+          </p>
         <div className="field">
           <label className="field-label" htmlFor={`${formId}-name`}>
             Name
@@ -148,7 +156,16 @@ export function NodeForm({
             message={errors.location}
           />
         </div>
+        </fieldset>
 
+        <fieldset className="grid gap-5">
+          <legend className="text-sm font-semibold">
+            Connect
+          </legend>
+          <p className="hint -mt-3">
+            Where BYOV reaches Coolify. Test the endpoint — a failing test
+            never blocks saving.
+          </p>
         <div className="field">
           <label className="field-label" htmlFor={`${formId}-endpoint`}>
             Endpoint <span className="hint">(optional)</span>
@@ -173,8 +190,18 @@ export function NodeForm({
             id={`${formId}-endpoint-error`}
             message={errors.endpoint}
           />
+          <NodeTestButton endpoint={draft.endpoint} />
         </div>
+        </fieldset>
 
+        <fieldset className="grid gap-5">
+          <legend className="text-sm font-semibold">
+            Serve URLs
+          </legend>
+          <p className="hint -mt-3">
+            Materials for environment URLs. Both are optional — set them
+            now or edit the node later.
+          </p>
         <div className="field">
           <label className="field-label" htmlFor={`${formId}-domainZone`}>
             Domain zone <span className="hint">(optional)</span>
@@ -232,6 +259,7 @@ export function NodeForm({
             message={errors.tailnetHost}
           />
         </div>
+        </fieldset>
 
         <div className="flex flex-wrap gap-3">
           <button type="submit" className="btn-primary px-3 py-1.5 text-[13px]">
