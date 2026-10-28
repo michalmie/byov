@@ -100,7 +100,7 @@ export function emailShell({
     `<!doctype html><html><body style="margin:0;padding:24px 12px;background:#f2f2f0;">` +
     `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;">` +
     `<tr><td align="center">` +
-    `<table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;background:#ffffff;border:1px solid #e3e3e0;border-radius:8px;">` +
+    `<table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;table-layout:fixed;background:#ffffff;border:1px solid #e3e3e0;border-radius:8px;">` +
     `<tr><td style="padding:32px 32px 8px 32px;">` +
     `<div style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:#1c1c1c;">BYOV</div>` +
     `<div style="font-size:13px;color:#737373;">Bring Your Own Vibe</div>` +
@@ -116,24 +116,37 @@ export function emailShell({
   );
 }
 
-/** The 6-digit code in a large letter-spaced mono well. */
+/**
+ * The 6-digit code in a large letter-spaced mono well. Centered with a
+ * table cell (`align` attribute plus CSS): Outlook ignores div-based
+ * centering inconsistently. The extra 10px left padding compensates the
+ * trailing letter-spacing after the last digit so the code looks centered.
+ */
 function codeHtml(code: string): string {
   return (
-    `<div style="margin:16px 0;padding:18px 12px 18px 22px;background:#f2f2f0;border-radius:6px;text-align:center;` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;">` +
+    `<tr><td align="center" style="background:#f2f2f0;border-radius:6px;text-align:center;` +
+    `padding:18px 12px 18px 22px;` +
     `font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:30px;font-weight:700;letter-spacing:10px;color:#1c1c1c;">` +
-    `${escapeHtml(code)}</div>`
+    `${escapeHtml(code)}</td></tr></table>`
   );
 }
 
-/** Near-black sign-in button plus a plain-URL fallback for clipboards. */
+/**
+ * Near-black sign-in button plus a plain-URL fallback for clipboards. The
+ * button sits in a centered table cell (see `codeHtml`); the pasted URL
+ * breaks anywhere so a long token can never stretch the card and push
+ * centered content off-center.
+ */
 function ctaHtml(link: string, label: string): string {
   const safeLink = escapeHtml(link);
   return (
-    `<div style="margin:20px 0 8px 0;text-align:center;">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 8px 0;">` +
+    `<tr><td align="center" style="text-align:center;">` +
     `<a href="${safeLink}" style="display:inline-block;padding:12px 28px;background:#262626;color:#ffffff;` +
     `border-radius:6px;font-size:14px;font-weight:600;text-decoration:none;">${escapeHtml(label)}</a>` +
-    `</div>` +
-    `<div style="margin:12px 0 4px 0;font-size:12px;line-height:1.6;color:#737373;overflow-wrap:anywhere;">` +
+    `</td></tr></table>` +
+    `<div style="margin:12px 0 4px 0;font-size:12px;line-height:1.6;color:#737373;overflow-wrap:anywhere;word-wrap:break-word;word-break:break-all;">` +
     `Or paste this link into your browser:<br><a href="${safeLink}" style="color:#525252;">${safeLink}</a>` +
     `</div>`
   );

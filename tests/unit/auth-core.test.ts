@@ -770,6 +770,33 @@ describe("magic-link routes", () => {
     );
   });
 
+  it("redirects to the public origin behind a proxy, never 0.0.0.0", async () => {
+    const token = await issueMagicLinkToken("ada@example.com");
+    const headers = {
+      "x-forwarded-host": "byov.example.com",
+      "x-forwarded-proto": "https",
+    };
+
+    const ok = await magicLinkVerify(
+      new Request(
+        `http://0.0.0.0:3014/api/auth/magic-link/verify?token=${encodeURIComponent(token)}&next=${encodeURIComponent("/apps")}`,
+        { headers },
+      ),
+    );
+    expect(ok.status).toBe(307);
+    expect(ok.headers.get("location")).toBe("https://byov.example.com/apps");
+
+    const bad = await magicLinkVerify(
+      new Request(
+        "http://0.0.0.0:3014/api/auth/magic-link/verify?token=bogus",
+        { headers },
+      ),
+    );
+    expect(bad.headers.get("location")).toBe(
+      "https://byov.example.com/login?error=not-allowed",
+    );
+  });
+
   it("sends a link-only email when the code method is off", async () => {
     setEnv({ AUTH_PASSWORDLESS_ENABLED: "false" });
     const response = await magicLinkRequest(
