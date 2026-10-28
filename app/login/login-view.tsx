@@ -6,7 +6,7 @@
 // No shell, sidebar or topbar: this page renders for signed-out visitors.
 
 import { useEffect, useState } from "react";
-import { LogoMark } from "@/components/logo";
+import Image from "next/image";
 import { AuthLoginForm } from "@/components/auth-login-form";
 import {
   AuthOAuthButtons,
@@ -104,7 +104,15 @@ export function LoginView({ nextParam, errorParam }: LoginViewProps) {
     <main className="flex min-h-screen items-center justify-center px-4 py-12">
       <div className="card w-full max-w-sm p-6 sm:p-8">
         <div className="flex flex-col items-center text-center">
-          <LogoMark className="h-12 w-12" />
+          <Image
+            src="/byov-octopus.jpg"
+            alt="BYOV mascot — a pink DJ octopus in sunglasses and headphones"
+            width={160}
+            height={160}
+            priority
+            className="h-20 w-20 rounded-[8px] object-cover"
+            style={{ outline: "1px solid var(--color-rule)", outlineOffset: "-1px" }}
+          />
           <h1 className="mt-4 text-xl font-bold tracking-tight">
             Sign in to BYOV
           </h1>

@@ -57,7 +57,12 @@ export async function POST(request: Request) {
     }
     const mail = signInEmail({ code, link });
     try {
-      await sendMail({ to: normalized, subject: mail.subject, text: mail.text });
+      await sendMail({
+        to: normalized,
+        subject: mail.subject,
+        text: mail.text,
+        html: mail.html,
+      });
     } catch {
       return NextResponse.json(
         { ok: false, error: "Could not send the sign-in email. Try again later." },

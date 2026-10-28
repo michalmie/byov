@@ -5,7 +5,7 @@ import {
   sessionFromRequest,
 } from "@/lib/auth";
 import { getMailAccountStatus } from "@/lib/mail-config";
-import { sendMail } from "@/lib/auth-mail";
+import { sendMail, testEmailHtml } from "@/lib/auth-mail";
 
 /**
  * Send a test email through the default sending account (admin-only).
@@ -59,13 +59,16 @@ export async function POST(request: NextRequest) {
     );
   }
   try {
+    const accountLabel =
+      status.source === "settings" ? "Settings-saved" : "server";
     await sendMail({
       to: to.trim(),
       subject: "BYOV test email",
       text:
         `This test email was sent from your BYOV workspace ` +
-        `(${status.source === "settings" ? "Settings-saved" : "server"} sending account). ` +
+        `(${accountLabel} sending account). ` +
         `If you received it, notifications will reach your users.`,
+      html: testEmailHtml(accountLabel),
     });
   } catch (error) {
     const message =

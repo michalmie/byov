@@ -155,6 +155,27 @@ describe("passwordless code flow", () => {
     );
   });
 
+  it("verifies automatically once the sixth digit lands", async () => {
+    mockFetch((url) => {
+      if (url.includes("/api/auth/otp/request")) return jsonResponse({ ok: true });
+      if (url.includes("/api/auth/otp/verify")) {
+        return jsonResponse({ ok: true, user: { email: "ada@byov.example" } });
+      }
+      return jsonResponse({ ok: false }, false, 404);
+    });
+    render(<LoginView nextParam="/apps" />);
+    expect(await screen.findByTestId("request-code")).toBeInTheDocument();
+
+    signInWithCode();
+    expect(await screen.findByTestId("login-code")).toBeInTheDocument();
+    // No click on Verify: completing the boxes submits on its own.
+    fireEvent.change(screen.getByTestId("login-code"), {
+      target: { value: "123456" },
+    });
+
+    await waitFor(() => expect(assignSpy).toHaveBeenCalledWith("/apps"));
+  });
+
   it("shows the server error when verification fails", async () => {
     mockFetch((url) => {
       if (url.includes("/api/auth/otp/request")) return jsonResponse({ ok: true });
@@ -273,10 +294,9 @@ describe("passwordless code flow", () => {
 
     signInWithCode();
     await act(async () => {});
-    expect(screen.getByTestId("resend-code")).toBeDisabled();
-    expect(screen.getByTestId("resend-code")).toHaveTextContent(
-      "Resend code in 30s",
-    );
+    // While cooling down the resend row shows a countdown, not a button.
+    expect(screen.getByText("Resend in 0:30")).toBeInTheDocument();
+    expect(screen.queryByTestId("resend-code")).not.toBeInTheDocument();
 
     // Advance one second per act() so the rescheduling effect flushes
     // between ticks.
@@ -284,15 +304,16 @@ describe("passwordless code flow", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(1000);
       });
-      expect(screen.getByTestId("resend-code")).toBeDisabled();
-      expect(screen.getByTestId("resend-code")).toHaveTextContent(
-        `Resend code in ${remaining}s`,
-      );
+      expect(
+        screen.getByText(`Resend in 0:${String(remaining).padStart(2, "0")}`),
+      ).toBeInTheDocument();
+      expect(screen.queryByTestId("resend-code")).not.toBeInTheDocument();
     }
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000);
     });
+    expect(screen.queryByText(/Resend in/)).not.toBeInTheDocument();
     expect(screen.getByTestId("resend-code")).toBeEnabled();
     expect(screen.getByTestId("resend-code")).toHaveTextContent("Resend code");
   });
