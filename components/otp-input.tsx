@@ -221,14 +221,20 @@ export function OtpInput({
   };
 
   /** A tap or click picks the box under the pointer — never beyond the
-   * first empty one. */
+   * first empty one. The selection is set directly (never in a deferred
+   * callback) so a stale closure can't stomp the caret mid-typing. */
   const pick = (x: number) => {
     let i = boxes.current.findIndex(
       (b) => b && x < b.getBoundingClientRect().right + 4,
     );
     if (i < 0) i = length - 1;
-    setIdx(Math.min(i, code.length, length - 1));
-    requestAnimationFrame(syncSelection);
+    const next = Math.min(i, code.length, length - 1);
+    setIdx(next);
+    const el = input.current;
+    if (el && document.activeElement === el) {
+      if (next < code.length) el.setSelectionRange(next, next + 1);
+      else el.setSelectionRange(next, next);
+    }
   };
 
   // The real input selects the active character, so typing replaces it and
@@ -366,10 +372,7 @@ export function OtpInput({
           onChange={(e) => handleInput(e.currentTarget)}
           onPaste={handlePaste}
           onKeyDown={handleKeyDown}
-          onFocus={() => {
-            setFocused(true);
-            requestAnimationFrame(syncSelection);
-          }}
+          onFocus={() => setFocused(true)}
           onBlur={() => setFocused(false)}
           onPointerUp={(e) => pick(e.clientX)}
           onSelect={(e) => {

@@ -422,7 +422,10 @@ a:active {
 .otp-slots {
   --otp-gap: 8px;
   --otp-n: 6;
-  --otp-box: min(46px, calc((100% - (var(--otp-n) - 1) * var(--otp-gap)) / var(--otp-n)));
+  /* Container units, not %: this size is reused inside translateX(), where
+     a % would resolve against the moved element itself and shrink every
+     step to ~9px. cqi always means the .otp row width. */
+  --otp-box: min(46px, calc((100cqi - (var(--otp-n) - 1) * var(--otp-gap)) / var(--otp-n)));
   position: relative;
   display: flex;
   gap: var(--otp-gap);
