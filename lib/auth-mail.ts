@@ -141,7 +141,7 @@ function ctaHtml(link: string, label: string): string {
 
 export function otpEmail(code: string): AuthEmail {
   return {
-    subject: "Your BYOV sign-in code",
+    subject: `${code} is your BYOV sign-in code`,
     text: `Your BYOV sign-in code is ${code}. It expires in 10 minutes.\n\nIf you did not request this code, you can ignore this email.`,
     html: emailShell({
       heading: "Your sign-in code",
@@ -179,7 +179,7 @@ export function signInEmail(input: SignInEmailInput): AuthEmail {
   if (input.code && input.link) {
     const { code, link } = input;
     return {
-      subject: "Your BYOV sign-in code and link",
+      subject: `${code} is your BYOV sign-in code`,
       text:
         `Your BYOV sign-in code is ${code}. It expires in 10 minutes.\n\n` +
         `Or sign in with this link (expires in 10 minutes):\n\n${link}\n\n` +

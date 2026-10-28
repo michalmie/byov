@@ -77,7 +77,7 @@ describe("sendMail dev fallback", () => {
 describe("auth email templates", () => {
   it("builds the OTP email with the code", () => {
     const mail = otpEmail("123456");
-    expect(mail.subject).toContain("sign-in code");
+    expect(mail.subject).toBe("123456 is your BYOV sign-in code");
     expect(mail.text).toContain("123456");
   });
 
@@ -95,7 +95,7 @@ describe("auth email templates", () => {
       code: "123456",
       link: "https://byov.test/api/auth/magic-link/verify?token=x",
     });
-    expect(mail.subject).toContain("code and link");
+    expect(mail.subject).toBe("123456 is your BYOV sign-in code");
     expect(mail.text).toContain("123456");
     expect(mail.text).toContain(
       "https://byov.test/api/auth/magic-link/verify?token=x",
