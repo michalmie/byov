@@ -28,9 +28,10 @@ Run npm run test:unit for meaningful behavior changes, npm run lint,
 npm run typecheck and npm run build before completion. Report checks actually run.
 For UI changes running under Vibe Factory/Cezar, also verify in the real
 Chromium via the factory browser helper from the factory root
-(`node scripts/cezar-browser/check.mjs --url <local url> --out <file.png>`);
-when no browser runtime is available, fall back to a production-server render
-check plus unit tests and say so in the summary.
+(`node scripts/cezar-browser/check.mjs --url <local url> --out <file.png>`;
+steps, options and troubleshooting in `scripts/cezar-browser/README.md`);
+when no browser runtime is available, use that README's no-browser fallback
+(production-server render check plus unit tests) and say so in the summary.
 
 Follow the configured task and PR workflow. The trusted Factory controller owns
 GitHub publication in sandboxed task sessions. Keep unfinished work in draft;
