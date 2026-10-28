@@ -107,11 +107,16 @@ export function LoginView({ nextParam, errorParam }: LoginViewProps) {
           <Image
             src="/byov-octopus.jpg"
             alt="BYOV mascot — a pink DJ octopus in sunglasses and headphones"
-            width={160}
-            height={160}
+            width={256}
+            height={256}
             priority
-            className="h-20 w-20 rounded-[8px] object-cover"
-            style={{ outline: "1px solid var(--color-rule)", outlineOffset: "-1px" }}
+            className="h-24 w-24 rounded-[12px] object-cover"
+            style={{
+              outline: "1px solid var(--color-rule)",
+              outlineOffset: "-1px",
+              boxShadow:
+                "0 12px 28px -12px rgb(0 0 0 / 0.28), 0 2px 6px rgb(0 0 0 / 0.08)",
+            }}
           />
           <h1 className="mt-4 text-xl font-bold tracking-tight">
             Sign in to BYOV

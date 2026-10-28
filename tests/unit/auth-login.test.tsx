@@ -143,8 +143,10 @@ describe("passwordless code flow", () => {
     fireEvent.change(codeInput, { target: { value: "123456" } });
     fireEvent.click(screen.getByTestId("verify-code"));
 
-    await waitFor(() =>
-      expect(assignSpy).toHaveBeenCalledWith("/apps/shopfloor"),
+    // Navigation waits for the "Verified" chip morph (~950ms).
+    await waitFor(
+      () => expect(assignSpy).toHaveBeenCalledWith("/apps/shopfloor"),
+      { timeout: 3000 },
     );
     expect(fetchMock).toHaveBeenCalledWith(
       "/api/auth/otp/verify",
@@ -173,7 +175,70 @@ describe("passwordless code flow", () => {
       target: { value: "123456" },
     });
 
-    await waitFor(() => expect(assignSpy).toHaveBeenCalledWith("/apps"));
+    await waitFor(() => expect(assignSpy).toHaveBeenCalledWith("/apps"), {
+      timeout: 3000,
+    });
+  });
+
+  it("morphs into a Verified chip before navigating", async () => {
+    mockFetch((url) => {
+      if (url.includes("/api/auth/otp/request")) return jsonResponse({ ok: true });
+      if (url.includes("/api/auth/otp/verify")) {
+        return jsonResponse({ ok: true, user: { email: "ada@byov.example" } });
+      }
+      return jsonResponse({ ok: false }, false, 404);
+    });
+    render(<LoginView />);
+    expect(await screen.findByTestId("request-code")).toBeInTheDocument();
+
+    signInWithCode();
+    expect(await screen.findByTestId("login-code")).toBeInTheDocument();
+    fireEvent.change(screen.getByTestId("login-code"), {
+      target: { value: "123456" },
+    });
+
+    // The chip and the polite live region share the label; pin the chip.
+    expect(
+      await screen.findByText("Verified", { selector: ".otp-pill-text" }),
+    ).toBeInTheDocument();
+    await waitFor(() => expect(assignSpy).toHaveBeenCalledWith("/"), {
+      timeout: 3000,
+    });
+  });
+
+  it("clears the boxes after a failed verification", async () => {
+    vi.useFakeTimers();
+    mockFetch((url) => {
+      if (url.includes("/api/auth/otp/request")) return jsonResponse({ ok: true });
+      if (url.includes("/api/auth/otp/verify")) {
+        return jsonResponse({ ok: false, error: "Invalid or expired code." }, false, 401);
+      }
+      return jsonResponse({ ok: false }, false, 404);
+    });
+    render(<LoginView />);
+    await act(async () => {});
+    expect(screen.getByTestId("request-code")).toBeInTheDocument();
+
+    signInWithCode();
+    await act(async () => {});
+    fireEvent.change(screen.getByTestId("login-code"), {
+      target: { value: "000000" },
+    });
+    // Flush the auto-verify round trip without advancing the clock.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    expect(screen.getByTestId("login-error")).toHaveTextContent(
+      "Invalid or expired code.",
+    );
+
+    // Past the shake-and-fade window the boxes empty for the next try.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1200);
+    });
+    expect(screen.queryByTestId("login-error")).not.toBeInTheDocument();
+    expect(screen.getByTestId("login-code")).toHaveValue("");
+    expect(assignSpy).not.toHaveBeenCalled();
   });
 
   it("shows the server error when verification fails", async () => {
@@ -295,7 +360,11 @@ describe("passwordless code flow", () => {
     signInWithCode();
     await act(async () => {});
     // While cooling down the resend row shows a countdown, not a button.
-    expect(screen.getByText("Resend in 0:30")).toBeInTheDocument();
+    // The clock lives in its own span for a stable width; the separator is
+    // a non-breaking space.
+    const waitText = () =>
+      document.querySelector(".otp-wait")?.textContent ?? null;
+    expect(waitText()).toBe("Resend in\u00a00:30");
     expect(screen.queryByTestId("resend-code")).not.toBeInTheDocument();
 
     // Advance one second per act() so the rescheduling effect flushes
@@ -304,16 +373,16 @@ describe("passwordless code flow", () => {
       await act(async () => {
         await vi.advanceTimersByTimeAsync(1000);
       });
-      expect(
-        screen.getByText(`Resend in 0:${String(remaining).padStart(2, "0")}`),
-      ).toBeInTheDocument();
+      expect(waitText()).toBe(
+        `Resend in\u00a00:${String(remaining).padStart(2, "0")}`,
+      );
       expect(screen.queryByTestId("resend-code")).not.toBeInTheDocument();
     }
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1000);
     });
-    expect(screen.queryByText(/Resend in/)).not.toBeInTheDocument();
+    expect(document.querySelector(".otp-wait")).not.toBeInTheDocument();
     expect(screen.getByTestId("resend-code")).toBeEnabled();
     expect(screen.getByTestId("resend-code")).toHaveTextContent("Resend code");
   });
@@ -574,6 +643,8 @@ describe("getSafeNext", () => {
     });
     fireEvent.click(screen.getByTestId("verify-code"));
 
-    await waitFor(() => expect(assignSpy).toHaveBeenCalledWith("/"));
+    await waitFor(() => expect(assignSpy).toHaveBeenCalledWith("/"), {
+      timeout: 3000,
+    });
   });
 });

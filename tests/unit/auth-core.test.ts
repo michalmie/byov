@@ -13,6 +13,7 @@ import {
   isEmailAllowed,
   issueMagicLinkToken,
   issueOtp,
+  resolveRequestOrigin,
   resolveRole,
   sanitizeNextPath,
   SESSION_COOKIE_NAME,
@@ -827,6 +828,66 @@ describe("GET + DELETE /api/auth/session", () => {
     expect(response.headers.get("set-cookie")).toContain(
       `${SESSION_COOKIE_NAME}=`,
     );
+  });
+});
+
+describe("resolveRequestOrigin", () => {
+  function getRequest(url: string, headers?: Record<string, string>) {
+    return new Request(url, { headers });
+  }
+
+  it("prefers NEXT_PUBLIC_SITE_URL and strips trailing slashes", () => {
+    setEnv({ NEXT_PUBLIC_SITE_URL: "https://byov.example.com///" });
+    expect(
+      resolveRequestOrigin(
+        getRequest("http://localhost/api/auth/otp/request"),
+      ),
+    ).toBe("https://byov.example.com");
+  });
+
+  it("rewrites a 0.0.0.0 request host to localhost", () => {
+    expect(
+      resolveRequestOrigin(
+        getRequest("http://0.0.0.0:3014/api/auth/otp/request"),
+      ),
+    ).toBe("http://localhost:3014");
+  });
+
+  it("uses the forwarded host and proto behind a proxy", () => {
+    expect(
+      resolveRequestOrigin(
+        getRequest("http://0.0.0.0:3014/api/auth/otp/request", {
+          "x-forwarded-host": "byov.example.com",
+          "x-forwarded-proto": "https",
+        }),
+      ),
+    ).toBe("https://byov.example.com");
+  });
+
+  it("falls back to the request origin when configured and forwarded values are junk", () => {
+    setEnv({ NEXT_PUBLIC_SITE_URL: "not a url" });
+    expect(
+      resolveRequestOrigin(
+        getRequest("http://localhost:3014/api/auth/otp/request", {
+          "x-forwarded-host": "exa mple.com",
+        }),
+      ),
+    ).toBe("http://localhost:3014");
+  });
+
+  it("never emails a magic link with a 0.0.0.0 host", async () => {
+    const response = await magicLinkRequest(
+      jsonRequest("http://0.0.0.0:3014/api/auth/magic-link/request", {
+        email: "ada@example.com",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    const sent = sendMailMock.mock.calls[0]?.[0];
+    const link = String(sent?.text ?? "").match(/https?:\/\/\S+/)?.[0] ?? "";
+    expect(link).toContain("http://localhost:3014/api/auth/magic-link/verify");
+    expect(link).not.toContain("0.0.0.0");
+    expect(String(sent?.html ?? "")).not.toContain("0.0.0.0");
   });
 });
 

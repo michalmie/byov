@@ -416,6 +416,7 @@ a:active {
 .otp {
   display: grid;
   gap: var(--space-sm);
+  container-type: inline-size;
 }
 
 .otp-slots {
@@ -427,6 +428,7 @@ a:active {
   gap: var(--otp-gap);
 }
 
+/* White cells with a hairline shadow and a soft lift. */
 .otp-box {
   position: relative;
   display: grid;
@@ -436,19 +438,14 @@ a:active {
   height: 54px;
   overflow: hidden;
   border-radius: var(--radius-well);
-  background: var(--color-paper);
-  box-shadow: inset 0 0 0 1px var(--color-rule);
+  background: var(--color-card);
+  box-shadow: 0 0 0 0.5px var(--color-rule), 0 1px 1px -1px rgb(0 0 0 / 0.1), 0 1px 2px 0 rgb(0 0 0 / 0.05);
   font-family: var(--font-mono);
   font-size: 1.25rem;
   font-weight: 500;
   font-variant-numeric: tabular-nums;
   color: var(--color-ink);
-  transition: background-color var(--dur-short) var(--ease-out), box-shadow var(--dur-short) var(--ease-out);
-}
-
-.otp-box[data-filled] {
-  background: var(--color-card);
-  box-shadow: inset 0 0 0 1px var(--color-ink-2);
+  transition: box-shadow 220ms ease, background-color 220ms ease, color 220ms ease, transform 380ms var(--ease-out), opacity 260ms ease;
 }
 
 /* Digits pop in — a small lift out of a blur, no bounce. */
@@ -457,17 +454,24 @@ a:active {
   animation: otp-pop 280ms var(--ease-out) both;
 }
 
-/* One ring glides from box to box; --otp-active is the box index. */
+.otp-slots[data-clearing] .otp-char {
+  animation: otp-out 240ms ease both;
+  animation-delay: calc((var(--otp-n) - var(--otp-i, 0)) * 22ms) !important;
+}
+
+/* One thin blue outline glides from cell to cell; --otp-active is the
+   box index, positioned with pure CSS so no measurement is needed. */
 .otp-ring {
   position: absolute;
   top: 0;
   left: 0;
+  z-index: 1;
   display: grid;
   place-items: center;
   width: var(--otp-box);
   height: 100%;
   border-radius: var(--radius-well);
-  box-shadow: inset 0 0 0 1.5px var(--color-accent-deep), 0 0 0 4px color-mix(in oklch, var(--color-accent) 10%, transparent);
+  box-shadow: 0 0 0 1px var(--color-focus), 0 0 0 3px color-mix(in oklch, var(--color-focus) 30%, transparent);
   opacity: 0;
   pointer-events: none;
   transform: translateX(calc(var(--otp-active, 0) * (var(--otp-box) + var(--otp-gap))));
@@ -479,10 +483,10 @@ a:active {
 }
 
 .otp-caret {
-  width: 2px;
+  width: 1px;
   height: 40%;
   border-radius: 1px;
-  background: var(--color-accent-deep);
+  background: var(--color-focus);
   opacity: 0;
 }
 
@@ -491,10 +495,11 @@ a:active {
 }
 
 /* The real input lies over the boxes, invisible — it takes taps, keys,
-   paste and SMS autofill. Keyboard focus shows on the ring instead. */
+   paste and SMS autofill. Focus always shows on the ring instead. */
 .otp-input {
   position: absolute;
   inset: 0;
+  z-index: 2;
   width: 100%;
   height: 100%;
   margin: 0;
@@ -506,35 +511,41 @@ a:active {
   -webkit-text-fill-color: transparent;
   caret-color: transparent;
   font-size: 16px; /* iOS doesn't zoom into inputs of 16px and up */
+  letter-spacing: -1em;
   cursor: text;
+  appearance: none;
 }
 
 .otp-input::selection {
   background: transparent;
 }
 
+.otp-input:-webkit-autofill {
+  -webkit-box-shadow: 0 0 0 100px transparent inset;
+  transition: background-color 9999s;
+}
+
+.otp-input[readonly],
 .otp-input:disabled {
   cursor: default;
 }
 
-.otp-slots:has(.otp-input:focus-visible) .otp-ring {
-  box-shadow: inset 0 0 0 1.5px var(--color-accent-deep), 0 0 0 4px color-mix(in oklch, var(--color-accent) 10%, transparent), 0 0 0 6px color-mix(in oklch, var(--color-focus) 40%, transparent);
-}
-
-/* Verifying: a soft light passes over the boxes, one after another. */
+/* Verifying: the digits turn gray and a soft light passes over the boxes,
+   one after another. */
 .otp-box::after {
   content: "";
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.9) 50%, transparent 80%);
+  background: linear-gradient(100deg, transparent 20%, rgb(255 255 255 / 0.85) 50%, transparent 80%);
   transform: translateX(-120%);
   opacity: 0;
   pointer-events: none;
 }
 
 .otp[data-status="verifying"] .otp-box {
-  background: var(--color-paper-2);
+  background: var(--color-paper);
+  color: var(--color-ink-2);
 }
 
 .otp[data-status="verifying"] .otp-box::after {
@@ -543,57 +554,224 @@ a:active {
   animation-delay: calc(var(--otp-i, 0) * 70ms);
 }
 
-/* Error: only the borders turn red, and the row shakes once. */
+/* Error: no red strokes — the cells get a faint red fill and red digits,
+   and the row shakes once (replays whenever data-error toggles back on). */
 .otp[data-error] .otp-box {
-  box-shadow: inset 0 0 0 1px var(--color-bad);
-}
-
-.otp[data-error] .otp-ring {
-  box-shadow: inset 0 0 0 1.5px var(--color-bad), 0 0 0 4px var(--color-bad-soft);
-}
-
-.otp[data-error] .otp-caret {
-  background: var(--color-bad);
+  background: color-mix(in oklch, var(--color-bad) 8%, var(--color-card));
+  color: var(--color-bad);
 }
 
 .otp[data-error] .otp-slots {
   animation: otp-shake 420ms ease-out;
 }
 
-/* Resend: a countdown that turns into a button. */
+/* Success: the boxes slide together and fade while one frame morphs into
+   the green "Verified" chip. */
+.otp-pill {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  z-index: 1;
+  display: grid;
+  place-items: center;
+  height: 54px;
+  overflow: hidden;
+  border-radius: var(--radius-well);
+  background: var(--color-card);
+  box-shadow: 0 0 0 0.5px var(--color-rule), 0 1px 1px -1px rgb(0 0 0 / 0.1), 0 1px 2px 0 rgb(0 0 0 / 0.05);
+  opacity: 0;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  transition: width 300ms var(--ease-out), background-color 300ms ease, opacity 160ms ease 140ms;
+}
+
+.otp-pill-inner {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 0 14px 0 12px;
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 20px;
+  white-space: nowrap;
+  color: var(--color-ink);
+  opacity: 0;
+  transition: opacity 160ms ease;
+}
+
+.otp-pill-text {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.otp-check {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: var(--color-ok);
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.otp-check path {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  transition: stroke-dashoffset 120ms ease;
+}
+
+.otp[data-status="success"] .otp-box {
+  transform: translateX(calc(((var(--otp-n) - 1) / 2 - var(--otp-i, 0)) * (var(--otp-box) + var(--otp-gap)))) scale(0.7);
+  opacity: 0;
+  transition: transform 340ms var(--ease-out), opacity 220ms ease 120ms;
+}
+
+.otp[data-status="success"] .otp-pill {
+  background: var(--color-ok-soft);
+  opacity: 1;
+  transition: width 460ms var(--ease-out) 220ms, background-color 300ms ease 300ms, opacity 160ms ease 120ms;
+}
+
+.otp[data-status="success"] .otp-pill-inner {
+  opacity: 1;
+  transition: opacity 240ms ease 460ms;
+}
+
+.otp[data-status="success"] .otp-check path {
+  stroke-dashoffset: 0;
+  transition: stroke-dashoffset 380ms var(--ease-out) 560ms;
+}
+
+/* The error message grows in below, then folds away. */
+.otp-msg {
+  display: grid;
+  grid-template-rows: 0fr;
+  width: 100%;
+  transition: grid-template-rows 300ms var(--ease-out);
+}
+
+.otp-msg[data-show] {
+  grid-template-rows: 1fr;
+}
+
+.otp-msg-inner {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.otp-msg-text {
+  margin: 0;
+  overflow-wrap: anywhere;
+  padding-top: 8px;
+  font-size: 12px;
+  line-height: 16px;
+  text-wrap: balance;
+  color: var(--color-ink-2);
+  opacity: 0;
+  transform: translateY(-4px);
+  transition: opacity 200ms ease, transform 300ms var(--ease-out);
+}
+
+.otp-msg[data-show] .otp-msg-text {
+  opacity: 1;
+  transform: none;
+  transition-delay: 60ms;
+}
+
+/* The icon sits inline, so a wrapped message stays centered with it. */
+.otp-alert {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  margin-right: 6px;
+  vertical-align: -3px;
+  fill: none;
+  stroke: var(--color-bad);
+  stroke-width: 1.7;
+  stroke-linecap: round;
+}
+
+/* Resend: a countdown that turns into a tab-style button. */
 .otp-resend {
-  font-size: var(--text-sm);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 8px;
+  min-height: 28px;
+  font-size: 12px;
+  line-height: 16px;
   font-variant-numeric: tabular-nums;
   color: var(--color-muted);
+  transition: opacity 220ms ease;
+}
+
+.otp-resend[data-hidden] {
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 220ms ease, visibility 0s 220ms;
+}
+
+.otp-swap {
+  display: inline-block;
+  animation: otp-in 260ms var(--ease-out) both;
 }
 
 .otp-wait {
   color: var(--color-ink-2);
 }
 
-.otp-resend-btn {
-  padding: 0;
-  border: 0;
-  background: none;
-  font: inherit;
-  font-weight: 500;
+.otp-time {
+  display: inline-block;
+  min-width: 3.4ch;
+  text-align: left;
   color: var(--color-ink);
-  cursor: pointer;
+}
+
+.otp-resend-btn {
+  position: relative;
+  padding: 4px 10px;
+  border-radius: var(--radius-tag);
+  box-shadow: inset 0 0 0 0.5px var(--color-rule);
+  font-size: 13px;
+  line-height: 20px;
+  font-weight: 500;
+  color: var(--color-ink-2);
+  transition: background-color 160ms ease, color 160ms ease;
 }
 
 .otp-resend-btn:hover:not(:disabled) {
-  text-decoration: underline;
-  text-underline-offset: 3px;
+  background: var(--color-paper);
+  color: var(--color-ink);
+}
+
+.otp-resend-btn:active:not(:disabled) {
+  background: var(--color-paper-2);
 }
 
 .otp-resend-btn:disabled {
   color: var(--color-muted);
+  background: none;
   cursor: default;
+}
+
+.otp-live {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 @keyframes otp-pop {
   from { opacity: 0; transform: translateY(4px) scale(0.7); filter: blur(3px); }
   to { opacity: 1; transform: none; filter: none; }
+}
+
+@keyframes otp-out {
+  to { opacity: 0; transform: translateY(-4px) scale(0.8); filter: blur(2px); }
 }
 
 @keyframes otp-blink {
@@ -613,6 +791,32 @@ a:active {
   60% { transform: translateX(-3px); }
   80% { transform: translateX(2px); }
   100% { transform: none; }
+}
+
+@keyframes otp-in {
+  from { opacity: 0; transform: translateY(3px); filter: blur(2px); }
+  to { opacity: 1; transform: none; filter: none; }
+}
+
+/* Narrow containers (phones): tighter gaps, the question before "Resend"
+   drops first. */
+@container (max-width: 340px) {
+  .otp-slots {
+    --otp-gap: 6px;
+  }
+}
+
+@container (max-width: 250px) {
+  .otp-resend-q {
+    display: none;
+  }
+}
+
+/* Touch screens: a taller Resend button. */
+@media (hover: none) and (pointer: coarse) {
+  .otp-resend-btn {
+    padding: 7px 12px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

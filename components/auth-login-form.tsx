@@ -159,7 +159,7 @@ export function AuthLoginForm({
       setCodeStatus("error");
       return;
     }
-    if (verifyPending) return;
+    if (verifyPending || codeStatus === "success") return;
     setVerifyPending(true);
     setCodeStatus("verifying");
     setError(null);
@@ -189,7 +189,9 @@ export function AuthLoginForm({
         setCodeStatus("error");
         return;
       }
-      window.location.assign(next);
+      // Let the boxes fold into the "Verified" chip before leaving.
+      setCodeStatus("success");
+      window.setTimeout(() => window.location.assign(next), 950);
     } catch {
       setError("Could not verify the code. Check your connection and try again.");
       setCodeStatus("error");
@@ -238,9 +240,14 @@ export function AuthLoginForm({
     }
   }
 
+  // Code failures render inside the OTP boxes' own message slot (under the
+  // same login-error test id); email and request failures keep the top alert.
+  // The two never show together.
+  const codeError = codeStatus === "error" ? error : null;
+
   return (
     <div className="grid gap-4">
-      {error !== null && (
+      {error !== null && codeError === null && (
         <p role="alert" data-testid="login-error" className="form-error">
           {error}
         </p>
@@ -286,14 +293,20 @@ export function AuthLoginForm({
                   id="login-code"
                   inputTestId="login-code"
                   resendTestId="resend-code"
+                  errorTestId="login-error"
                   value={code}
                   onChange={(next) => {
                     setCode(next);
-                    // Retyping clears the shake; the message stays until submit.
-                    if (codeStatus === "error") setCodeStatus("idle");
+                    // Retyping after a failure starts fresh: the message folds
+                    // away instead of jumping back to the top alert.
+                    if (codeStatus === "error") {
+                      setCodeStatus("idle");
+                      setError(null);
+                    }
                   }}
                   onComplete={(done) => void doVerify(done)}
                   status={codeStatus}
+                  errorMessage={codeError ?? undefined}
                   disabled={verifyPending}
                   autoFocus
                   onResend={() => void requestCode()}

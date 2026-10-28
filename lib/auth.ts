@@ -567,15 +567,64 @@ export function sanitizeNextPath(next: unknown): string {
   return next;
 }
 
-/** Base URL for emailed links: NEXT_PUBLIC_SITE_URL wins, else the request origin. */
+/** Parse an http(s) origin; null when the value is not one. */
+function safeHttpOrigin(value: string): string | null {
+  try {
+    const url = new URL(value);
+    if (url.protocol !== "http:" && url.protocol !== "https:") return null;
+    return rewriteUnspecifiedHost(url.origin);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 0.0.0.0 is a listen address, not an openable one: browsers refuse
+ * https://0.0.0.0 and only some accept the http form. Emailed links and
+ * OAuth callbacks must point at localhost instead.
+ */
+function rewriteUnspecifiedHost(origin: string): string {
+  try {
+    const url = new URL(origin);
+    if (url.hostname === "0.0.0.0") {
+      url.hostname = "localhost";
+      return url.origin;
+    }
+  } catch {
+    // Not a URL at all: leave it for the caller to fall through.
+  }
+  return origin;
+}
+
+/**
+ * Base URL for emailed links and OAuth callbacks: NEXT_PUBLIC_SITE_URL
+ * wins, else the forwarded host/proto behind a proxy, else the request
+ * origin. Deployments behind a proxy should still set
+ * NEXT_PUBLIC_SITE_URL — forwarded headers are a fallback, not a promise.
+ */
 export function resolveRequestOrigin(request: Request): string {
   const configured = (process.env.NEXT_PUBLIC_SITE_URL ?? "")
     .trim()
     .replace(/\/+$/, "");
   if (configured) {
-    return configured;
+    const origin = safeHttpOrigin(configured);
+    if (origin) return origin;
   }
-  return new URL(request.url).origin;
+
+  const forwardedHost =
+    request.headers.get("x-forwarded-host")?.split(",")[0]?.trim() ?? "";
+  if (forwardedHost) {
+    const forwardedProto =
+      request.headers
+        .get("x-forwarded-proto")
+        ?.split(",")[0]
+        ?.trim()
+        .toLowerCase() || "https";
+    const origin = safeHttpOrigin(`${forwardedProto}://${forwardedHost}`);
+    if (origin) return origin;
+  }
+
+  return rewriteUnspecifiedHost(new URL(request.url).origin);
 }
 
 /** Test-only reset for the in-memory rate-limiter and OTP stores. */

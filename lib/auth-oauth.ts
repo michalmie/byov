@@ -15,6 +15,7 @@ import {
 } from "./auth-providers";
 import {
   createSession,
+  resolveRequestOrigin,
   sanitizeNextPath,
   type UserRole,
 } from "./auth";
@@ -498,13 +499,12 @@ export async function resolveOAuthIdentity(
 /* callback base URL / redirect_uri                                    */
 /* ------------------------------------------------------------------ */
 
-/** Contract: NEXT_PUBLIC_SITE_URL wins, else the request origin. */
+/**
+ * Contract: same base URL as emailed links (NEXT_PUBLIC_SITE_URL wins,
+ * else forwarded headers, else the request origin; 0.0.0.0 rewritten).
+ */
 export function getOAuthCallbackBaseUrl(request: Request): string {
-  const configured = (process.env.NEXT_PUBLIC_SITE_URL ?? "")
-    .trim()
-    .replace(/\/+$/, "");
-  if (configured) return configured;
-  return new URL(request.url).origin;
+  return resolveRequestOrigin(request);
 }
 
 export function getOAuthRedirectUri(
