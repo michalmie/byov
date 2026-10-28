@@ -2,16 +2,17 @@
 
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
+import { useSession } from "@/lib/use-session";
 import {
   BellIcon,
   BoxIcon,
   ChevronDownIcon,
-  GearIcon,
   LayersIcon,
   MenuIcon,
   PlusIcon,
   StackIcon,
 } from "./icons";
+import { ProfileMenu } from "./profile-menu";
 
 export function Topbar({
   onMenu,
@@ -24,6 +25,7 @@ export function Topbar({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const { user, loading, logout } = useSession();
 
   useEffect(() => {
     if (!menuOpen) {
@@ -170,13 +172,18 @@ export function Topbar({
           )}
         </div>
 
-        <Link
-          href="/settings"
-          aria-label="Settings"
-          className="icon-btn h-8 w-8 shrink-0"
-        >
-          <GearIcon className="h-4 w-4" />
-        </Link>
+        {loading ? (
+          <span
+            aria-hidden="true"
+            className="h-8 w-8 shrink-0 rounded-full"
+            style={{
+              background: "var(--color-paper-2)",
+              border: "1px solid var(--color-rule)",
+            }}
+          />
+        ) : (
+          <ProfileMenu user={user} onLogout={() => void logout()} />
+        )}
       </div>
     </header>
   );
