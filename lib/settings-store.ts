@@ -3,7 +3,7 @@
 // localStorage after mount, and stays in sync across components and tabs.
 
 import { useCallback, useEffect, useState } from "react";
-import type { Node } from "./control-plane";
+import type { App, Node } from "./control-plane";
 import { listNodes, listApps } from "./control-plane";
 import {
   NODES_STORAGE_KEY,
@@ -183,8 +183,8 @@ export function useManagedNodes() {
 
   /** Remove unless pinned; returns the blocking reason or null. */
   const deleteNode = useCallback(
-    (slug: string): string | null => {
-      const result = removeNodeGuarded(nodes, slug, listApps());
+    (slug: string, apps: readonly App[] = listApps()): string | null => {
+      const result = removeNodeGuarded(nodes, slug, apps);
       if (!result.ok) {
         return result.reason;
       }

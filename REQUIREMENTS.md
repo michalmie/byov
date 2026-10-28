@@ -68,6 +68,25 @@ The solution has three parts:
   in-content navigation on all sizes and the section navigation on
   small screens.
 
+### Control Plane UI (fifth slice)
+
+- New app flow (`/apps/new`): name, description, tech stack and
+  Sandbox node; workspace apps live in the browser until the API
+  lands. Sample apps stay read-only and the slug never changes after
+  creation.
+- Every new app starts with one `sandbox` environment on the chosen
+  node, Pending until the first deploy; the five governed checks ride
+  along green until the first run proves otherwise.
+- The app page guides the owner from scaffold to first Sandbox
+  deploy while no deployment exists: pick what to run (a coding
+  agent, own code, AI-generated code), then three steps — scaffold
+  from the stack starter, start the agent / run locally / review the
+  output, keep the gates green and point the Coolify FQDN at the
+  Sandbox URL.
+- Workspace apps feed the apps list, dashboard, nodes page, sidebar
+  counts and the node removal guard; the detail page resolves customs
+  client-side and offers removal for workspace apps.
+
 ### Tech stacks (first slice)
 
 - Stack catalog (`stacks/`): one folder per stack with `manifest.json`,

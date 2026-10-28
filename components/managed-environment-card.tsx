@@ -1,7 +1,7 @@
 "use client";
 
 import type { Deployment, AppEnvironment } from "@/lib/control-plane";
-import { listApps } from "@/lib/control-plane";
+import { useManagedApps } from "@/lib/apps-store";
 import { isDomainZone, isTestablePort, resolveEnvUrl } from "@/lib/dev-urls";
 import { useWorkspaceSettings } from "@/lib/settings-store";
 import { EnvironmentCard } from "./environment-card";
@@ -44,11 +44,12 @@ export function ManagedEnvironmentCard({
   checksTotal: number;
 }) {
   const { settings, nodes } = useWorkspaceSettings();
+  const { apps } = useManagedApps();
   const node = nodes.find((entry) => entry.slug === env.node);
   const nodeName = node?.name ?? env.node;
   const resolved = resolveEnvUrl(appSlug, env, {
     nodes,
-    apps: listApps(),
+    apps,
     devZone: settings.devZone,
     tailnetDomain: settings.tailnetDomain,
     defaultScenario: settings.defaultScenario,
