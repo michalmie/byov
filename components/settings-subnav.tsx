@@ -2,13 +2,24 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { DocIcon, GlobeIcon, LayersIcon, StackIcon } from "./icons";
+import {
+  BellIcon,
+  DocIcon,
+  GlobeIcon,
+  GridIcon,
+  LayersIcon,
+  ShieldCheckIcon,
+  StackIcon,
+} from "./icons";
 
 const sections = [
   { href: "/settings/general", label: "General", icon: DocIcon },
   { href: "/settings/nodes", label: "Nodes", icon: StackIcon },
   { href: "/settings/dns", label: "DNS", icon: GlobeIcon },
   { href: "/settings/stacks", label: "Tech stacks", icon: LayersIcon },
+  { href: "/settings/auth", label: "Auth", icon: ShieldCheckIcon },
+  { href: "/settings/users", label: "Users", icon: GridIcon },
+  { href: "/settings/email", label: "Email", icon: BellIcon },
 ];
 
 export function SettingsSubnav() {

@@ -185,3 +185,76 @@ Local bootstrap runbook:
    mkcert only covers a single admin machine.
 3. Trust: install the CA root on every client and on the BYOV server, then
    verify with the Nodes-row Test before pointing apps at local URLs.
+
+### Nodes (second slice)
+
+- Add node is a guided Coolify onboarding flow (see
+  `docs/coolify-node.md`): About the server (name, type, location),
+  Connect (endpoint plus Test), Serve URLs (domain zone, tailnet
+  machine name), each with plain-language help.
+- A prerequisites checklist rides with the Add form: server sizing,
+  Ubuntu, ports 80/443, DNS for Coolify itself, official install,
+  first login and FQDN, then register the endpoint here.
+- Endpoint verification runs server-side via POST /api/nodes-test and
+  shows DNS → TLS → HTTP evidence plus one actionable guidance line;
+  `http` skips TLS by design and any HTTP status counts as reachable.
+- Verification never blocks saving: an unreachable endpoint, a failed
+  probe, or a missing backend still saves, and the node stays Pending.
+- After a successful add the page shows next steps: Pending until
+  first contact, set the zone and DNS below, use the Tests to verify.
+- Pending tracks adapter contact, not reachability — green Tests with
+  a Pending node is the expected steady state until the Coolify node
+  adapter lands. The adapter roadmap item stays open: verification is
+  not deploying.
+
+### Auth (first slice)
+
+- Every route requires a session except `/login`, `/auth/*`,
+  `/api/auth/*` and static assets. Pages redirect to `/login?next=…`;
+  `/api/*` answers 401. The middleware verifies the session cookie and
+  hands the email downstream as `x-byov-user-email`.
+- Sessions are stateless HMAC-signed cookies (`byov_session`, 12h,
+  HttpOnly, SameSite=Lax, Secure in production) carrying the user's
+  role (admin/member). The signing secret is `AUTH_SECRET`; an unset
+  secret falls back to an insecure dev value with a warning.
+- Admins come from `AUTH_ADMIN_EMAILS`, plus a first-login bootstrap:
+  when no admins are configured anywhere, the first user to sign in
+  becomes admin and the claim is recorded on disk (`AUTH_DATA_DIR`,
+  default `./data`, atomic so concurrent first logins elect one).
+  Role enforcement (RBAC gates) rides a later slice; the session API
+  and `x-byov-user-role` already expose the role.
+- Default sign-in is passwordless: one request sends a single email
+  carrying both a 6-digit code (10-minute TTL, 5 attempts) and a magic
+  link (stateless token, 10-minute TTL); the user completes either.
+  When only one method is enabled the email carries just that one.
+  Request endpoints always answer ok so responses never reveal the
+  access list; all endpoints are rate-limited (5/min per key).
+- OAuth sign-in via Microsoft Entra ID, GitHub, Google and Apple:
+  PKCE S256 for all, state-as-nonce for the OIDC providers, verified
+  emails only, failures redirect to `/login?error=…` without details.
+  Each provider needs its `AUTH_*_ENABLED` flag plus credentials; the
+  callback URLs are `{site}/api/auth/oauth/<provider>/callback`.
+- Access is restricted by `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS`
+  (exact email wins, then domain; both empty allows all with a warning).
+- Outbound mail goes through the default sending account: the
+  Settings-saved account (Settings → Email, admin-only, stored
+  owner-only on the server) wins, else `SMTP_*` env, else mail is
+  logged to the console in dev. The Email page shows which source is
+  active, saves/clears the account, and can send a test email that
+  reports provider errors. A wrong saved account breaks sign-in mail;
+  recovery is deleting `data/mail.json` on the server (falls back to
+  env, then console).
+- OTP codes and rate limits live in server memory (single-instance
+  limit, noted in code); `id_token` signatures are not yet verified
+  against provider JWKS (TLS + PKCE-bound exchange for now).
+- Standalone public `/login` page (no shell): one email request sends
+  the combined code + link email, the code is entered here with resend
+  cooldown, OAuth links for enabled providers, `?next=` deep-link
+  preservation and friendly `?error=` copy. With codes off the page
+  falls back to a link-only request.
+- Settings → Auth: workspace sign-in preferences (methods, provider
+  toggles, access lists, session lifetime) kept in the browser until
+  the API lands; enforcement stays server-side and the UI says so.
+- Settings → Users: workspace member list with invite by email, roles
+  (admin/member) and last-admin removal/demotion guards, kept in the
+  browser until the API lands.
