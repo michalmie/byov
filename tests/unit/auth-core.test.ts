@@ -548,8 +548,9 @@ describe("POST /api/auth/otp/request", () => {
     expect(sendMailMock).toHaveBeenCalledTimes(1);
     const sent = sendMailMock.mock.calls[0]?.[0];
     expect(sent).toMatchObject({ to: "ada@example.com" });
-    expect(sent?.subject).toContain("code and link");
     expect(sent?.text).toMatch(/sign-in code is \d{6}/);
+    const code = String(sent?.text ?? "").match(/sign-in code is (\d{6})/)?.[1];
+    expect(sent?.subject).toBe(`${code} is your BYOV sign-in code`);
     const link = String(sent?.text ?? "").match(/https?:\/\/\S+/)?.[0];
     expect(link).toContain("/api/auth/magic-link/verify?token=");
     expect(link).toContain(`next=${encodeURIComponent("/apps")}`);
@@ -565,7 +566,7 @@ describe("POST /api/auth/otp/request", () => {
     expect(response.status).toBe(200);
     expect(sendMailMock).toHaveBeenCalledTimes(1);
     const sent = sendMailMock.mock.calls[0]?.[0];
-    expect(sent?.subject).toBe("Your BYOV sign-in code");
+    expect(sent?.subject).toMatch(/^\d{6} is your BYOV sign-in code$/);
     expect(sent?.text).not.toContain("http");
   });
 
@@ -723,9 +724,10 @@ describe("magic-link routes", () => {
     expect(sendMailMock).toHaveBeenCalledTimes(1);
 
     const sent = sendMailMock.mock.calls[0]?.[0];
-    expect(sent?.subject).toContain("code and link");
     const text = String(sent?.text ?? "");
     expect(text).toMatch(/sign-in code is \d{6}/);
+    const code = text.match(/sign-in code is (\d{6})/)?.[1];
+    expect(sent?.subject).toBe(`${code} is your BYOV sign-in code`);
     const link = text.match(/https?:\/\/\S+/)?.[0];
     expect(link).toBeDefined();
     const token = new URL(link ?? "").searchParams.get("token") ?? "";
