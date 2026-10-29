@@ -11,6 +11,9 @@
     "npm"
   ],
   "publicService": "web",
+  "email": {
+    "accountFile": "data/mail.json"
+  },
   "files": [
     "deploy/preview.sh",
     "deploy/preview.mjs"
