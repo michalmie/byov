@@ -36,6 +36,7 @@ function MethodToggle({
   envFlag,
   checked,
   onChange,
+  guideHref,
 }: {
   id: string;
   title: string;
@@ -43,6 +44,7 @@ function MethodToggle({
   envFlag: string;
   checked: boolean;
   onChange: (value: boolean) => void;
+  guideHref?: string;
 }) {
   return (
     <label htmlFor={id} className="flex items-start gap-2 text-sm">
@@ -58,6 +60,15 @@ function MethodToggle({
         <span className="hint">
           {blurb} Server flag <span className="mono">{envFlag}</span>.{" "}
           {ENFORCEMENT_NOTE}
+          {guideHref && (
+            <>
+              {" "}
+              <a className="underline" href={guideHref}>
+                View setup guide
+              </a>
+              .
+            </>
+          )}
         </span>
       </span>
     </label>
@@ -175,7 +186,11 @@ export function AuthSettingsForm({
             style={{ color: "var(--color-ink-2)" }}
           >
             Single sign-on through an identity provider. Each needs its
-            client credentials on the server before it can sign anyone in.
+            client credentials on the server before it can sign anyone in.{" "}
+            <a className="underline" href="/docs/oauth">
+              View the OAuth setup overview
+            </a>
+            .
           </p>
         </div>
         <div className="grid gap-4">
@@ -188,6 +203,7 @@ export function AuthSettingsForm({
               envFlag={AUTH_PROVIDER_META[id].envFlag}
               checked={draft.providers[id]}
               onChange={(value) => onProviderToggle(id, value)}
+              guideHref={`/docs/oauth/${id}`}
             />
           ))}
         </div>
