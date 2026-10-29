@@ -6,7 +6,7 @@ import type { App, DnsScenario, Health, Node } from "./control-plane";
 import { isDnsScenario } from "./control-plane";
 import { MAX_ZONE_LENGTH, isDomainZone, isHostname } from "./dev-urls";
 
-export const SUPPORTED_NODE_KINDS = ["Coolify"] as const;
+export const SUPPORTED_NODE_KINDS = ["Coolify", "Vercel"] as const;
 
 /** Picker copy per DNS scenario. */
 export const DNS_SCENARIO_META: Record<
@@ -134,7 +134,7 @@ export function validateNodeDraft(
       errors.endpoint = `Keep the endpoint under ${MAX_ENDPOINT} characters.`;
     } else if (!isHttpUrl(endpoint)) {
       errors.endpoint =
-        "Enter a valid http(s) URL, e.g. https://coolify.example.com.";
+        "Enter a valid http(s) URL, e.g. https://nodes.example.com.";
     }
   }
 

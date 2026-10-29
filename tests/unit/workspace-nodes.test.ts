@@ -162,6 +162,66 @@ describe("workspace nodes store", () => {
     expect(result.errors.name).toBe("A node with this name already exists.");
   });
 
+  it("creates a Vercel node with a derived slug and pending status", async () => {
+    const result = await createWorkspaceNode({ ...DRAFT, kind: "Vercel" });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.node.slug).toBe("lab-01");
+    expect(result.node.kind).toBe("Vercel");
+    expect(result.node.status).toBe("pending");
+    await expect(listWorkspaceNodes()).resolves.toEqual([result.node]);
+  });
+
+  it("rejects an unknown kind with field errors and no insert", async () => {
+    const result = await createWorkspaceNode({
+      ...DRAFT,
+      kind: "Kubernetes",
+    });
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.errors.kind).toMatch(/supported/i);
+    await expect(listWorkspaceNodes()).resolves.toEqual([]);
+  });
+
+  it("updates a node to the Vercel kind and keeps the status", async () => {
+    const created = await createWorkspaceNode(DRAFT);
+    expect(created.ok).toBe(true);
+    if (!created.ok) {
+      return;
+    }
+    const result = await updateWorkspaceNode("lab-01", {
+      ...DRAFT,
+      kind: "Vercel",
+    });
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.node.slug).toBe("lab-01");
+    expect(result.node.kind).toBe("Vercel");
+    expect(result.node.status).toBe("pending");
+  });
+
+  it("rejects updating a node to an unknown kind", async () => {
+    const created = await createWorkspaceNode(DRAFT);
+    expect(created.ok).toBe(true);
+    if (!created.ok) {
+      return;
+    }
+    const result = await updateWorkspaceNode("lab-01", {
+      ...DRAFT,
+      kind: "Kubernetes",
+    });
+    expect(result).toEqual({
+      ok: false,
+      errors: expect.objectContaining({ kind: expect.stringMatching(/supported/i) }),
+    });
+  });
+
   it("updates by slug without changing the slug and keeps the status", async () => {
     const created = await createWorkspaceNode(DRAFT);
     expect(created.ok).toBe(true);
@@ -290,6 +350,35 @@ describe("workspace nodes API", () => {
       ok: false,
       error: "The node could not be created.",
       errors: { name: "Give the node a name." },
+    });
+  });
+
+  it("creates a Vercel node and rejects an unknown kind", async () => {
+    const created = await nodesPost(
+      await sessionRequest("http://localhost/api/workspace/nodes", {
+        method: "POST",
+        body: { ...DRAFT, kind: "Vercel" },
+      }),
+    );
+    expect(created.status).toBe(201);
+    const createdBody = (await created.json()) as {
+      ok: boolean;
+      data: { kind: string; status: string };
+    };
+    expect(createdBody.data.kind).toBe("Vercel");
+    expect(createdBody.data.status).toBe("pending");
+
+    const invalid = await nodesPost(
+      await sessionRequest("http://localhost/api/workspace/nodes", {
+        method: "POST",
+        body: { ...DRAFT, name: "Lab 02", kind: "Kubernetes" },
+      }),
+    );
+    expect(invalid.status).toBe(400);
+    expect(await invalid.json()).toEqual({
+      ok: false,
+      error: "The node could not be created.",
+      errors: { kind: expect.stringMatching(/supported/i) },
     });
   });
 
