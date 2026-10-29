@@ -23,9 +23,11 @@ if [ -f "$ENV_FILE" ]; then
   fi
 fi
 
-if [ ! -d node_modules ]; then
-  npm install
-fi
+# Always sync dependencies from the lockfile: installing only when
+# node_modules is missing leaves stale dependencies after any commit
+# that adds or upgrades a package, failing the tests below.
+echo "Syncing dependencies from package-lock.json"
+npm ci --no-audit --no-fund
 
 echo "Running unit tests for $ENVIRONMENT (clean environment, like CI)"
 env -i "PATH=$PATH" "HOME=$HOME" "CI=true" npm run test:unit
