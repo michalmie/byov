@@ -10,7 +10,6 @@ import { useManagedStacks } from "@/lib/stack-store";
 import {
   ArrowRightIcon,
   BoxIcon,
-  CloseIcon,
   DocIcon,
   GearIcon,
   GridIcon,
@@ -123,22 +122,14 @@ export function Sidebar({
       }`}
       style={{ borderColor: "var(--color-rail-line)" }}
     >
-      <div className="flex items-start justify-between gap-2 px-1">
+      <div className="px-1">
         <Link
           href="/"
           onClick={onClose}
-          className="inline-flex min-w-0 flex-1"
+          className="inline-flex w-full max-w-[140px]"
         >
           <Logo className="h-auto w-full rounded-[10px]" />
         </Link>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close navigation"
-          className="icon-btn h-8 w-8 shrink-0 lg:hidden"
-        >
-          <CloseIcon className="h-4 w-4" />
-        </button>
       </div>
 
       <div
