@@ -27,7 +27,8 @@ export default function Nodes() {
             style={{ color: "var(--color-muted)" }}
           >
             Where apps land. Administrators pin each environment to a
-            node — the first fleet is self-hosted Coolify.
+            node — the first fleet is self-hosted Coolify and Vercel cloud
+            projects.
           </p>
           <div className="mt-4">
             <Link

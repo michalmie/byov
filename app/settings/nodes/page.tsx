@@ -27,6 +27,7 @@ export default function SettingsNodes() {
   const { settings } = useWorkspaceSettings();
   const { apps } = useManagedApps();
   const [adding, setAdding] = useState(false);
+  const [addKind, setAddKind] = useState(blankDraft.kind);
   const [editing, setEditing] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -106,7 +107,7 @@ export default function SettingsNodes() {
 
         {adding && (
           <div className="grid gap-6">
-            <NodeSetupGuide />
+            <NodeSetupGuide kind={addKind} />
             <NodeForm
               key="new"
               formId="add-node"
@@ -114,6 +115,7 @@ export default function SettingsNodes() {
               lede="Register a deployment target. It stays Pending until first contact."
               initial={blankDraft}
               submitLabel="Add node"
+              onKindChange={setAddKind}
               onSubmit={(draft) => {
                 const errors = createNode(draft);
                 if (errors) {
@@ -215,6 +217,7 @@ export default function SettingsNodes() {
                 className="btn-ghost px-3 py-1.5 text-[13px]"
                 onClick={() => {
                   setAdding(true);
+                  setAddKind(blankDraft.kind);
                   setNotice(null);
                   setNextStepsFor(null);
                 }}

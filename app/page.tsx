@@ -157,7 +157,7 @@ export default function Dashboard() {
             <div id="nodes-heading">
               <SectionHead
                 title="Nodes"
-                lede="Where apps land. The first fleet is self-hosted Coolify."
+                lede="Where apps land. The first fleet is self-hosted Coolify and Vercel cloud projects."
               />
             </div>
             <ul className="grid">
