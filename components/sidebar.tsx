@@ -19,7 +19,7 @@ import {
   SearchIcon,
   StackIcon,
 } from "./icons";
-import { LogoMark } from "./logo";
+import { Logo } from "./logo";
 
 const healthDot: Record<string, string> = {
   healthy: "var(--color-ok)",
@@ -127,10 +127,9 @@ export function Sidebar({
         <Link
           href="/"
           onClick={onClose}
-          className="inline-flex items-center gap-2 text-[15px] font-bold tracking-tight"
+          className="inline-flex items-center"
         >
-          <LogoMark className="h-8 w-8" />
-          BYOV
+          <Logo className="h-8 w-auto rounded-[6px]" />
         </Link>
         <button
           type="button"
