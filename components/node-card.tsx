@@ -10,6 +10,9 @@ function kindBlurb(kind: string): string {
   if (kind === "Coolify") {
     return "Provision and deploy applications through a Coolify instance.";
   }
+  if (kind === "Vercel") {
+    return "Provision and deploy applications through Vercel cloud projects.";
+  }
   return `Deploy applications through this ${kind} node.`;
 }
 
