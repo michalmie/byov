@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render } from "@testing-library/react";
 import { Logo, LogoMark } from "@/components/logo";
 
 describe("LogoMark", () => {
@@ -7,7 +7,7 @@ describe("LogoMark", () => {
     const img = container.querySelector("img");
     expect(img).not.toBeNull();
     expect(img?.getAttribute("alt")).toBe("");
-    expect(img?.getAttribute("src")).toContain("byov-octopus");
+    expect(img?.getAttribute("src")).toContain("byov-mark-512");
   });
 
   it("defaults to the 32px sidebar size so the mascot stays legible", () => {
@@ -18,9 +18,11 @@ describe("LogoMark", () => {
 });
 
 describe("Logo", () => {
-  it("renders the mark next to the BYOV wordmark", () => {
+  it("renders the horizontal lockup with the BYOV wordmark", () => {
     const { container } = render(<Logo />);
-    expect(screen.getByText("BYOV")).toBeInTheDocument();
-    expect(container.querySelector("img")).not.toBeNull();
+    const img = container.querySelector("img");
+    expect(img).not.toBeNull();
+    expect(img?.getAttribute("alt")).toBe("BYOV");
+    expect(img?.getAttribute("src")).toContain("byov-logo-horizontal-1400");
   });
 });

@@ -1,4 +1,5 @@
-// BYOV brand: the pink DJ octopus mascot in sunglasses and headphones.
+// BYOV brand: the pink octopus mascot in sunglasses (mark) and the full
+// horizontal lockup (mascot + BYOV wordmark). Art lives in public/brand/.
 
 import Image from "next/image";
 
@@ -9,7 +10,7 @@ interface LogoProps {
 export function LogoMark({ className = "h-8 w-8" }: LogoProps) {
   return (
     <Image
-      src="/byov-octopus.jpg"
+      src="/brand/byov-mark-512.png"
       alt=""
       width={64}
       height={64}
@@ -18,11 +19,14 @@ export function LogoMark({ className = "h-8 w-8" }: LogoProps) {
   );
 }
 
-export function Logo({ className = "" }: LogoProps) {
+export function Logo({ className = "h-8 w-auto" }: LogoProps) {
   return (
-    <span className={`inline-flex items-center gap-2 ${className}`}>
-      <LogoMark />
-      <span className="text-[15px] font-bold tracking-tight">BYOV</span>
-    </span>
+    <Image
+      src="/brand/byov-logo-horizontal-1400.png"
+      alt="BYOV"
+      width={1400}
+      height={420}
+      className={className}
+    />
   );
 }

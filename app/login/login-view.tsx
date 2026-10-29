@@ -105,8 +105,8 @@ export function LoginView({ nextParam, errorParam }: LoginViewProps) {
       <div className="card w-full max-w-sm p-6 sm:p-8">
         <div className="flex flex-col items-center text-center">
           <Image
-            src="/byov-octopus.jpg"
-            alt="BYOV mascot — a pink DJ octopus in sunglasses and headphones"
+            src="/brand/byov-mark-512.png"
+            alt="BYOV mascot — a pink octopus in sunglasses"
             width={256}
             height={256}
             priority
