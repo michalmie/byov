@@ -151,14 +151,21 @@ describe("validateAppDraft", () => {
     expect(errors.slug).toMatch(/explicitly/);
   });
 
-  it("requires a description", () => {
-    const errors = validateAppDraft(
-      draft({ description: "  " }),
-      listApps(),
-      nodes,
-      stackSlugs,
-    );
-    expect(errors.description).toMatch(/description/i);
+  it("allows an empty description", () => {
+    expect(
+      validateAppDraft(
+        draft({ description: "  " }),
+        listApps(),
+        nodes,
+        stackSlugs,
+      ),
+    ).toEqual({});
+  });
+
+  it("allows a blank stack", () => {
+    expect(
+      validateAppDraft(draft({ stack: "" }), listApps(), nodes, stackSlugs),
+    ).toEqual({});
   });
 
   it("requires a known stack", () => {
@@ -282,6 +289,16 @@ describe("standardNewAppChecks", () => {
 describe("parseStoredApps", () => {
   it("round-trips a stored app", () => {
     const app = buildApp(draft(), listApps());
+    expect(parseStoredApps(JSON.parse(JSON.stringify([app])))).toEqual([app]);
+  });
+
+  it("keeps stack-less apps with empty descriptions", () => {
+    const app = buildApp(
+      draft({ stack: "", description: "  " }),
+      listApps(),
+    );
+    expect(app.stack).toBe("");
+    expect(app.description).toBe("");
     expect(parseStoredApps(JSON.parse(JSON.stringify([app])))).toEqual([app]);
   });
 

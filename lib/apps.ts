@@ -107,15 +107,11 @@ export function validateAppDraft(
   }
 
   const description = draft.description.trim();
-  if (!description) {
-    errors.description = "Add a one-line description.";
-  } else if (description.length > MAX_DESCRIPTION) {
+  if (description.length > MAX_DESCRIPTION) {
     errors.description = `Keep the description under ${MAX_DESCRIPTION} characters.`;
   }
 
-  if (!draft.stack.trim()) {
-    errors.stack = "Choose a tech stack.";
-  } else if (!knownStacks.includes(draft.stack)) {
+  if (draft.stack.trim() && !knownStacks.includes(draft.stack)) {
     errors.stack = "Choose one of the known tech stacks.";
   }
 
@@ -296,9 +292,7 @@ export function parseStoredApps(value: unknown): App[] | undefined {
       typeof name !== "string" ||
       !name ||
       typeof stack !== "string" ||
-      !stack ||
-      typeof description !== "string" ||
-      !description
+      typeof description !== "string"
     ) {
       continue;
     }

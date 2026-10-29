@@ -47,15 +47,19 @@ export function AppForm({
 }) {
   const [draft, setDraft] = useState<AppDraft>(initial);
   const [errors, setErrors] = useState<AppFieldErrors>({});
+  // The stack is optional, so the ?stack= prefill only applies until the
+  // user touches the select — otherwise "No stack yet" could never win.
+  const [stackTouched, setStackTouched] = useState(false);
 
+  const preferredStackValid =
+    preferredStack && stacks.some((entry) => entry.slug === preferredStack)
+      ? preferredStack
+      : "";
   // Empty selects fall back to the preferred option when it names a known
   // entry (the ?stack= prefill, the workspace default node for the
   // Sandbox), else the first option; explicit choices always win.
   const stack =
-    draft.stack ||
-    (preferredStack && stacks.some((entry) => entry.slug === preferredStack)
-      ? preferredStack
-      : (stacks[0]?.slug ?? ""));
+    draft.stack || (!stackTouched && preferredStackValid) || "";
   const node =
     draft.node ||
     (preferredNode && nodes.some((entry) => entry.slug === preferredNode)
@@ -171,8 +175,8 @@ export function AppForm({
             onChange={(event) => set("description", event.target.value)}
           />
           <p id={`${formId}-description-hint`} className="hint">
-            A few lines for the app page; keep the first line short for
-            lists.
+            Optional — a few lines for the app page. Keep the first line
+            short for lists.
           </p>
           <FieldError
             id={`${formId}-description-error`}
@@ -190,8 +194,12 @@ export function AppForm({
             value={stack}
             aria-invalid={Boolean(errors.stack)}
             aria-describedby={describedBy("stack", `${formId}-stack-hint`)}
-            onChange={(event) => set("stack", event.target.value)}
+            onChange={(event) => {
+              setStackTouched(true);
+              set("stack", event.target.value);
+            }}
           >
+            <option value="">No stack yet</option>
             {stacks.map((stack) => (
               <option key={stack.slug} value={stack.slug}>
                 {stack.name}
@@ -199,7 +207,7 @@ export function AppForm({
             ))}
           </select>
           <p id={`${formId}-stack-hint`} className="hint">
-            Paved-road starter with the required gates built in.{" "}
+            Optional paved-road starter with the required gates built in.{" "}
             {stack && (
               <Link
                 href={`/stacks/${stack}`}

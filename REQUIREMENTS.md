@@ -82,10 +82,12 @@ The solution has three parts:
   along green until the first run proves otherwise.
 - The app page guides the owner from scaffold to first Sandbox
   deploy while no deployment exists: pick what to run (a coding
-  agent, own code, AI-generated code), then three steps — scaffold
-  from the stack starter, start the agent / run locally / review the
-  output, keep the gates green and point the Coolify FQDN at the
-  Sandbox URL.
+  agent, own code, AI-generated code), then four steps — connect the
+  station (Sandbox URL, app, env and node facts; no client, MCP
+  endpoint or connect script exists yet), scaffold from the stack
+  starter (or the owner's own repo without a stack), start the agent
+  / run locally / review the output, keep the gates green and point
+  the Coolify FQDN at the Sandbox URL.
 - Workspace apps feed the apps list, dashboard, nodes page, sidebar
   counts and the node removal guard; the detail page resolves customs
   client-side and offers removal for workspace apps.

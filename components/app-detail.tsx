@@ -46,7 +46,8 @@ export function AppDetailView({ slug }: { slug: string }) {
   }
 
   const custom = isCustomApp(app.slug);
-  const stackName = getManagedStack(app.stack)?.name ?? app.stack;
+  const stackName =
+    getManagedStack(app.stack)?.name || app.stack || "No stack yet";
   const health = appHealth(app);
   const passing = app.checks.filter(
     (check) => check.status === "pass",

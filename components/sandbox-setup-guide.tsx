@@ -102,7 +102,7 @@ function commandOf(
 
 /**
  * Owner setup guide for a fresh Sandbox environment: pick what to run,
- * then follow three steps from scaffold to first Sandbox deploy.
+ * connect the station, then follow the steps to the first Sandbox deploy.
  */
 export function SandboxSetupGuide({ app }: { app: App }) {
   const [mode, setMode] = useState<GuideMode>("agent");
@@ -136,6 +136,8 @@ export function SandboxSetupGuide({ app }: { app: App }) {
   )?.command;
   const agentCommand =
     AGENTS.find((entry) => entry.id === agent)?.command ?? "claude";
+  const hasStarter = Boolean(stack || app.stack);
+  const repoWords = hasStarter ? "the scaffolded repo" : "your repo";
 
   return (
     <section
@@ -227,7 +229,72 @@ export function SandboxSetupGuide({ app }: { app: App }) {
               >
                 01
               </span>
-              Scaffold the app from the starter
+              Connect your station to the Sandbox
+            </p>
+            <p
+              className="max-w-[70ch] text-sm"
+              style={{ color: "var(--color-ink-2)" }}
+            >
+              Point your station at the Sandbox URL below: it is where your
+              code runs — the Coolify FQDN, your API base, and your webhook
+              target all use it. There is no BYOV client, MCP endpoint, or
+              connect script yet — one-command setup from your coding tool
+              is on the roadmap. Until then the loop is manual: build
+              locally, keep the gates green, deploy to the node.
+            </p>
+            <dl
+              className="mono grid max-w-2xl gap-1 text-[13px]"
+              style={{ color: "var(--color-ink-2)" }}
+            >
+              <div className="flex flex-wrap gap-x-2">
+                <dt>App:</dt>
+                <dd style={{ color: "var(--color-ink)" }}>{app.slug}</dd>
+              </div>
+              <div className="flex flex-wrap gap-x-2">
+                <dt>Environment:</dt>
+                <dd style={{ color: "var(--color-ink)" }}>
+                  {SANDBOX_ENV_NAME}
+                </dd>
+              </div>
+              <div className="flex flex-wrap gap-x-2">
+                <dt>Node:</dt>
+                <dd style={{ color: "var(--color-ink)" }}>
+                  {nodeName || sandbox?.node || "—"}
+                </dd>
+              </div>
+            </dl>
+            <div className="max-w-2xl">
+              {resolved.url ? (
+                <CommandBlock title="Sandbox URL" command={resolved.url} />
+              ) : (
+                <p
+                  className="max-w-[70ch] text-sm"
+                  style={{ color: "var(--color-ink-2)" }}
+                >
+                  {resolved.warning ??
+                    "Finish the node setup to get a URL."}{" "}
+                  <Link
+                    href="/settings/nodes"
+                    className="underline underline-offset-2"
+                  >
+                    Open node settings
+                  </Link>
+                </p>
+              )}
+            </div>
+          </li>
+
+          <li className="grid gap-2">
+            <p className="font-semibold">
+              <span
+                className="mono mr-2 text-sm"
+                style={{ color: "var(--color-ink-2)" }}
+              >
+                02
+              </span>
+              {stack || app.stack
+                ? "Scaffold the app from the starter"
+                : "Start from your own code"}
             </p>
             <p
               className="max-w-[70ch] text-sm"
@@ -246,11 +313,17 @@ export function SandboxSetupGuide({ app }: { app: App }) {
                   walks through install, environment, and the dev server.
                   Never commit secrets.
                 </>
-              ) : (
+              ) : app.stack ? (
                 <>
                   Scaffold the app from its tech stack starter, install
                   dependencies with a clean install, and copy the example env
                   file. Never commit secrets.
+                </>
+              ) : (
+                <>
+                  This app has no tech stack, so there is no starter: bring
+                  your own repo, install its dependencies, and copy the
+                  example env file. Never commit secrets.
                 </>
               )}
             </p>
@@ -263,7 +336,7 @@ export function SandboxSetupGuide({ app }: { app: App }) {
                   className="mono mr-2 text-sm"
                   style={{ color: "var(--color-ink-2)" }}
                 >
-                  02
+                  03
                 </span>
                 Start the Coding Agent
               </p>
@@ -271,9 +344,9 @@ export function SandboxSetupGuide({ app }: { app: App }) {
                 className="max-w-[70ch] text-sm"
                 style={{ color: "var(--color-ink-2)" }}
               >
-                Open the scaffolded repo in your terminal. The agent has its
-                own sign-in, separate from BYOV — log in when it asks, then
-                send your first prompt.
+                Open {repoWords} in your terminal. The agent has its own
+                sign-in, separate from BYOV — log in when it asks, then send
+                your first prompt.
               </p>
               <div className="max-w-2xl">
                 <CommandBlock
@@ -321,7 +394,7 @@ export function SandboxSetupGuide({ app }: { app: App }) {
                   className="mono mr-2 text-sm"
                   style={{ color: "var(--color-ink-2)" }}
                 >
-                  02
+                  03
                 </span>
                 Run it on your machine
               </p>
@@ -329,8 +402,9 @@ export function SandboxSetupGuide({ app }: { app: App }) {
                 className="max-w-[70ch] text-sm"
                 style={{ color: "var(--color-ink-2)" }}
               >
-                Bring your code into the scaffolded repo and confirm it runs
-                locally before it ships.
+                {hasStarter
+                  ? "Bring your code into the scaffolded repo and confirm it runs locally before it ships."
+                  : "Confirm your code runs locally before it ships."}
                 {stack && (
                   <>
                     {" "}
@@ -359,7 +433,7 @@ export function SandboxSetupGuide({ app }: { app: App }) {
                   className="mono mr-2 text-sm"
                   style={{ color: "var(--color-ink-2)" }}
                 >
-                  02
+                  03
                 </span>
                 Bring the generated code in
               </p>
@@ -367,9 +441,9 @@ export function SandboxSetupGuide({ app }: { app: App }) {
                 className="max-w-[70ch] text-sm"
                 style={{ color: "var(--color-ink-2)" }}
               >
-                Paste the output into the scaffolded repo and review it like
-                your own change — generated code still passes every gate
-                before it ships, and secrets never ship with it.
+                Paste the output into {repoWords} and review it like your
+                own change — generated code still passes every gate before
+                it ships, and secrets never ship with it.
               </p>
             </li>
           )}
@@ -380,7 +454,7 @@ export function SandboxSetupGuide({ app }: { app: App }) {
                 className="mono mr-2 text-sm"
                 style={{ color: "var(--color-ink-2)" }}
               >
-                03
+                04
               </span>
               Ship to the Sandbox
             </p>
@@ -393,10 +467,19 @@ export function SandboxSetupGuide({ app }: { app: App }) {
               provisions TLS from there. The Sandbox is yours to break:
               iterate here, then promote to staging or production.
             </p>
-            {gates && (
+            {gates ? (
               <div className="max-w-2xl">
                 <CommandBlock title="Terminal" command={gates} />
               </div>
+            ) : (
+              <p
+                className="max-w-[70ch] text-sm"
+                style={{ color: "var(--color-ink-2)" }}
+              >
+                This app has no stack commands: run whatever tests, lint,
+                and build your project uses — every change passes before it
+                ships.
+              </p>
             )}
             <p className="max-w-[70ch] text-sm">
               <span style={{ color: "var(--color-ink-2)" }}>

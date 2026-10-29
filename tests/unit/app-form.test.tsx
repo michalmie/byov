@@ -35,14 +35,30 @@ describe("AppForm stack prefill", () => {
     expect(screen.getByLabelText("Tech stack")).toHaveValue("ai-chatbot");
   });
 
-  it("falls back to the first stack for an unknown slug", () => {
+  it("ignores an unknown prefill slug", () => {
     renderForm("no-such-stack");
-    expect(screen.getByLabelText("Tech stack")).toHaveValue(stacks[0].slug);
+    expect(screen.getByLabelText("Tech stack")).toHaveValue("");
   });
 
-  it("falls back to the first stack without a prefill", () => {
+  it("starts with no stack without a prefill", () => {
     renderForm();
-    expect(screen.getByLabelText("Tech stack")).toHaveValue(stacks[0].slug);
+    expect(screen.getByLabelText("Tech stack")).toHaveValue("");
+  });
+
+  it("lets the user clear a prefill back to no stack", () => {
+    const seen: string[] = [];
+    renderForm("ai-chatbot", (draft) => {
+      seen.push(draft.stack);
+      return null;
+    });
+    fireEvent.change(screen.getByLabelText("Tech stack"), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Rota Planner" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create app" }));
+    expect(seen).toEqual([""]);
   });
 
   it("omits the card heading when none is given", () => {
