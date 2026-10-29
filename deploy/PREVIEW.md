@@ -17,12 +17,12 @@ need a separately configured test environment. For applications with an admin
 login, the generated password is available only in Factory's ignored
 `config/local-previews/<id>/secrets.json`.
 
-Transactional emails stay off by default: without the opt-in the app has no
-sending account and logs mail to the preview log instead. Tick **Send
-transactional emails** on Build preview to deliver real mail through the
-project's saved Settings account (`data/mail.json`). Factory copies that file
-into the preview before preparing, the adapter validates it before installing,
-and the running preview gets outbound network access for delivery. Discard
-removes the copy with the rest of the disposable data. Enable only for trusted
-task results; never type live credentials into a preview form when the saved
-account already covers it.
+Transactional emails are on by default: Build preview sends real mail through
+the project's saved Settings account (`data/mail.json`). Factory copies that
+file into the preview before preparing, the adapter validates it before
+installing, and the running preview gets outbound network access for delivery.
+Untick **Send transactional emails** to force a preview offline; without a
+saved account the app has no sending account and logs mail to the preview log
+instead. Discard removes the copy with the rest of the disposable data. Never
+type live credentials into a preview form when the saved account already
+covers it.
