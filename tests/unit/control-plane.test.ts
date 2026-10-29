@@ -128,9 +128,10 @@ describe("fleetSummaryFor", () => {
 });
 
 describe("appSections", () => {
-  it("lists the four detail anchors starting with overview", () => {
+  it("lists the five detail anchors starting with overview", () => {
     expect(appSections.map((section) => section.id)).toEqual([
       "overview",
+      "agent-prompt",
       "environments",
       "deployments",
       "checks",
