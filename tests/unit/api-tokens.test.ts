@@ -49,6 +49,12 @@ describe("mintToken / parseTokenId", () => {
     expect(parseTokenId("Bearer byov_abcdefghijkl_secret")).toBeNull();
     expect(parseTokenId("  byov_abcdefghijkl_s3cr3t  ")).toBe("abcdefghijkl");
   });
+
+  it("parses ids when the secret itself contains underscores", () => {
+    // Secrets are base64url, so "_" also appears inside them.
+    expect(parseTokenId("byov_abcdefghijkl_ab_cd_ef")).toBe("abcdefghijkl");
+    expect(parseTokenId("byov_abcdefghijkl__leading")).toBe("abcdefghijkl");
+  });
 });
 
 describe("validateTokenName", () => {
@@ -79,8 +85,12 @@ describe("issueToken / verifyToken", () => {
   it("stores hashes at rest, never secrets", async () => {
     const { token } = await issueToken("cli");
     const raw = readFileSync(getApiTokensFilePath(), "utf8");
+    // The secret is base64url and may itself contain "_" (the delimiter),
+    // so the secret is everything after the second "_".
+    const secret = token.split("_").slice(2).join("_");
+    expect(secret.length).toBeGreaterThan(0);
     expect(raw).not.toContain(token);
-    expect(raw).not.toContain(token.split("_")[2] ?? "impossible");
+    expect(raw).not.toContain(secret);
     expect(raw).toContain(await hashToken(token));
   });
 
@@ -95,7 +105,10 @@ describe("issueToken / verifyToken", () => {
   it("rejects unknown, tampered and malformed tokens", async () => {
     const { token, info } = await issueToken("cli");
     expect(await verifyToken("byov_zzzzzzzzzzzz_s3cr3t")).toBeNull();
-    const tampered = `${token.slice(0, -1)}x`;
+    // Flip the last char to a guaranteed-different one: "x" may already be
+    // the last char of the base64url secret, which would be a no-op tamper.
+    const tampered = `${token.slice(0, -1)}${token.endsWith("x") ? "y" : "x"}`;
+    expect(tampered).not.toBe(token);
     expect(await verifyToken(tampered)).toBeNull();
     expect(await verifyToken("not-a-token")).toBeNull();
     // The untouched original still verifies.
