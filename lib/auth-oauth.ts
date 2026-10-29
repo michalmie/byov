@@ -545,9 +545,7 @@ export const OAUTH_VERIFIER_COOKIE = "oauth_verifier";
 export const OAUTH_NEXT_COOKIE = "oauth_next";
 export const OAUTH_COOKIE_MAX_AGE_SECONDS = 600; // 10 minutes
 
-export function shouldUseSecureCookies(): boolean {
-  return process.env.NODE_ENV === "production";
-}
+export { shouldUseSecureCookies } from "./auth";
 
 export interface CreateSessionInput {
   sub: string;

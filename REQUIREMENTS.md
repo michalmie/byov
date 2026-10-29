@@ -233,7 +233,7 @@ Local bootstrap runbook:
   `/api/*` answers 401. The middleware verifies the session cookie and
   hands the email downstream as `x-byov-user-email`.
 - Sessions are stateless HMAC-signed cookies (`byov_session`, 12h,
-  HttpOnly, SameSite=Lax, Secure in production) carrying the user's
+  HttpOnly, SameSite=Lax, Secure on HTTPS) carrying the user's
   role (admin/member). The signing secret is `AUTH_SECRET`; an unset
   secret falls back to an insecure dev value with a warning.
 - Admins come from `AUTH_ADMIN_EMAILS`, plus a first-login bootstrap:

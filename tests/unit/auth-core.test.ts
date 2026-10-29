@@ -18,6 +18,7 @@ import {
   sanitizeNextPath,
   SESSION_COOKIE_NAME,
   sessionCookieOptions,
+  shouldUseSecureCookies,
   verifyMagicLinkToken,
   verifyOtp,
   verifySession,
@@ -171,6 +172,50 @@ describe("sessions", () => {
       maxAge: 43200,
       secure: false,
     });
+  });
+
+  it("drops Secure on plain-HTTP requests even in production", () => {
+    setEnv({ NODE_ENV: "production", AUTH_COOKIE_SECURE: undefined });
+    const request = new Request("http://100.124.103.80:34821/api/auth/otp/verify");
+    expect(shouldUseSecureCookies(request)).toBe(false);
+    expect(sessionCookieOptions(request)).toMatchObject({ secure: false });
+  });
+
+  it("keeps Secure on HTTPS requests", () => {
+    setEnv({ NODE_ENV: "production", AUTH_COOKIE_SECURE: undefined });
+    const request = new Request("https://byov.example.com/api/auth/otp/verify");
+    expect(shouldUseSecureCookies(request)).toBe(true);
+    expect(sessionCookieOptions(request)).toMatchObject({ secure: true });
+  });
+
+  it("trusts the forwarded proto behind a proxy", () => {
+    setEnv({ NODE_ENV: "production", AUTH_COOKIE_SECURE: undefined });
+    const httpsBehindProxy = new Request("http://10.0.0.5/api/auth/otp/verify", {
+      headers: { "x-forwarded-proto": "https" },
+    });
+    expect(shouldUseSecureCookies(httpsBehindProxy)).toBe(true);
+    const httpBehindProxy = new Request("https://proxy.internal/api/auth/otp/verify", {
+      headers: { "x-forwarded-proto": "http" },
+    });
+    expect(shouldUseSecureCookies(httpBehindProxy)).toBe(false);
+  });
+
+  it("lets AUTH_COOKIE_SECURE pin the flag either way", () => {
+    setEnv({ NODE_ENV: "production" });
+    const http = new Request("http://100.124.103.80:34821/");
+    const https = new Request("https://byov.example.com/");
+    setEnv({ AUTH_COOKIE_SECURE: "true" });
+    expect(shouldUseSecureCookies(http)).toBe(true);
+    setEnv({ AUTH_COOKIE_SECURE: "false" });
+    expect(shouldUseSecureCookies(https)).toBe(false);
+  });
+
+  it("falls back to NODE_ENV without a request", () => {
+    setEnv({ AUTH_COOKIE_SECURE: undefined, NODE_ENV: "production" });
+    expect(shouldUseSecureCookies()).toBe(true);
+    expect(sessionCookieOptions()).toMatchObject({ secure: true });
+    setEnv({ NODE_ENV: "test" });
+    expect(shouldUseSecureCookies()).toBe(false);
   });
 
   it("round-trips the role and defaults to member", async () => {

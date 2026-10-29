@@ -65,7 +65,7 @@ export async function GET(
   );
 
   const response = NextResponse.redirect(authorizeUrl, 302);
-  const secure = shouldUseSecureCookies();
+  const secure = shouldUseSecureCookies(request);
   const cookieBase = {
     httpOnly: true as const,
     sameSite: "lax" as const,

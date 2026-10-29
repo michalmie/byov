@@ -39,6 +39,6 @@ export async function GET(request: Request) {
     role: resolveLoginRole(verified.email),
   });
   const response = NextResponse.redirect(new URL(next, origin));
-  response.cookies.set(SESSION_COOKIE_NAME, session, sessionCookieOptions());
+  response.cookies.set(SESSION_COOKIE_NAME, session, sessionCookieOptions(request));
   return response;
 }
