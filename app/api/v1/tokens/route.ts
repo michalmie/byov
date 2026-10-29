@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { requireTokenManager } from "@/lib/api-auth";
+import { apiDbError, requireTokenManager } from "@/lib/api-auth";
 import { apiBadJson, apiError, apiOk } from "@/lib/api-response";
 import {
   hasAnyTokens,
@@ -17,7 +17,11 @@ export async function GET(request: NextRequest) {
   if (manager instanceof Response) {
     return manager;
   }
-  return apiOk(listTokenInfos());
+  try {
+    return apiOk(await listTokenInfos());
+  } catch {
+    return apiDbError();
+  }
 }
 
 /**
@@ -26,11 +30,15 @@ export async function GET(request: NextRequest) {
  * session. The response carries the secret — it cannot be recovered.
  */
 export async function POST(request: NextRequest) {
-  if (hasAnyTokens()) {
-    const manager = await requireTokenManager(request);
-    if (manager instanceof Response) {
-      return manager;
+  try {
+    if (await hasAnyTokens()) {
+      const manager = await requireTokenManager(request);
+      if (manager instanceof Response) {
+        return manager;
+      }
     }
+  } catch {
+    return apiDbError();
   }
   let body: unknown;
   try {
@@ -43,6 +51,10 @@ export async function POST(request: NextRequest) {
   if (nameError) {
     return apiError(400, nameError, { errors: { name: nameError } });
   }
-  const { info, token } = await issueToken(name as string);
-  return apiOk({ ...info, token }, 201);
+  try {
+    const { info, token } = await issueToken(name as string);
+    return apiOk({ ...info, token }, 201);
+  } catch {
+    return apiDbError();
+  }
 }

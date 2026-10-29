@@ -156,7 +156,7 @@ async function handleCallback(request: Request, providerParam: string) {
     email: identity.email,
     ...(identity.name ? { name: identity.name } : {}),
     provider,
-    role: resolveLoginRole(identity.email),
+    role: await resolveLoginRole(identity.email),
   });
   const response = NextResponse.redirect(
     new URL(resolveNext(nextCookie), baseUrl),

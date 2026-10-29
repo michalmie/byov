@@ -36,7 +36,7 @@ export async function GET(request: Request) {
   const session = await createSession({
     email: verified.email,
     provider: "magic-link",
-    role: resolveLoginRole(verified.email),
+    role: await resolveLoginRole(verified.email),
   });
   const response = NextResponse.redirect(new URL(next, origin));
   response.cookies.set(SESSION_COOKIE_NAME, session, sessionCookieOptions(request));

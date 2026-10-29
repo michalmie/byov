@@ -52,9 +52,10 @@ The solution has three parts:
 ### Control Plane UI (third slice)
 
 - Settings (`/settings`) with section navigation: General and Nodes.
-- General: workspace name and default node, validated and kept in the
-  browser until the API lands.
-- Nodes: add, edit and remove deployment targets. New nodes start Pending
+- General: workspace name and default node, validated and persisted
+  via the workspace API (`/api/workspace/settings`).
+- Nodes: add, edit and remove deployment targets, persisted via the
+  workspace API (`/api/workspace/nodes`). New nodes start Pending
   until first contact; nodes with pinned environments cannot be removed.
 - Managed nodes feed the dashboard, nodes page, app environments,
   sidebar counts and footer summary.
@@ -72,7 +73,7 @@ The solution has three parts:
 
 - New app flow (`/apps/new`): name, editable slug, multi-line
   description (2000 chars), tech stack and Sandbox node; workspace
-  apps live in the browser until the API lands. Sample apps stay
+  apps persist via the workspace API (`/api/workspace/apps`). Sample apps stay
   read-only and the slug never changes after creation. A blank slug
   derives from the name; an explicit one must be unique lowercase
   labels joined by hyphens. Long descriptions clamp to two lines in
@@ -112,7 +113,8 @@ The solution has three parts:
 ### Tech stacks (second slice)
 
 - Workspace stacks: define, clone, edit and remove custom stacks
-  in `/settings/stacks`; customs live in the browser until the API lands.
+  in `/settings/stacks`; customs persist via the workspace API
+  (`/api/workspace/stacks`).
 - Shipped manifests stay the read-only catalog; cloning one starts an
   editable workspace copy, and the slug never changes after creation.
 - Gates stay governed: customs inherit the five required gate names and
@@ -247,8 +249,8 @@ Local bootstrap runbook:
   secret falls back to an insecure dev value with a warning.
 - Admins come from `AUTH_ADMIN_EMAILS`, plus a first-login bootstrap:
   when no admins are configured anywhere, the first user to sign in
-  becomes admin and the claim is recorded on disk (`AUTH_DATA_DIR`,
-  default `./data`, atomic so concurrent first logins elect one).
+  becomes admin and the claim is a row in Postgres (`auth_bootstrap`,
+  atomic so concurrent first logins elect one).
   Role enforcement (RBAC gates) rides a later slice; the session API
   and `x-byov-user-role` already expose the role.
 - Default sign-in is passwordless: one request sends a single email
@@ -265,27 +267,29 @@ Local bootstrap runbook:
 - Access is restricted by `AUTH_ALLOWED_EMAILS` / `AUTH_ALLOWED_DOMAINS`
   (exact email wins, then domain; both empty allows all with a warning).
 - Outbound mail goes through the default sending account: the
-  Settings-saved account (Settings → Email, admin-only, stored
-  owner-only on the server) wins, else `SMTP_*` env, else mail is
-  logged to the console in dev. The Email page shows which source is
-  active, saves/clears the account, and can send a test email that
-  reports provider errors. A wrong saved account breaks sign-in mail;
-  recovery is deleting `data/mail.json` on the server (falls back to
-  env, then console).
-- OTP codes and rate limits live in server memory (single-instance
-  limit, noted in code); `id_token` signatures are not yet verified
-  against provider JWKS (TLS + PKCE-bound exchange for now).
+  Settings-saved account (Settings → Email, admin-only, stored in
+  Postgres as a single `mail_account` row) wins, else `SMTP_*` env,
+  else mail is logged to the console in dev. The Email page shows
+  which source is active, saves/clears the account, and can send a
+  test email that reports provider errors. A wrong saved account
+  breaks sign-in mail; recovery is clearing it on the Email page
+  (falls back to env, then console).
+- OTP codes and rate limits live in Postgres (`auth_otps`,
+  `auth_rate_limits`, atomic attempt counting); `id_token`
+  signatures are not yet verified against provider JWKS (TLS +
+  PKCE-bound exchange for now).
 - Standalone public `/login` page (no shell): one email request sends
   the combined code + link email, the code is entered here with resend
   cooldown, OAuth links for enabled providers, `?next=` deep-link
   preservation and friendly `?error=` copy. With codes off the page
   falls back to a link-only request.
 - Settings → Auth: workspace sign-in preferences (methods, provider
-  toggles, access lists, session lifetime) kept in the browser until
-  the API lands; enforcement stays server-side and the UI says so.
+  toggles, access lists, session lifetime) persisted via the workspace
+  API (`/api/workspace/auth-settings`, admin-only); enforcement stays
+  server-side and the UI says so.
 - Settings → Users: workspace member list with invite by email, roles
-  (admin/member) and last-admin removal/demotion guards, kept in the
-  browser until the API lands.
+  (admin/member) and last-admin removal/demotion guards, persisted via
+  the workspace API (`/api/workspace/users`, admin-only).
 
 ### Cell (product direction, decided — not built)
 
@@ -312,7 +316,7 @@ Local bootstrap runbook:
   session).
 - Tokens (`lib/api-tokens.ts`): opaque `byov_<id>_<secret>` bearers
   (192-bit secret, WebCrypto-minted like the auth module), stored as
-  SHA-256 hashes in owner-only `data/api-tokens.json` — the secret is
+  SHA-256 hashes in Postgres (`api_tokens`) — the secret is
   shown once at issuance and never again. The first token on a fresh
   install issues without credentials (bootstrap, same trust model as
   the first-login admin claim); afterwards issuance needs a token or
@@ -322,9 +326,8 @@ Local bootstrap runbook:
   `GET /api/v1/apps/[slug]/envs/[env]`. Validation mirrors the
   browser new-app flow (names, slugs, known stacks from the shipped
   catalog, known nodes); every app starts with one Pending `sandbox`
-  env. State persists in owner-only `data/apps.json` under
-  `BYOV_DATA_DIR` (else `AUTH_DATA_DIR`, else `./data`). The API
-  serves only API-created apps — sample apps stay a UI concern.
+  env. State persists as JSONB documents in Postgres (`api_apps`).
+  The API serves only API-created apps — sample apps stay a UI concern.
 - Envelope: success is `{ ok: true, data }`; every error is
   `{ ok: false, error }` with an optional per-field `errors` map
   (401 unauthenticated, 403 member managing tokens, 404 unknown
@@ -361,3 +364,28 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
 
 - Still open (later slices): node adapter and Coolify writes, repo
   and webhook wiring, MCP server/CLI, scoped tokens, token UI pages.
+
+### Database (first slice)
+
+- All Control Plane server state lives in Postgres: API tokens
+  (`api_tokens`), machine-API apps (`api_apps`, one JSONB document per
+  app), the auth bootstrap claim (`auth_bootstrap`, single row), the
+  saved mail account (`mail_account`, single row), OTP codes
+  (`auth_otps`) and rate-limit hits (`auth_rate_limits`), plus
+  workspace state (nodes, apps, stacks, users as JSONB documents;
+  settings and auth settings as `workspace_kv` rows) served through
+  the session-authed `/api/workspace/*` API (users and auth settings
+  are admin-only). Sample data stays a UI fallback and is never
+  served by any API.
+- Postgres is required: the server fails fast when `DATABASE_URL` is
+  unset or not a postgres URL. There is no file-store fallback; the
+  old `AUTH_DATA_DIR` / `BYOV_DATA_DIR` JSON stores are gone.
+- Access goes through `lib/db.ts` (pool singleton, parameterized
+  `query` / `queryOne`, lazy migrate-once, Node-only — never Edge or
+  client). Migrations are self-registering `db/migrations/NNNN_*.ts`
+  modules applied in name order and tracked in `schema_migrations`;
+  landed migrations are never edited. Details in `docs/database.md`.
+- Unit tests never need a live database (`vi.mock("@/lib/db")`), so
+  `npm run test:unit` stays green in a clean environment.
+- Task previews need a Postgres `DATABASE_URL` to boot; the preview
+  adapter still sets a sqlite URL and is a known follow-up.

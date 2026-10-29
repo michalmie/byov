@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { requireTokenManager } from "@/lib/api-auth";
+import { apiDbError, requireTokenManager } from "@/lib/api-auth";
 import { apiError, apiOk } from "@/lib/api-response";
 import { revokeToken } from "@/lib/api-tokens";
 
@@ -13,7 +13,12 @@ export async function DELETE(
     return manager;
   }
   const { id } = await context.params;
-  const info = revokeToken(id);
+  let info;
+  try {
+    info = await revokeToken(id);
+  } catch {
+    return apiDbError();
+  }
   if (!info) {
     return apiError(404, `No token found for id "${id}".`);
   }

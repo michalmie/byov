@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import {
-  checkRateLimit,
   isEmailAllowed,
   isProviderEnabled,
   isValidEmail,
   issueMagicLinkToken,
-  issueOtp,
   resolveRequestOrigin,
   sanitizeNextPath,
 } from "@/lib/auth";
+import { checkRateLimit, issueOtp } from "@/lib/auth-store";
 import { sendMail, signInEmail } from "@/lib/auth-mail";
 
 /**
@@ -38,7 +37,7 @@ export async function POST(request: Request) {
     );
   }
   const normalized = email.trim().toLowerCase();
-  if (!checkRateLimit(`magic-link-request:${normalized}`)) {
+  if (!(await checkRateLimit(`magic-link-request:${normalized}`))) {
     return NextResponse.json(
       { ok: false, error: "Too many requests. Try again in a minute." },
       { status: 429 },
@@ -52,7 +51,7 @@ export async function POST(request: Request) {
       `?token=${encodeURIComponent(token)}` +
       `&next=${encodeURIComponent(sanitizeNextPath(next))}`;
     const code = isProviderEnabled("passwordless")
-      ? issueOtp(normalized).code
+      ? (await issueOtp(normalized)).code
       : undefined;
     const mail = signInEmail({ code, link });
     try {

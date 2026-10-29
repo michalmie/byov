@@ -120,8 +120,9 @@ cd byov
 # 2. Install
 npm ci
 
-# 3. Configure (optional for the demo)
+# 3. Configure (a Postgres database is required)
 cp .env.example .env.local
+# then set DATABASE_URL in .env.local — see docs/database.md
 
 # 4. Run 🎉
 npm run dev
@@ -147,6 +148,7 @@ npm run build       # production build
 | Framework | [Next.js 16](https://nextjs.org/) (App Router) |
 | UI | [React 19](https://react.dev/), [Tailwind CSS 4](https://tailwindcss.com/) |
 | Language | [TypeScript 5](https://www.typescriptlang.org/) (strict) |
+| Database | [Postgres](https://www.postgresql.org/) (required, via `DATABASE_URL`) |
 | Tests | [Vitest 4](https://vitest.dev/) + Testing Library |
 | First node type | [Coolify](https://coolify.io/) (self-hosted) |
 
@@ -167,7 +169,7 @@ deploy/         # deployment & preview adapters
 
 - [x] Control Plane UI first slice (dashboard, apps, nodes) on sample data
 - [x] Tech stacks catalog (BYOV stack first)
-- [ ] Real API behind the Control Plane (incl. workspace stacks and apps today kept in the browser)
+- [x] Postgres-backed API behind the Control Plane (machine `/api/v1` + workspace `/api/workspace`)
 - [ ] Coolify node adapter — deploy for real
 - [ ] Client for Muse / Codex / Claude
 - [x] More tech stacks beyond the BYOV stack (AI chatbot, React SPA, Python API as drafts + workspace-defined customs)
