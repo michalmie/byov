@@ -306,6 +306,7 @@ export interface AppSection {
 /** Anchor sections of the app detail page (level-2 navigation). */
 export const appSections: AppSection[] = [
   { id: "overview", label: "Overview" },
+  { id: "agent-prompt", label: "Agent instructions" },
   { id: "environments", label: "Environments" },
   { id: "deployments", label: "Deployments" },
   { id: "checks", label: "Checks" },
