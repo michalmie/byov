@@ -1,17 +1,71 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import {
   clearStoredMailAccount,
   DEFAULT_SMTP_PORT,
   getEffectiveMailAccount,
   getMailAccountStatus,
-  getMailConfigFilePath,
   getStoredMailAccount,
   saveStoredMailAccount,
   validateMailAccount,
 } from "@/lib/mail-config";
+
+// In-memory fake for the single-row `mail_account` table.
+vi.mock("@/lib/db", () => {
+  let row: Record<string, unknown> | null = null;
+
+  function norm(text: string): string {
+    return text.replace(/\s+/g, " ").trim().toUpperCase();
+  }
+
+  async function query(
+    text: string,
+    params: unknown[] = [],
+  ): Promise<Record<string, unknown>[]> {
+    const sql = norm(text);
+    if (sql.startsWith("INSERT INTO MAIL_ACCOUNT")) {
+      const [host, port, security, username, pass, from_address] = params;
+      row = { host, port, security, username, pass, from_address };
+      return [];
+    }
+    if (sql.startsWith("DELETE FROM MAIL_ACCOUNT")) {
+      row = null;
+      return [];
+    }
+    if (sql.startsWith("SELECT HOST, PORT, SECURITY")) {
+      return row ? [{ ...row }] : [];
+    }
+    throw new Error(`fake db: unexpected SQL: ${text}`);
+  }
+
+  async function queryOne(
+    text: string,
+    params: unknown[] = [],
+  ): Promise<Record<string, unknown> | null> {
+    const rows = await query(text, params);
+    return rows[0] ?? null;
+  }
+
+  return {
+    query,
+    queryOne,
+    registerMigration: () => {},
+    __resetFakeDb: () => {
+      row = null;
+    },
+    __seedMailRow: (value: Record<string, unknown> | null) => {
+      row = value;
+    },
+  };
+});
+
+interface FakeDbControls {
+  __resetFakeDb: () => void;
+  __seedMailRow: (value: Record<string, unknown> | null) => void;
+}
+
+async function fakeDb(): Promise<FakeDbControls> {
+  return (await import("@/lib/db")) as unknown as FakeDbControls;
+}
 
 const savedEnv = { ...process.env };
 
@@ -27,7 +81,6 @@ function setEnv(vars: Record<string, string | undefined>) {
 
 function clearMailEnv() {
   setEnv({
-    AUTH_DATA_DIR: mkdtempSync(join(tmpdir(), "byov-mail-test-")),
     SMTP_HOST: undefined,
     SMTP_PORT: undefined,
     SMTP_USER: undefined,
@@ -36,17 +89,14 @@ function clearMailEnv() {
   });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   clearMailEnv();
+  (await fakeDb()).__resetFakeDb();
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.spyOn(console, "log").mockImplementation(() => {});
 });
 
 afterEach(() => {
-  const dataDir = process.env.AUTH_DATA_DIR;
-  if (dataDir && dataDir.startsWith(tmpdir())) {
-    rmSync(dataDir, { recursive: true, force: true });
-  }
   vi.restoreAllMocks();
   process.env = { ...savedEnv };
 });
@@ -100,9 +150,9 @@ describe("validateMailAccount", () => {
 });
 
 describe("stored account", () => {
-  it("round-trips through disk and clears", () => {
-    expect(getStoredMailAccount()).toBeNull();
-    saveStoredMailAccount({
+  it("round-trips through the database and clears", async () => {
+    expect(await getStoredMailAccount()).toBeNull();
+    await saveStoredMailAccount({
       host: "smtp.example.com",
       port: 587,
       security: "starttls",
@@ -110,7 +160,7 @@ describe("stored account", () => {
       pass: "s3cret",
       from: "BYOV <alerts@example.com>",
     });
-    expect(getStoredMailAccount()).toEqual({
+    expect(await getStoredMailAccount()).toEqual({
       host: "smtp.example.com",
       port: 587,
       security: "starttls",
@@ -118,20 +168,27 @@ describe("stored account", () => {
       pass: "s3cret",
       from: "BYOV <alerts@example.com>",
     });
-    clearStoredMailAccount();
-    expect(getStoredMailAccount()).toBeNull();
+    await clearStoredMailAccount();
+    expect(await getStoredMailAccount()).toBeNull();
   });
 
-  it("ignores corrupt records", () => {
-    writeFileSync(getMailConfigFilePath(), "not json{{{");
-    expect(getStoredMailAccount()).toBeNull();
-    writeFileSync(getMailConfigFilePath(), JSON.stringify({ host: 42 }));
-    expect(getStoredMailAccount()).toBeNull();
+  it("ignores malformed rows", async () => {
+    (await fakeDb()).__seedMailRow({ host: 42 });
+    expect(await getStoredMailAccount()).toBeNull();
+    (await fakeDb()).__seedMailRow({
+      host: "smtp.example.com",
+      port: 587,
+      security: "rot13",
+      username: "",
+      pass: "",
+      from_address: "",
+    });
+    expect(await getStoredMailAccount()).toBeNull();
   });
 });
 
 describe("effective account", () => {
-  it("prefers the Settings-saved account over env", () => {
+  it("prefers the Settings-saved account over env", async () => {
     setEnv({
       SMTP_HOST: "env.example.com",
       SMTP_PORT: "2525",
@@ -139,7 +196,7 @@ describe("effective account", () => {
       SMTP_PASS: "env-pass",
       SMTP_FROM: "env@example.com",
     });
-    saveStoredMailAccount({
+    await saveStoredMailAccount({
       host: "smtp.example.com",
       port: 587,
       security: "auto",
@@ -147,13 +204,13 @@ describe("effective account", () => {
       pass: "s3cret",
       from: "",
     });
-    expect(getEffectiveMailAccount()).toMatchObject({
+    expect(await getEffectiveMailAccount()).toMatchObject({
       host: "smtp.example.com",
       port: 587,
       source: "settings",
     });
-    clearStoredMailAccount();
-    expect(getEffectiveMailAccount()).toMatchObject({
+    await clearStoredMailAccount();
+    expect(await getEffectiveMailAccount()).toMatchObject({
       host: "env.example.com",
       port: 2525,
       user: "env-user",
@@ -161,27 +218,27 @@ describe("effective account", () => {
     });
   });
 
-  it("falls back to port 587 and the default from on bad env", () => {
+  it("falls back to port 587 and the default from on bad env", async () => {
     setEnv({ SMTP_HOST: "env.example.com", SMTP_PORT: "bogus" });
-    expect(getEffectiveMailAccount()).toMatchObject({
+    expect(await getEffectiveMailAccount()).toMatchObject({
       host: "env.example.com",
       port: DEFAULT_SMTP_PORT,
       from: "BYOV <no-reply@byov.local>",
     });
   });
 
-  it("is null when nothing is configured", () => {
-    expect(getEffectiveMailAccount()).toBeNull();
-    expect(getMailAccountStatus()).toMatchObject({
+  it("is null when nothing is configured", async () => {
+    expect(await getEffectiveMailAccount()).toBeNull();
+    expect(await getMailAccountStatus()).toMatchObject({
       configured: false,
       source: "none",
       hasPassword: false,
     });
   });
 
-  it("status never carries the password", () => {
+  it("status never carries the password", async () => {
     setEnv({ SMTP_HOST: "env.example.com", SMTP_PASS: "env-pass" });
-    const status = getMailAccountStatus();
+    const status = await getMailAccountStatus();
     expect(status).toMatchObject({
       configured: true,
       source: "env",

@@ -2,17 +2,15 @@
  * First-login admin bootstrap: the first user to sign in after install
  * becomes admin, unless admins are already configured via AUTH_ADMIN_EMAILS.
  *
- * The claim is a small JSON record on disk (atomic exclusive create, so
- * concurrent first logins elect exactly one admin). Node-only: never import
- * this module from `middleware.ts` (Edge) or client components — only the
- * login routes call `resolveLoginRole`.
- *
- * On ephemeral filesystems (serverless) the record does not persist across
- * instances; there, designate admins with AUTH_ADMIN_EMAILS instead.
+ * The claim is a single row in the `auth_bootstrap` table (atomic
+ * `INSERT ... ON CONFLICT DO NOTHING`, so concurrent first logins elect
+ * exactly one admin). Node-only: never import this module from
+ * `middleware.ts` (Edge) or client components — only the login routes
+ * call `resolveLoginRole`.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import "../db/migrations/0002_auth_mail";
+import { queryOne } from "./db";
 import {
   getAdminEmails,
   isAdminEmail,
@@ -20,58 +18,24 @@ import {
   type UserRole,
 } from "./auth";
 
-export const BOOTSTRAP_FILE_NAME = "byov-bootstrap.json";
-
-/** Writable data dir: AUTH_DATA_DIR wins, else `<cwd>/data` (gitignored). */
-export function getAuthDataDir(): string {
-  const configured = (process.env.AUTH_DATA_DIR ?? "").trim();
-  if (configured) {
-    return configured;
-  }
-  return join(process.cwd(), "data");
-}
-
-export function getBootstrapFilePath(): string {
-  return join(getAuthDataDir(), BOOTSTRAP_FILE_NAME);
-}
-
 /** Email holding the bootstrap claim, or null when unclaimed/unreadable. */
-export function getBootstrapEmail(): string | null {
-  let parsed: unknown;
+export async function getBootstrapEmail(): Promise<string | null> {
+  let row: { admin_email: unknown } | null;
   try {
-    parsed = JSON.parse(readFileSync(getBootstrapFilePath(), "utf8"));
+    row = await queryOne<{ admin_email: unknown }>(
+      "SELECT admin_email FROM auth_bootstrap WHERE id = 1",
+    );
   } catch {
     return null;
   }
-  if (typeof parsed !== "object" || parsed === null) {
+  if (!row) {
     return null;
   }
-  const email = (parsed as { adminEmail?: unknown }).adminEmail;
+  const email = row.admin_email;
   if (typeof email !== "string" || !email.includes("@")) {
     return null;
   }
   return email.trim().toLowerCase();
-}
-
-type ClaimResult = "claimed" | "exists" | "failed";
-
-/** Atomically claim the bootstrap record for an email. */
-function tryClaimBootstrapFile(email: string): ClaimResult {
-  const path = getBootstrapFilePath();
-  try {
-    mkdirSync(dirname(path), { recursive: true });
-    writeFileSync(
-      path,
-      `${JSON.stringify({ adminEmail: email, claimedAt: new Date().toISOString() })}\n`,
-      { flag: "wx" },
-    );
-    return "claimed";
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException)?.code === "EEXIST") {
-      return "exists";
-    }
-    return "failed";
-  }
 }
 
 /**
@@ -79,31 +43,36 @@ function tryClaimBootstrapFile(email: string): ClaimResult {
  * holder; when neither exists anywhere, this login claims the bootstrap
  * and becomes admin. Fails closed (member) when the record is unwritable.
  */
-export function resolveLoginRole(email: string): UserRole {
+export async function resolveLoginRole(email: string): Promise<UserRole> {
   const normalized = email.trim().toLowerCase();
   const adminEmails = getAdminEmails();
   if (isAdminEmail(normalized, adminEmails)) {
     return "admin";
   }
-  const bootstrap = getBootstrapEmail();
+  const bootstrap = await getBootstrapEmail();
   if (bootstrap) {
     return resolveRole(normalized, { adminEmails, bootstrapEmail: bootstrap });
   }
   if (adminEmails.length > 0) {
     return "member";
   }
-  const claim = tryClaimBootstrapFile(normalized);
-  if (claim === "claimed") {
-    return "admin";
-  }
-  if (claim === "exists") {
+  try {
+    const claimed = await queryOne<{ admin_email: string }>(
+      "INSERT INTO auth_bootstrap (id, admin_email) VALUES (1, $1) " +
+        "ON CONFLICT (id) DO NOTHING RETURNING admin_email",
+      [normalized],
+    );
+    if (claimed) {
+      return "admin";
+    }
     return resolveRole(normalized, {
       adminEmails,
-      bootstrapEmail: getBootstrapEmail(),
+      bootstrapEmail: await getBootstrapEmail(),
     });
+  } catch {
+    console.error(
+      "[auth] Could not write the bootstrap admin record; signing in as member.",
+    );
+    return "member";
   }
-  console.error(
-    "[auth] Could not write the bootstrap admin record; signing in as member.",
-  );
-  return "member";
 }

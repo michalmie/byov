@@ -1,6 +1,3 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getAppleCredentials,
@@ -42,23 +39,63 @@ import {
 } from "@/app/api/auth/oauth/[provider]/callback/route";
 import { verifySession } from "@/lib/auth";
 
-const tempDataDirs: string[] = [];
+// The OAuth callback resolves login roles through the database-backed
+// bootstrap record; fake just that table (no live DB in unit tests).
+vi.mock("@/lib/db", () => {
+  let bootstrapEmail: unknown = null;
 
-// The OAuth callback resolves login roles through the bootstrap record;
-// point it at temp dirs so tests never touch the real ./data.
-beforeEach(() => {
-  const dir = mkdtempSync(join(tmpdir(), "byov-oauth-test-"));
-  tempDataDirs.push(dir);
-  vi.stubEnv("AUTH_DATA_DIR", dir);
+  function norm(text: string): string {
+    return text.replace(/\s+/g, " ").trim().toUpperCase();
+  }
+
+  async function query(
+    text: string,
+    params: unknown[] = [],
+  ): Promise<Record<string, unknown>[]> {
+    const sql = norm(text);
+    if (sql.startsWith("SELECT ADMIN_EMAIL")) {
+      return bootstrapEmail === null ? [] : [{ admin_email: bootstrapEmail }];
+    }
+    if (sql.startsWith("INSERT INTO AUTH_BOOTSTRAP")) {
+      if (bootstrapEmail !== null) {
+        return [];
+      }
+      bootstrapEmail = (params as [string])[0];
+      return [{ admin_email: bootstrapEmail }];
+    }
+    throw new Error(`fake db: unexpected SQL: ${text}`);
+  }
+
+  async function queryOne(
+    text: string,
+    params: unknown[] = [],
+  ): Promise<Record<string, unknown> | null> {
+    const rows = await query(text, params);
+    return rows[0] ?? null;
+  }
+
+  return {
+    query,
+    queryOne,
+    registerMigration: () => {},
+    __resetFakeDb: () => {
+      bootstrapEmail = null;
+    },
+  };
+});
+
+beforeEach(async () => {
+  // Fresh bootstrap claim per test, like the old temp data dirs.
+  const db = (await import("@/lib/db")) as unknown as {
+    __resetFakeDb: () => void;
+  };
+  db.__resetFakeDb();
 });
 
 afterEach(() => {
   vi.unstubAllEnvs();
   vi.unstubAllGlobals();
   vi.restoreAllMocks();
-  for (const dir of tempDataDirs.splice(0)) {
-    rmSync(dir, { recursive: true, force: true });
-  }
 });
 
 function jsonResponse(body: unknown, status = 200): Response {
@@ -1080,7 +1117,7 @@ describe("GET|POST /api/auth/oauth/[provider]/callback", () => {
     expect(session).toBeDefined();
     expect(session).toContain("HttpOnly");
     expect(session!.split(";")[0]!.length).toBeGreaterThan(40);
-    // First login claims the bootstrap admin record (fresh temp data dir).
+    // First login claims the bootstrap admin record (fresh fake table).
     const sessionValue = decodeURIComponent(
       session!.split(";")[0]!.slice("byov_session=".length),
     );

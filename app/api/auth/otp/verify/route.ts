@@ -1,14 +1,13 @@
 import { NextResponse } from "next/server";
 import {
-  checkRateLimit,
   createSession,
   isEmailAllowed,
   isProviderEnabled,
   isValidEmail,
   SESSION_COOKIE_NAME,
   sessionCookieOptions,
-  verifyOtp,
 } from "@/lib/auth";
+import { checkRateLimit, verifyOtp } from "@/lib/auth-store";
 import { resolveLoginRole } from "@/lib/auth-bootstrap";
 
 /** Verify a one-time code; on success sets the `byov_session` cookie. */
@@ -39,7 +38,7 @@ export async function POST(request: Request) {
     );
   }
   const normalized = email.trim().toLowerCase();
-  if (!checkRateLimit(`otp-verify:${normalized}`)) {
+  if (!(await checkRateLimit(`otp-verify:${normalized}`))) {
     return NextResponse.json(
       { ok: false, error: "Too many requests. Try again in a minute." },
       { status: 429 },
@@ -50,7 +49,7 @@ export async function POST(request: Request) {
   if (
     !isProviderEnabled("passwordless") ||
     !isEmailAllowed(normalized) ||
-    !verifyOtp(normalized, code).ok
+    !(await verifyOtp(normalized, code)).ok
   ) {
     return NextResponse.json(
       { ok: false, error: "Invalid or expired code." },
@@ -61,7 +60,7 @@ export async function POST(request: Request) {
   const token = await createSession({
     email: normalized,
     provider: "passwordless",
-    role: resolveLoginRole(normalized),
+    role: await resolveLoginRole(normalized),
   });
   const response = NextResponse.json({
     ok: true,

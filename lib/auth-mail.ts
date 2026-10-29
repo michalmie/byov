@@ -21,8 +21,8 @@ export interface SendMailInput {
   html?: string;
 }
 
-export function isMailConfigured(): boolean {
-  return getEffectiveMailAccount() !== null;
+export async function isMailConfigured(): Promise<boolean> {
+  return (await getEffectiveMailAccount()) !== null;
 }
 
 function transportSecurity(account: EffectiveMailAccount): {
@@ -39,7 +39,7 @@ function transportSecurity(account: EffectiveMailAccount): {
 }
 
 export async function sendMail(input: SendMailInput): Promise<void> {
-  const account = getEffectiveMailAccount();
+  const account = await getEffectiveMailAccount();
   if (!account) {
     console.log(
       `[auth-mail] dev fallback — no sending account configured. To: ${input.to} | Subject: ${input.subject}\n${input.text}`,

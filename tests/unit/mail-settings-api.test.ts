@@ -1,6 +1,3 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { createSession, SESSION_COOKIE_NAME } from "@/lib/auth";
@@ -19,6 +16,79 @@ vi.mock("@/lib/auth-mail", async (importOriginal) => {
 });
 
 const sendMailMock = vi.mocked(sendMail);
+
+// In-memory fake for the `mail_account` and `auth_rate_limits` tables.
+vi.mock("@/lib/db", () => {
+  let row: Record<string, unknown> | null = null;
+  const hits = new Map<string, number[]>();
+
+  function norm(text: string): string {
+    return text.replace(/\s+/g, " ").trim().toUpperCase();
+  }
+
+  async function query(
+    text: string,
+    params: unknown[] = [],
+  ): Promise<Record<string, unknown>[]> {
+    const sql = norm(text);
+    const [p0, p1] = params as [string, string];
+    if (sql.startsWith("INSERT INTO MAIL_ACCOUNT")) {
+      const [host, port, security, username, pass, from_address] = params;
+      row = { host, port, security, username, pass, from_address };
+      return [];
+    }
+    if (sql.startsWith("DELETE FROM MAIL_ACCOUNT")) {
+      row = null;
+      return [];
+    }
+    if (sql.startsWith("SELECT HOST, PORT, SECURITY")) {
+      return row ? [{ ...row }] : [];
+    }
+    if (sql.startsWith("DELETE FROM AUTH_RATE_LIMITS")) {
+      const cutoff = new Date(p1).getTime();
+      hits.set(p0, (hits.get(p0) ?? []).filter((at) => at > cutoff));
+      return [];
+    }
+    if (sql.startsWith("SELECT COUNT(*)")) {
+      const cutoff = new Date(p1).getTime();
+      const count = (hits.get(p0) ?? []).filter((at) => at > cutoff).length;
+      return [{ count }];
+    }
+    if (sql.startsWith("INSERT INTO AUTH_RATE_LIMITS")) {
+      const list = hits.get(p0) ?? [];
+      list.push(new Date(p1).getTime());
+      hits.set(p0, list);
+      return [];
+    }
+    throw new Error(`fake db: unexpected SQL: ${text}`);
+  }
+
+  async function queryOne(
+    text: string,
+    params: unknown[] = [],
+  ): Promise<Record<string, unknown> | null> {
+    const rows = await query(text, params);
+    return rows[0] ?? null;
+  }
+
+  return {
+    query,
+    queryOne,
+    registerMigration: () => {},
+    __resetFakeDb: () => {
+      row = null;
+      hits.clear();
+    },
+  };
+});
+
+async function resetFakeDb(): Promise<void> {
+  const db = (await import("@/lib/db")) as unknown as {
+    __resetFakeDb: () => void;
+  };
+  db.__resetFakeDb();
+}
+
 const savedEnv = { ...process.env };
 
 function setEnv(vars: Record<string, string | undefined>) {
@@ -31,16 +101,16 @@ function setEnv(vars: Record<string, string | undefined>) {
   }
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   setEnv({
     AUTH_SECRET: "test-secret-for-unit-tests",
-    AUTH_DATA_DIR: mkdtempSync(join(tmpdir(), "byov-mail-api-test-")),
     SMTP_HOST: undefined,
     SMTP_PORT: undefined,
     SMTP_USER: undefined,
     SMTP_PASS: undefined,
     SMTP_FROM: undefined,
   });
+  await resetFakeDb();
   sendMailMock.mockReset();
   sendMailMock.mockResolvedValue(undefined);
   vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -48,10 +118,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  const dataDir = process.env.AUTH_DATA_DIR;
-  if (dataDir && dataDir.startsWith(tmpdir())) {
-    rmSync(dataDir, { recursive: true, force: true });
-  }
   vi.restoreAllMocks();
   process.env = { ...savedEnv };
 });

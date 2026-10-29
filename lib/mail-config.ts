@@ -1,17 +1,14 @@
 /**
  * Outbound mail account: the default sending account for notifications.
  *
- * Effective config resolves as: account saved in Settings (on disk) wins,
- * else the SMTP_* env vars, else unconfigured (dev console fallback).
- * Node-only (reads the data dir): never import from `middleware.ts`
- * (Edge) or client components.
+ * Effective config resolves as: account saved in Settings (a single row
+ * in the `mail_account` table) wins, else the SMTP_* env vars, else
+ * unconfigured (dev console fallback). Node-only (uses the database):
+ * never import from `middleware.ts` (Edge) or client components.
  */
 
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-import { getAuthDataDir } from "./auth-bootstrap";
-
-export const MAIL_CONFIG_FILE_NAME = "mail.json";
+import "../db/migrations/0002_auth_mail";
+import { query, queryOne } from "./db";
 
 export type MailSecurity = "auto" | "ssl" | "starttls";
 export const MAIL_SECURITY_OPTIONS: readonly MailSecurity[] = [
@@ -57,32 +54,30 @@ export interface MailAccountStatus {
 export const DEFAULT_SMTP_PORT = 587;
 export const DEFAULT_FROM = "BYOV <no-reply@byov.local>";
 
-export function getMailConfigFilePath(): string {
-  return join(getAuthDataDir(), MAIL_CONFIG_FILE_NAME);
-}
-
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
-}
-
 function isSecurity(value: unknown): value is MailSecurity {
   return (
     value === "auto" || value === "ssl" || value === "starttls"
   );
 }
 
+interface MailAccountRow {
+  host: unknown;
+  port: unknown;
+  security: unknown;
+  username: unknown;
+  pass: unknown;
+  from_address: unknown;
+}
+
 /** Saved Settings account, or null when never saved or corrupt. */
-export function getStoredMailAccount(): StoredMailAccount | null {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(getMailConfigFilePath(), "utf8"));
-  } catch {
+export async function getStoredMailAccount(): Promise<StoredMailAccount | null> {
+  const row = await queryOne<MailAccountRow>(
+    "SELECT host, port, security, username, pass, from_address FROM mail_account WHERE id = 1",
+  );
+  if (!row) {
     return null;
   }
-  if (!isRecord(parsed)) {
-    return null;
-  }
-  const { host, port, security, user, pass, from } = parsed;
+  const { host, port, security, username: user, pass, from_address: from } = row;
   if (
     typeof host !== "string" ||
     !host.trim() ||
@@ -107,15 +102,26 @@ export function getStoredMailAccount(): StoredMailAccount | null {
   };
 }
 
-export function saveStoredMailAccount(account: StoredMailAccount): void {
-  const path = getMailConfigFilePath();
-  mkdirSync(getAuthDataDir(), { recursive: true });
-  // Owner-only on creation, like a credentials file (same trust as .env).
-  writeFileSync(path, `${JSON.stringify(account)}\n`, { mode: 0o600 });
+export async function saveStoredMailAccount(
+  account: StoredMailAccount,
+): Promise<void> {
+  await query(
+    "INSERT INTO mail_account (id, host, port, security, username, pass, from_address) VALUES (1, $1, $2, $3, $4, $5, $6) " +
+      "ON CONFLICT (id) DO UPDATE SET host = EXCLUDED.host, port = EXCLUDED.port, " +
+      "security = EXCLUDED.security, username = EXCLUDED.username, pass = EXCLUDED.pass, from_address = EXCLUDED.from_address",
+    [
+      account.host,
+      account.port,
+      account.security,
+      account.user,
+      account.pass,
+      account.from,
+    ],
+  );
 }
 
-export function clearStoredMailAccount(): void {
-  rmSync(getMailConfigFilePath(), { force: true });
+export async function clearStoredMailAccount(): Promise<void> {
+  await query("DELETE FROM mail_account WHERE id = 1");
 }
 
 function envPort(): number {
@@ -129,8 +135,8 @@ function envPort(): number {
  * Effective sending account: Settings-saved wins when it names a host,
  * else SMTP_* env when SMTP_HOST is set, else null.
  */
-export function getEffectiveMailAccount(): EffectiveMailAccount | null {
-  const stored = getStoredMailAccount();
+export async function getEffectiveMailAccount(): Promise<EffectiveMailAccount | null> {
+  const stored = await getStoredMailAccount();
   if (stored) {
     return { ...stored, source: "settings" };
   }
@@ -149,8 +155,8 @@ export function getEffectiveMailAccount(): EffectiveMailAccount | null {
   };
 }
 
-export function getMailAccountStatus(): MailAccountStatus {
-  const effective = getEffectiveMailAccount();
+export async function getMailAccountStatus(): Promise<MailAccountStatus> {
+  const effective = await getEffectiveMailAccount();
   if (!effective) {
     return {
       configured: false,

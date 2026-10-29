@@ -36,7 +36,7 @@ export async function GET(request: NextRequest) {
   if (admin instanceof NextResponse) {
     return admin;
   }
-  return NextResponse.json({ ok: true, status: getMailAccountStatus() });
+  return NextResponse.json({ ok: true, status: await getMailAccountStatus() });
 }
 
 function asDraft(body: unknown): {
@@ -76,7 +76,7 @@ export async function PUT(request: NextRequest) {
     );
   }
   const draft = asDraft(body);
-  const stored = getStoredMailAccount();
+  const stored = await getStoredMailAccount();
   const normalized = {
     host: typeof draft.host === "string" ? draft.host : "",
     port: (draft.port ?? DEFAULT_SMTP_PORT) as number,
@@ -101,14 +101,14 @@ export async function PUT(request: NextRequest) {
     from: normalized.from.trim(),
   };
   try {
-    saveStoredMailAccount(account);
+    await saveStoredMailAccount(account);
   } catch {
     return NextResponse.json(
       { ok: false, error: "Could not save the sending account." },
       { status: 500 },
     );
   }
-  return NextResponse.json({ ok: true, status: getMailAccountStatus() });
+  return NextResponse.json({ ok: true, status: await getMailAccountStatus() });
 }
 
 /** Clear the Settings-saved account (falls back to SMTP_* env). */
@@ -118,12 +118,12 @@ export async function DELETE(request: NextRequest) {
     return admin;
   }
   try {
-    clearStoredMailAccount();
+    await clearStoredMailAccount();
   } catch {
     return NextResponse.json(
       { ok: false, error: "Could not clear the sending account." },
       { status: 500 },
     );
   }
-  return NextResponse.json({ ok: true, status: getMailAccountStatus() });
+  return NextResponse.json({ ok: true, status: await getMailAccountStatus() });
 }
