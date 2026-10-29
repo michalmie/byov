@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/brand/byov-mark-512.png" alt="BYOV mascot — a pink octopus in sunglasses" width="180" />
+<img src="public/brand/byov-logo-stacked-1536x1024.png" alt="BYOV" width="420" />
 
 # BYOV — Bring Your Own Vibe
 

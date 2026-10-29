@@ -7,6 +7,7 @@
 
 import { useEffect, useState } from "react";
 import Image from "next/image";
+import { LOGO_SRC } from "@/components/logo";
 import { AuthLoginForm } from "@/components/auth-login-form";
 import {
   AuthOAuthButtons,
@@ -105,12 +106,12 @@ export function LoginView({ nextParam, errorParam }: LoginViewProps) {
       <div className="card w-full max-w-sm p-6 sm:p-8">
         <div className="flex flex-col items-center text-center">
           <Image
-            src="/brand/byov-mark-512.png"
-            alt="BYOV mascot — a pink octopus in sunglasses"
-            width={256}
-            height={256}
+            src={LOGO_SRC}
+            alt="BYOV"
+            width={1536}
+            height={1024}
             priority
-            className="h-24 w-24 rounded-[12px] object-cover"
+            className="h-auto w-56 rounded-[12px]"
             style={{
               outline: "1px solid var(--color-rule)",
               outlineOffset: "-1px",

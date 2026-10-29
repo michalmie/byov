@@ -18,7 +18,7 @@ describe("Sidebar header", () => {
     const img = headerLink?.querySelector("img");
     expect(img).not.toBeNull();
     expect(img?.getAttribute("alt")).toBe("BYOV");
-    expect(img?.getAttribute("src")).toContain("byov-logo-horizontal-1400");
-    expect(img?.getAttribute("class")).toContain("h-8");
+    expect(img?.getAttribute("src")).toContain("byov-logo-stacked-1536x1024");
+    expect(img?.getAttribute("class")).toContain("w-full");
   });
 });

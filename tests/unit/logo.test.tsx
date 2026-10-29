@@ -18,11 +18,11 @@ describe("LogoMark", () => {
 });
 
 describe("Logo", () => {
-  it("renders the horizontal lockup with the BYOV wordmark", () => {
+  it("renders the stacked logo with the BYOV wordmark", () => {
     const { container } = render(<Logo />);
     const img = container.querySelector("img");
     expect(img).not.toBeNull();
     expect(img?.getAttribute("alt")).toBe("BYOV");
-    expect(img?.getAttribute("src")).toContain("byov-logo-horizontal-1400");
+    expect(img?.getAttribute("src")).toContain("byov-logo-stacked-1536x1024");
   });
 });

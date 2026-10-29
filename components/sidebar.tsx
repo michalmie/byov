@@ -123,19 +123,19 @@ export function Sidebar({
       }`}
       style={{ borderColor: "var(--color-rail-line)" }}
     >
-      <div className="flex items-center justify-between gap-2 px-1">
+      <div className="flex items-start justify-between gap-2 px-1">
         <Link
           href="/"
           onClick={onClose}
-          className="inline-flex items-center"
+          className="inline-flex min-w-0 flex-1"
         >
-          <Logo className="h-8 w-auto rounded-[6px]" />
+          <Logo className="h-auto w-full rounded-[10px]" />
         </Link>
         <button
           type="button"
           onClick={onClose}
           aria-label="Close navigation"
-          className="icon-btn h-8 w-8 lg:hidden"
+          className="icon-btn h-8 w-8 shrink-0 lg:hidden"
         >
           <CloseIcon className="h-4 w-4" />
         </button>
