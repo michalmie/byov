@@ -10,12 +10,13 @@ const nodes = listNodes();
 function renderForm(
   preferredStack?: string,
   onSubmit: (draft: AppDraft) => AppFieldErrors | null = () => null,
+  omitHeading = false,
 ) {
   return render(
     <AppForm
       formId="new-app"
-      heading="Create app"
-      lede="Pick a stack."
+      heading={omitHeading ? undefined : "Create app"}
+      lede={omitHeading ? undefined : "Pick a stack."}
       initial={{ name: "", description: "", stack: "", node: "" }}
       stacks={stacks}
       nodes={nodes}
@@ -42,6 +43,14 @@ describe("AppForm stack prefill", () => {
   it("falls back to the first stack without a prefill", () => {
     renderForm();
     expect(screen.getByLabelText("Tech stack")).toHaveValue(stacks[0].slug);
+  });
+
+  it("omits the card heading when none is given", () => {
+    renderForm(undefined, () => null, true);
+    expect(screen.queryByRole("heading")).not.toBeInTheDocument();
+    expect(
+      screen.getByRole("region", { name: "New app form" }),
+    ).toBeInTheDocument();
   });
 
   it("submits the prefilled stack with an explicit choice winning", () => {

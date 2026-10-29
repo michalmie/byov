@@ -31,8 +31,9 @@ export function AppForm({
   onCancel,
 }: {
   formId: string;
-  heading: string;
-  lede: string;
+  /** Card heading; omit when the page title already says it. */
+  heading?: string;
+  lede?: string;
   initial: AppDraft;
   stacks: TechStack[];
   nodes: Node[];
@@ -81,23 +82,28 @@ export function AppForm({
 
   return (
     <section
-      aria-labelledby={`${formId}-heading`}
+      aria-labelledby={heading ? `${formId}-heading` : undefined}
+      aria-label={heading ? undefined : "New app form"}
       className="card grid gap-6 p-5 sm:p-6"
     >
-      <div className="max-w-2xl">
-        <h2
-          id={`${formId}-heading`}
-          className="text-xl font-semibold tracking-tight"
-        >
-          {heading}
-        </h2>
-        <p
-          className="mt-1 text-sm"
-          style={{ color: "var(--color-ink-2)" }}
-        >
-          {lede}
-        </p>
-      </div>
+      {heading && (
+        <div className="max-w-2xl">
+          <h2
+            id={`${formId}-heading`}
+            className="text-xl font-semibold tracking-tight"
+          >
+            {heading}
+          </h2>
+          {lede && (
+            <p
+              className="mt-1 text-sm"
+              style={{ color: "var(--color-ink-2)" }}
+            >
+              {lede}
+            </p>
+          )}
+        </div>
+      )}
       <form onSubmit={handleSubmit} noValidate className="grid gap-6">
         <div className="field">
           <label className="field-label" htmlFor={`${formId}-name`}>

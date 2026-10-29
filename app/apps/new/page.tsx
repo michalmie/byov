@@ -21,8 +21,6 @@ function NewAppForm() {
   return (
     <AppForm
       formId="new-app"
-      heading="Create app"
-      lede="Pick a stack and the node hosting the Sandbox. Checks and the Sandbox environment come along automatically."
       initial={{ name: "", description: "", stack: "", node: "" }}
       stacks={stacks}
       nodes={nodes}
@@ -71,9 +69,10 @@ export default function NewApp() {
             className="mt-2 max-w-[65ch] text-sm"
             style={{ color: "var(--color-muted)" }}
           >
-            Register a vibe-coded app with the control plane. It starts with
-            one Sandbox environment — the app page then guides you from
-            scaffold to first deploy.
+            Register a vibe-coded app with the control plane. Pick a stack
+            and the node hosting the Sandbox — checks and the Sandbox
+            environment come along automatically, and the app page then
+            guides you from scaffold to first deploy.
           </p>
         </div>
 
