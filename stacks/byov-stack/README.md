@@ -35,6 +35,6 @@ npm run test:unit && npm run lint && npm run typecheck && npm run build
 
 1. Register the app in the BYOV Control Plane.
 2. Connect from your coding tool (Muse, Codex, Claude).
-3. Deploy to an admin-approved node (self-hosted Coolify first).
+3. Deploy to an admin-approved node (self-hosted Coolify or Vercel).
 
 Keep the repo public-safe: no secrets, env values, logs or real data.
