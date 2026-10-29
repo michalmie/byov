@@ -37,11 +37,30 @@ it("refuses an invalid copied mail account", () => {
   expect(() => installPreviewMail(request())).toThrow("mail account is invalid");
 });
 
-it("removes any mail account when email sending is off", () => {
+it.each([false, undefined])("removes any mail account when email sending is off (%s)", allowEmail => {
   fs.mkdirSync(path.join(checkout, "data"), { recursive: true });
   fs.writeFileSync(path.join(checkout, "data/mail.json"), JSON.stringify(account));
-  expect(installPreviewMail(request({ allowEmail: false }))).toBeNull();
+  expect(installPreviewMail(request({ allowEmail }))).toBeNull();
   expect(fs.existsSync(path.join(checkout, "data/mail.json"))).toBe(false);
+});
+
+it("refuses a corrupted copied mail account", () => {
+  fs.writeFileSync(path.join(dir, "email-account.json"), "not json{");
+  expect(() => installPreviewMail(request())).toThrow("mail account is invalid");
+});
+
+it("strips unknown fields from the installed mail account", () => {
+  fs.writeFileSync(path.join(dir, "email-account.json"), JSON.stringify({ ...account, extra: "drop me" }));
+  const target = installPreviewMail(request());
+  if (!target) throw new Error("Expected the preview mail account to be installed.");
+  expect(JSON.parse(fs.readFileSync(target, "utf8"))).toEqual(account);
+});
+
+it.each(["dir", "file"])("refuses to install through a symlinked mail %s", kind => {
+  fs.writeFileSync(path.join(dir, "email-account.json"), JSON.stringify(account));
+  if (kind === "dir") fs.symlinkSync(dir, path.join(checkout, "data"), "dir");
+  else { fs.mkdirSync(path.join(checkout, "data"), { recursive: true }); fs.symlinkSync(path.join(dir, "email-account.json"), path.join(checkout, "data/mail.json")); }
+  expect(() => installPreviewMail(request())).toThrow("must not be a symlink");
 });
 
 it("rejects a non-boolean email flag in the preview request", () => {

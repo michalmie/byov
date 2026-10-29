@@ -38,11 +38,22 @@ export function installPreviewMail(r) {
     fs.rmSync(target, { force: true });
     return null;
   }
-  let account;
+  for (const entry of [path.dirname(target), target]) {
+    let entryStat = null;
+    try { entryStat = fs.lstatSync(entry); } catch { /* absent entries are created below */ }
+    if (entryStat?.isSymbolicLink()) throw new Error('The preview mail target must not be a symlink.');
+  }
+  let raw;
   try {
-    account = JSON.parse(fs.readFileSync(path.join(r.directory, 'email-account.json'), 'utf8'));
+    raw = fs.readFileSync(path.join(r.directory, 'email-account.json'), 'utf8');
   } catch {
     throw new Error('Email sending is enabled but the preview mail account is missing.');
+  }
+  let account;
+  try {
+    account = JSON.parse(raw);
+  } catch {
+    throw new Error('The preview mail account is invalid. Save it again in Settings → Email.');
   }
   if (!account || typeof account !== 'object' || Array.isArray(account)
     || typeof account.host !== 'string' || !account.host.trim()
