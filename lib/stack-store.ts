@@ -1,8 +1,11 @@
 // Client hooks for workspace tech stacks. State starts from the shipped
-// catalog (matching the server render), hydrates workspace customs
-// from localStorage after mount, and stays in sync across components
-// and tabs. Shipped manifests are read-only; customs are editable and
-// cloning a shipped stack starts an editable custom copy.
+// catalog (matching the server render), hydrates workspace customs from
+// the workspace API after mount — with localStorage as the offline
+// cache — and stays in sync across components and tabs. Shipped
+// manifests are read-only; customs are editable and cloning a shipped
+// stack starts an editable custom copy. When the API is unreachable
+// (tests, offline, signed out), the cache stands in and every mutation
+// still resolves synchronously.
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import {
@@ -21,6 +24,52 @@ import {
 
 const STACKS_EVENT = "byov:stacks-changed";
 
+const STACKS_URL = "/api/workspace/stacks";
+
+/** GET an API envelope's data; undefined on any failure (offline, 401…). */
+async function fetchJson<T>(url: string): Promise<T | undefined> {
+  try {
+    const response = await fetch(url, {
+      headers: { accept: "application/json" },
+    });
+    if (!response.ok) {
+      return undefined;
+    }
+    const body = (await response.json()) as { ok?: unknown; data?: T };
+    if (!body || body.ok !== true || !("data" in body)) {
+      return undefined;
+    }
+    return body.data;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Send a mutation; undefined on any failure. Never throws. */
+async function mutateJson<T>(
+  url: string,
+  method: string,
+  payload?: unknown,
+): Promise<T | undefined> {
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: payload === undefined ? undefined : JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      return undefined;
+    }
+    const body = (await response.json()) as { ok?: unknown; data?: T };
+    if (!body || body.ok !== true) {
+      return undefined;
+    }
+    return body.data;
+  } catch {
+    return undefined;
+  }
+}
+
 function readStored(): TechStack[] | undefined {
   try {
     if (typeof window === "undefined") {
@@ -35,6 +84,15 @@ function readStored(): TechStack[] | undefined {
     return parseStoredStacks(JSON.parse(raw));
   } catch {
     return undefined;
+  }
+}
+
+function cacheCustoms(next: TechStack[]): void {
+  try {
+    window.localStorage.setItem(STACK_STORAGE_KEY, JSON.stringify(next));
+    window.localStorage.removeItem(LEGACY_TEMPLATE_STORAGE_KEY);
+  } catch {
+    // Private mode etc. — in-memory state still works for the session.
   }
 }
 
@@ -79,16 +137,54 @@ export function useManagedStacks() {
 
   useEffect(() => subscribeCustomStacks(setCustoms), []);
 
+  // Fetch-first hydration: the server customs replace the cache when
+  // reachable; any failure keeps the cached customs untouched.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const data = await fetchJson<unknown>(STACKS_URL);
+      if (cancelled || data === undefined) {
+        return;
+      }
+      const server = parseStoredStacks(data);
+      if (cancelled || server === undefined) {
+        return;
+      }
+      setCustoms(server);
+      cacheCustoms(server);
+      window.dispatchEvent(
+        new CustomEvent<TechStack[]>(STACKS_EVENT, { detail: server }),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const stacks = useMemo(() => [...listStacks(), ...customs], [customs]);
+
+  /** Re-read the server customs; failures keep the current state. */
+  const refreshCustoms = useCallback(() => {
+    void (async () => {
+      const data = await fetchJson<unknown>(STACKS_URL);
+      if (data === undefined) {
+        return;
+      }
+      const server = parseStoredStacks(data);
+      if (server === undefined) {
+        return;
+      }
+      setCustoms(server);
+      cacheCustoms(server);
+      window.dispatchEvent(
+        new CustomEvent<TechStack[]>(STACKS_EVENT, { detail: server }),
+      );
+    })();
+  }, []);
 
   const persist = useCallback((next: TechStack[]) => {
     setCustoms(next);
-    try {
-      window.localStorage.setItem(STACK_STORAGE_KEY, JSON.stringify(next));
-      window.localStorage.removeItem(LEGACY_TEMPLATE_STORAGE_KEY);
-    } catch {
-      // Private mode etc. — in-memory state still works for the session.
-    }
+    cacheCustoms(next);
     window.dispatchEvent(
       new CustomEvent<TechStack[]>(STACKS_EVENT, { detail: next }),
     );
@@ -115,9 +211,13 @@ export function useManagedStacks() {
         return errors;
       }
       persist([...customs, buildStack(draft, stacks)]);
+      void (async () => {
+        await mutateJson(STACKS_URL, "POST", draft);
+        refreshCustoms();
+      })();
       return null;
     },
-    [customs, persist, stacks],
+    [customs, persist, refreshCustoms, stacks],
   );
 
   /**
@@ -146,20 +246,36 @@ export function useManagedStacks() {
           starter: { ...rebuilt.starter, ref: starterRef },
         }),
       );
+      void (async () => {
+        await mutateJson(
+          `${STACKS_URL}/${encodeURIComponent(slug)}`,
+          "PUT",
+          draft,
+        );
+        refreshCustoms();
+      })();
       return null;
     },
-    [customs, persist, stacks],
+    [customs, persist, refreshCustoms, stacks],
   );
 
   /** Remove a custom stack; shipped stacks cannot be removed. */
   const deleteStack = useCallback(
     (slug: string): void => {
       persist(customs.filter((stack) => stack.slug !== slug));
+      void (async () => {
+        await mutateJson(
+          `${STACKS_URL}/${encodeURIComponent(slug)}`,
+          "DELETE",
+        );
+        refreshCustoms();
+      })();
     },
-    [customs, persist],
+    [customs, persist, refreshCustoms],
   );
 
   const resetStacks = useCallback(() => {
+    const stale = customs;
     setCustoms([]);
     try {
       window.localStorage.removeItem(STACK_STORAGE_KEY);
@@ -170,7 +286,13 @@ export function useManagedStacks() {
     window.dispatchEvent(
       new CustomEvent<TechStack[]>(STACKS_EVENT, { detail: [] }),
     );
-  }, []);
+    // Best-effort server reset so the catalog sticks across reloads.
+    void Promise.allSettled(
+      stale.map((stack) =>
+        mutateJson(`${STACKS_URL}/${encodeURIComponent(stack.slug)}`, "DELETE"),
+      ),
+    );
+  }, [customs]);
 
   return {
     stacks,

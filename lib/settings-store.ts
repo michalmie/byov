@@ -1,6 +1,9 @@
 // Client hooks for workspace settings and managed nodes. State starts from
-// the sample dataset (matching the server render), hydrates from
-// localStorage after mount, and stays in sync across components and tabs.
+// the sample dataset (matching the server render), hydrates from the
+// workspace API after mount — with localStorage as the offline cache —
+// and stays in sync across components and tabs. When the API is
+// unreachable (tests, offline, signed out), the cache and samples stand
+// in and every mutation still resolves synchronously.
 
 import { useCallback, useEffect, useState } from "react";
 import type { App, Node } from "./control-plane";
@@ -27,6 +30,53 @@ import type {
 const NODES_EVENT = "byov:nodes-changed";
 const SETTINGS_EVENT = "byov:settings-changed";
 
+const NODES_URL = "/api/workspace/nodes";
+const SETTINGS_URL = "/api/workspace/settings";
+
+/** GET an API envelope's data; undefined on any failure (offline, 401…). */
+async function fetchJson<T>(url: string): Promise<T | undefined> {
+  try {
+    const response = await fetch(url, {
+      headers: { accept: "application/json" },
+    });
+    if (!response.ok) {
+      return undefined;
+    }
+    const body = (await response.json()) as { ok?: unknown; data?: T };
+    if (!body || body.ok !== true || !("data" in body)) {
+      return undefined;
+    }
+    return body.data;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Send a mutation; undefined on any failure. Never throws. */
+async function mutateJson<T>(
+  url: string,
+  method: string,
+  payload?: unknown,
+): Promise<T | undefined> {
+  try {
+    const response = await fetch(url, {
+      method,
+      headers: { "content-type": "application/json" },
+      body: payload === undefined ? undefined : JSON.stringify(payload),
+    });
+    if (!response.ok) {
+      return undefined;
+    }
+    const body = (await response.json()) as { ok?: unknown; data?: T };
+    if (!body || body.ok !== true) {
+      return undefined;
+    }
+    return body.data;
+  } catch {
+    return undefined;
+  }
+}
+
 function readStored<T>(
   key: string,
   parse: (value: unknown) => T | undefined,
@@ -42,6 +92,22 @@ function readStored<T>(
     return parse(JSON.parse(raw));
   } catch {
     return undefined;
+  }
+}
+
+function cacheNodes(next: Node[]): void {
+  try {
+    window.localStorage.setItem(NODES_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // Private mode etc. — in-memory state still works for the session.
+  }
+}
+
+function cacheSettings(next: WorkspaceSettings): void {
+  try {
+    window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    // Private mode etc. — in-memory state still works for the session.
   }
 }
 
@@ -117,13 +183,52 @@ export function useManagedNodes() {
 
   useEffect(() => subscribeNodes(setNodes), []);
 
+  // Fetch-first hydration: the server list replaces the cache when
+  // reachable; any failure keeps the cache/sample state untouched.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const data = await fetchJson<unknown>(NODES_URL);
+      if (cancelled || data === undefined) {
+        return;
+      }
+      const server = parseStoredNodes(data);
+      if (cancelled || server === undefined) {
+        return;
+      }
+      setNodes(server);
+      cacheNodes(server);
+      window.dispatchEvent(
+        new CustomEvent<Node[]>(NODES_EVENT, { detail: server }),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Re-read the server list; failures keep the current state. */
+  const refreshNodes = useCallback(() => {
+    void (async () => {
+      const data = await fetchJson<unknown>(NODES_URL);
+      if (data === undefined) {
+        return;
+      }
+      const server = parseStoredNodes(data);
+      if (server === undefined) {
+        return;
+      }
+      setNodes(server);
+      cacheNodes(server);
+      window.dispatchEvent(
+        new CustomEvent<Node[]>(NODES_EVENT, { detail: server }),
+      );
+    })();
+  }, []);
+
   const persist = useCallback((next: Node[]) => {
     setNodes(next);
-    try {
-      window.localStorage.setItem(NODES_STORAGE_KEY, JSON.stringify(next));
-    } catch {
-      // Private mode etc. — in-memory state still works for the session.
-    }
+    cacheNodes(next);
     window.dispatchEvent(new CustomEvent<Node[]>(NODES_EVENT, { detail: next }));
   }, []);
 
@@ -135,9 +240,13 @@ export function useManagedNodes() {
         return errors;
       }
       persist([...nodes, buildNode(draft, nodes)]);
+      void (async () => {
+        await mutateJson(NODES_URL, "POST", draft);
+        refreshNodes();
+      })();
       return null;
     },
-    [nodes, persist],
+    [nodes, persist, refreshNodes],
   );
 
   /** Validate and replace by slug; the slug never changes. */
@@ -176,9 +285,17 @@ export function useManagedNodes() {
         delete updated.tailnetHost;
       }
       persist(replaceNode(nodes, slug, updated));
+      void (async () => {
+        await mutateJson(
+          `${NODES_URL}/${encodeURIComponent(slug)}`,
+          "PUT",
+          draft,
+        );
+        refreshNodes();
+      })();
       return null;
     },
-    [nodes, persist],
+    [nodes, persist, refreshNodes],
   );
 
   /** Remove unless pinned; returns the blocking reason or null. */
@@ -189,13 +306,21 @@ export function useManagedNodes() {
         return result.reason;
       }
       persist(result.nodes);
+      void (async () => {
+        await mutateJson(
+          `${NODES_URL}/${encodeURIComponent(slug)}`,
+          "DELETE",
+        );
+        refreshNodes();
+      })();
       return null;
     },
-    [nodes, persist],
+    [nodes, persist, refreshNodes],
   );
 
   const resetNodes = useCallback(() => {
     const sample = listNodes();
+    const stale = nodes;
     setNodes(sample);
     try {
       window.localStorage.removeItem(NODES_STORAGE_KEY);
@@ -203,7 +328,13 @@ export function useManagedNodes() {
       // Ignore; in-memory state is already back to sample data.
     }
     window.dispatchEvent(new CustomEvent<Node[]>(NODES_EVENT, { detail: sample }));
-  }, []);
+    // Best-effort server reset so the samples stick across reloads.
+    void Promise.allSettled(
+      stale.map((node) =>
+        mutateJson(`${NODES_URL}/${encodeURIComponent(node.slug)}`, "DELETE"),
+      ),
+    );
+  }, [nodes]);
 
   return { nodes, createNode, updateNode, deleteNode, resetNodes };
 }
@@ -215,6 +346,49 @@ export function useWorkspaceSettings() {
   const { nodes } = useManagedNodes();
 
   useEffect(() => subscribeSettings(setSettings), []);
+
+  // Fetch-first hydration: server settings replace the cache when
+  // reachable; any failure keeps the cache/defaults untouched.
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const data = await fetchJson<unknown>(SETTINGS_URL);
+      if (cancelled || data === undefined) {
+        return;
+      }
+      const server = parseStoredSettings(data);
+      if (cancelled || server === undefined) {
+        return;
+      }
+      setSettings(server);
+      cacheSettings(server);
+      window.dispatchEvent(
+        new CustomEvent<WorkspaceSettings>(SETTINGS_EVENT, { detail: server }),
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  /** Re-read the server settings; failures keep the current state. */
+  const refreshSettings = useCallback(() => {
+    void (async () => {
+      const data = await fetchJson<unknown>(SETTINGS_URL);
+      if (data === undefined) {
+        return;
+      }
+      const server = parseStoredSettings(data);
+      if (server === undefined) {
+        return;
+      }
+      setSettings(server);
+      cacheSettings(server);
+      window.dispatchEvent(
+        new CustomEvent<WorkspaceSettings>(SETTINGS_EVENT, { detail: server }),
+      );
+    })();
+  }, []);
 
   /** Validate and save; returns field errors or null on success. */
   const saveSettings = useCallback(
@@ -232,17 +406,17 @@ export function useWorkspaceSettings() {
         appScenarios: draft.appScenarios,
       };
       setSettings(next);
-      try {
-        window.localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(next));
-      } catch {
-        // Private mode etc. — in-memory state still works for the session.
-      }
+      cacheSettings(next);
       window.dispatchEvent(
         new CustomEvent<WorkspaceSettings>(SETTINGS_EVENT, { detail: next }),
       );
+      void (async () => {
+        await mutateJson(SETTINGS_URL, "PUT", next);
+        refreshSettings();
+      })();
       return null;
     },
-    [nodes],
+    [nodes, refreshSettings],
   );
 
   const resetSettings = useCallback(() => {
@@ -256,6 +430,8 @@ export function useWorkspaceSettings() {
     window.dispatchEvent(
       new CustomEvent<WorkspaceSettings>(SETTINGS_EVENT, { detail: defaults }),
     );
+    // Best-effort server reset so the defaults stick across reloads.
+    void mutateJson(SETTINGS_URL, "PUT", defaults);
   }, []);
 
   return { settings, nodes, saveSettings, resetSettings };
