@@ -251,7 +251,7 @@ export function SandboxSetupGuide({ app }: { app: App }) {
               style={{ color: "var(--color-ink-2)" }}
             >
               Point your station at the Sandbox URL below: it is where your
-              code runs — the Coolify FQDN, your API base, and your webhook
+              code runs — the node FQDN, your API base, and your webhook
               target all use it. There is no BYOV client, MCP endpoint, or
               connect script yet — one-command setup from your coding tool
               is on the roadmap. Until then the loop is manual: build
@@ -507,7 +507,7 @@ export function SandboxSetupGuide({ app }: { app: App }) {
               style={{ color: "var(--color-ink-2)" }}
             >
               Keep the gates green, then point the app at its Sandbox URL.
-              Set the app&apos;s Coolify FQDN to the URL below — Coolify
+              Set the app&apos;s FQDN on its node to the URL below — the node
               provisions TLS from there. The Sandbox is yours to break:
               iterate here, then promote to staging or production.
             </p>

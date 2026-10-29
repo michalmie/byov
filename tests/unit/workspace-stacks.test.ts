@@ -166,6 +166,26 @@ describe("workspace stacks store", () => {
     expect(result.stack.starter.ref).toBe("custom:htmx-service");
   });
 
+  it("creates a stack targeting vercel nodes", async () => {
+    const result = await createWorkspaceStack(draft({ nodes: ["vercel"] }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.stack.nodes).toEqual(["vercel"]);
+  });
+
+  it("rejects unknown node kinds and lists the supported ones", async () => {
+    const result = await createWorkspaceStack(
+      draft({ nodes: ["kubernetes"] }),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.errors.nodes).toBe("Supported node kinds: coolify, vercel.");
+  });
+
   it("never updates or deletes shipped stacks", async () => {
     await expect(
       updateWorkspaceStack(SHIPPED_SLUG, draft()),

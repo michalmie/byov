@@ -137,6 +137,15 @@ describe("SandboxSetupGuide", () => {
     expect(screen.getAllByText(/no stack commands/)).toHaveLength(2);
   });
 
+  it("uses node-neutral FQDN copy for every node kind", () => {
+    const { container } = renderGuide();
+    expect(screen.getByText(/the node FQDN, your API base/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/Set the app's FQDN on its node/),
+    ).toBeInTheDocument();
+    expect(container.textContent).not.toMatch(/Coolify FQDN/);
+  });
+
   it("shows the gates and the resolved Sandbox URL", () => {
     renderGuide();
     expect(

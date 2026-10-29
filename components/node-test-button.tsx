@@ -76,7 +76,7 @@ function Stage({
 }
 
 /**
- * Test a Coolify endpoint via the server probe endpoint. Advisory only:
+ * Test a node endpoint via the server probe endpoint. Advisory only:
  * it never blocks saving — the node stays Pending until first contact.
  */
 export function NodeTestButton({ endpoint }: { endpoint: string }) {

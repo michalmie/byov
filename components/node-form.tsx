@@ -7,6 +7,7 @@ import {
   type NodeField,
   type NodeFieldErrors,
 } from "@/lib/settings";
+import { NodeKindInstructions } from "./node-setup-guide";
 import { NodeTestButton } from "./node-test-button";
 
 function FieldError({ id, message }: { id: string; message?: string }) {
@@ -19,6 +20,16 @@ function FieldError({ id, message }: { id: string; message?: string }) {
     </p>
   );
 }
+
+const KIND_QUALIFIERS: Record<string, string> = {
+  Coolify: "self-hosted",
+  Vercel: "cloud",
+};
+
+const KIND_HINTS: Record<string, string> = {
+  Coolify: "Self-hosted: apps deploy to a Coolify instance you operate.",
+  Vercel: "Cloud: apps deploy through Vercel cloud projects on your team.",
+};
 
 export function NodeForm({
   formId,
@@ -39,6 +50,7 @@ export function NodeForm({
 }) {
   const [draft, setDraft] = useState<NodeDraft>(initial);
   const [errors, setErrors] = useState<NodeFieldErrors>({});
+  const isVercel = draft.kind === "Vercel";
 
   function set(field: NodeField, value: string) {
     setDraft((prev) => ({ ...prev, [field]: value }));
@@ -80,32 +92,12 @@ export function NodeForm({
       <form onSubmit={handleSubmit} noValidate className="grid gap-6">
         <fieldset className="grid gap-5">
           <legend className="text-sm font-semibold">
-            About the server
+            Node type
           </legend>
-          <p className="hint -mt-3">
-            How this node appears in lists and dashboards.
+          <p className="hint mt-1">
+            What kind of deployment target this is — the setup checklist
+            below follows your choice.
           </p>
-        <div className="field">
-          <label className="field-label" htmlFor={`${formId}-name`}>
-            Name
-          </label>
-          <input
-            id={`${formId}-name`}
-            className="input max-w-md"
-            type="text"
-            autoComplete="off"
-            placeholder="frankfurt-02"
-            value={draft.name}
-            aria-invalid={Boolean(errors.name)}
-            aria-describedby={describedBy("name", `${formId}-name-hint`)}
-            onChange={(event) => set("name", event.target.value)}
-          />
-          <p id={`${formId}-name-hint`} className="hint">
-            Display name. The node slug derives from it and never changes.
-          </p>
-          <FieldError id={`${formId}-name-error`} message={errors.name} />
-        </div>
-
         <div className="field">
           <label className="field-label" htmlFor={`${formId}-kind`}>
             Type
@@ -120,7 +112,7 @@ export function NodeForm({
           >
             {SUPPORTED_NODE_KINDS.map((kind) => (
               <option key={kind} value={kind}>
-                {kind} (self-hosted)
+                {kind} ({KIND_QUALIFIERS[kind] ?? "self-hosted"})
               </option>
             ))}
             <option value="Kubernetes" disabled>
@@ -128,9 +120,41 @@ export function NodeForm({
             </option>
           </select>
           <p id={`${formId}-kind-hint`} className="hint">
-            Only self-hosted Coolify nodes deploy apps today.
+            {KIND_HINTS[draft.kind] ??
+              "Self-hosted: apps deploy to infrastructure you operate."}
           </p>
           <FieldError id={`${formId}-kind-error`} message={errors.kind} />
+        </div>
+
+        <NodeKindInstructions kind={draft.kind} />
+        </fieldset>
+
+        <fieldset className="grid gap-5">
+          <legend className="text-sm font-semibold">
+            {isVercel ? "About the project" : "About the server"}
+          </legend>
+          <p className="hint mt-1">
+            How this node appears in lists and dashboards.
+          </p>
+        <div className="field">
+          <label className="field-label" htmlFor={`${formId}-name`}>
+            Name
+          </label>
+          <input
+            id={`${formId}-name`}
+            className="input max-w-md"
+            type="text"
+            autoComplete="off"
+            placeholder={isVercel ? "acme-web" : "frankfurt-02"}
+            value={draft.name}
+            aria-invalid={Boolean(errors.name)}
+            aria-describedby={describedBy("name", `${formId}-name-hint`)}
+            onChange={(event) => set("name", event.target.value)}
+          />
+          <p id={`${formId}-name-hint`} className="hint">
+            Display name. The node slug derives from it and never changes.
+          </p>
+          <FieldError id={`${formId}-name-error`} message={errors.name} />
         </div>
 
         <div className="field">
@@ -142,14 +166,16 @@ export function NodeForm({
             className="input max-w-md"
             type="text"
             autoComplete="off"
-            placeholder="Frankfurt"
+            placeholder={isVercel ? "acme-team" : "Frankfurt"}
             value={draft.location}
             aria-invalid={Boolean(errors.location)}
             aria-describedby={describedBy("location", `${formId}-location-hint`)}
             onChange={(event) => set("location", event.target.value)}
           />
           <p id={`${formId}-location-hint`} className="hint">
-            Where the hardware lives — a city, site, or lab.
+            {isVercel
+              ? "Which team or region owns it — a team name or region."
+              : "Where the hardware lives — a city, site, or lab."}
           </p>
           <FieldError
             id={`${formId}-location-error`}
@@ -162,9 +188,10 @@ export function NodeForm({
           <legend className="text-sm font-semibold">
             Connect
           </legend>
-          <p className="hint -mt-3">
-            Where BYOV reaches Coolify. Test the endpoint — a failing test
-            never blocks saving.
+          <p className="hint mt-1">
+            {isVercel
+              ? "Where BYOV finds your Vercel project — paste its dashboard URL. Test the endpoint — a failing test never blocks saving."
+              : "Where BYOV reaches Coolify. Test the endpoint — a failing test never blocks saving."}
           </p>
         <div className="field">
           <label className="field-label" htmlFor={`${formId}-endpoint`}>
@@ -176,15 +203,20 @@ export function NodeForm({
             type="url"
             inputMode="url"
             autoComplete="off"
-            placeholder="https://coolify.example.com"
+            placeholder={
+              isVercel
+                ? "https://vercel.com/team/project"
+                : "https://coolify.example.com"
+            }
             value={draft.endpoint}
             aria-invalid={Boolean(errors.endpoint)}
             aria-describedby={describedBy("endpoint", `${formId}-endpoint-hint`)}
             onChange={(event) => set("endpoint", event.target.value)}
           />
           <p id={`${formId}-endpoint-hint`} className="hint">
-            Where the control plane reaches this node. Credentials are managed
-            when the node adapter lands.
+            {isVercel
+              ? "Link to the Vercel project or team dashboard. Credentials are managed when the node adapter lands."
+              : "Where the control plane reaches this node. Credentials are managed when the node adapter lands."}
           </p>
           <FieldError
             id={`${formId}-endpoint-error`}
@@ -198,7 +230,7 @@ export function NodeForm({
           <legend className="text-sm font-semibold">
             Serve URLs
           </legend>
-          <p className="hint -mt-3">
+          <p className="hint mt-1">
             Materials for environment URLs. Both are optional — set them
             now or edit the node later.
           </p>

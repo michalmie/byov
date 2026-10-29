@@ -237,6 +237,31 @@ Local bootstrap runbook:
   adapter lands. The adapter roadmap item stays open: verification is
   not deploying.
 
+### Nodes (third slice): Vercel
+
+- Vercel is a second node kind alongside Coolify: the stack kind id is
+  `vercel` (lowercase, in `SUPPORTED_STACK_NODE_KINDS` and the
+  per-manifest `nodes` arrays) and the node kind display is `Vercel`.
+- Add node is a guided Vercel onboarding flow (see
+  `docs/vercel-node.md`): Vercel account and team, project imported
+  from the app repo, production URL noted, custom domain via the node
+  zone, then register in Settings → Nodes with the same optional
+  fields as Coolify (endpoint, domain zone, tailnet machine name —
+  left empty, since tailnet URLs need a machine on your tailnet).
+- Pending-until-contact semantics match Coolify: new Vercel nodes
+  start Pending, probes are advisory-only and never block saving, and
+  Pending tracks adapter contact, not reachability.
+- The Type picker leads the Add/Edit node form and a per-kind setup
+  checklist renders directly beneath it, so the instructions always
+  match the selected kind (Coolify keeps its server checklist).
+- Stack targeting: `byov-stack`, `ai-chatbot` and `vite-spa` target
+  both `coolify` and `vercel` (Next.js and static builds fit Vercel);
+  `fastapi-service` stays on `coolify` only — a long-running Python
+  service does not fit Vercel serverless.
+- URL resolution is unchanged: envs on a Vercel node resolve to
+  `https://{app}-{env}.{node-zone}` under the serving node's zone,
+  with the custom domain added on the Vercel project.
+
 ### Auth (first slice)
 
 - Every route requires a session except `/login`, `/auth/*`,
