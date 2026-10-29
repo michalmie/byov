@@ -182,6 +182,45 @@ describe("validateNodeDraft", () => {
     ).toMatch(/supported/i);
   });
 
+  it("accepts a Vercel draft", () => {
+    expect(
+      validateNodeDraft({ ...valid, kind: "Vercel" }, sampleNodes),
+    ).toEqual({});
+  });
+
+  it("accepts a Vercel draft with every optional field", () => {
+    expect(
+      validateNodeDraft(
+        {
+          ...valid,
+          kind: "Vercel",
+          endpoint: "https://vercel.example.com",
+          domainZone: "vercel-01.byov.xexo.io",
+          tailnetHost: "vercel-01",
+        },
+        sampleNodes,
+      ),
+    ).toEqual({});
+  });
+
+  it("rejects a non-http endpoint on a Vercel draft", () => {
+    const errors = validateNodeDraft(
+      { ...valid, kind: "Vercel", endpoint: "not a url" },
+      sampleNodes,
+    );
+    expect(errors.endpoint).toMatch(/http/i);
+  });
+
+  it("rejects an unknown kind and lists the supported types", () => {
+    const errors = validateNodeDraft(
+      { ...valid, kind: "Kubernetes" },
+      sampleNodes,
+    );
+    expect(errors.kind).toBe(
+      `Supported node types: ${SUPPORTED_NODE_KINDS.join(", ")}.`,
+    );
+  });
+
   it("requires a location", () => {
     const errors = validateNodeDraft(
       { ...valid, location: " " },
@@ -214,8 +253,8 @@ describe("validateNodeDraft", () => {
     expect(errors.endpoint).toMatch(/http/i);
   });
 
-  it("exposes Coolify as the only supported kind for now", () => {
-    expect([...SUPPORTED_NODE_KINDS]).toEqual(["Coolify"]);
+  it("exposes Coolify and Vercel as the supported kinds", () => {
+    expect([...SUPPORTED_NODE_KINDS]).toEqual(["Coolify", "Vercel"]);
   });
 });
 
@@ -259,6 +298,25 @@ describe("buildNode", () => {
     expect(node.endpoint).toBeUndefined();
     expect(node.domainZone).toBeUndefined();
     expect(node.tailnetHost).toBeUndefined();
+  });
+
+  it("keeps a Vercel kind and starts the node as pending", () => {
+    const node = buildNode(
+      {
+        name: "Vercel Edge",
+        kind: "Vercel",
+        location: "Berlin",
+        endpoint: "",
+        domainZone: "",
+        tailnetHost: "",
+      },
+      sampleNodes,
+    );
+    expect(node).toMatchObject({
+      slug: "vercel-edge",
+      kind: "Vercel",
+      status: "pending",
+    });
   });
 
   it("suffixes the slug when the name is taken", () => {
