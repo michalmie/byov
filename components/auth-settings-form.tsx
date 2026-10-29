@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import {
   ADMIN_EMAILS_ENV,
   ALLOWED_DOMAINS_ENV,
@@ -63,9 +64,9 @@ function MethodToggle({
           {guideHref && (
             <>
               {" "}
-              <a className="underline" href={guideHref}>
+              <Link className="underline" href={guideHref}>
                 View setup guide
-              </a>
+              </Link>
               .
             </>
           )}
@@ -187,9 +188,9 @@ export function AuthSettingsForm({
           >
             Single sign-on through an identity provider. Each needs its
             client credentials on the server before it can sign anyone in.{" "}
-            <a className="underline" href="/docs/oauth">
+            <Link className="underline" href="/docs/oauth">
               View the OAuth setup overview
-            </a>
+            </Link>
             .
           </p>
         </div>
