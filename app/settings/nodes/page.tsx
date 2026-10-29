@@ -6,7 +6,6 @@ import { StatusPill } from "@/components/data-ui";
 import { DnsTestButton } from "@/components/dns-test-button";
 import { NodeCard } from "@/components/node-card";
 import { NodeForm } from "@/components/node-form";
-import { NodeSetupGuide } from "@/components/node-setup-guide";
 import { SettingsSubnav } from "@/components/settings-subnav";
 import { useManagedApps } from "@/lib/apps-store";
 import { useManagedNodes, useWorkspaceSettings } from "@/lib/settings-store";
@@ -27,7 +26,6 @@ export default function SettingsNodes() {
   const { settings } = useWorkspaceSettings();
   const { apps } = useManagedApps();
   const [adding, setAdding] = useState(false);
-  const [addKind, setAddKind] = useState(blankDraft.kind);
   const [editing, setEditing] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
@@ -106,31 +104,27 @@ export default function SettingsNodes() {
         )}
 
         {adding && (
-          <div className="grid gap-6">
-            <NodeSetupGuide kind={addKind} />
-            <NodeForm
-              key="new"
-              formId="add-node"
-              heading="Add node"
-              lede="Register a deployment target. It stays Pending until first contact."
-              initial={blankDraft}
-              submitLabel="Add node"
-              onKindChange={setAddKind}
-              onSubmit={(draft) => {
-                const errors = createNode(draft);
-                if (errors) {
-                  return errors;
-                }
-                closePanels();
-                setNotice(
-                  `Added ${draft.name.trim()} — pending first contact.`,
-                );
-                setNextStepsFor(draft.name.trim());
-                return null;
-              }}
-              onCancel={closePanels}
-            />
-          </div>
+          <NodeForm
+            key="new"
+            formId="add-node"
+            heading="Add node"
+            lede="Register a deployment target. It stays Pending until first contact."
+            initial={blankDraft}
+            submitLabel="Add node"
+            onSubmit={(draft) => {
+              const errors = createNode(draft);
+              if (errors) {
+                return errors;
+              }
+              closePanels();
+              setNotice(
+                `Added ${draft.name.trim()} — pending first contact.`,
+              );
+              setNextStepsFor(draft.name.trim());
+              return null;
+            }}
+            onCancel={closePanels}
+          />
         )}
 
         {nextStepsFor && !adding && !editing && (
@@ -217,7 +211,6 @@ export default function SettingsNodes() {
                 className="btn-ghost px-3 py-1.5 text-[13px]"
                 onClick={() => {
                   setAdding(true);
-                  setAddKind(blankDraft.kind);
                   setNotice(null);
                   setNextStepsFor(null);
                 }}

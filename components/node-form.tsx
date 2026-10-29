@@ -7,6 +7,7 @@ import {
   type NodeField,
   type NodeFieldErrors,
 } from "@/lib/settings";
+import { NodeKindInstructions } from "./node-setup-guide";
 import { NodeTestButton } from "./node-test-button";
 
 function FieldError({ id, message }: { id: string; message?: string }) {
@@ -30,18 +31,6 @@ const KIND_HINTS: Record<string, string> = {
   Vercel: "Cloud: apps deploy through Vercel cloud projects on your team.",
 };
 
-/**
- * Kinds the picker offers. Validation owns SUPPORTED_NODE_KINDS; Vercel is
- * listed here too so the picker offers it in every merge order.
- */
-function pickerKinds(): string[] {
-  const kinds: string[] = [...SUPPORTED_NODE_KINDS];
-  if (!kinds.includes("Vercel")) {
-    kinds.push("Vercel");
-  }
-  return kinds;
-}
-
 export function NodeForm({
   formId,
   heading,
@@ -50,7 +39,6 @@ export function NodeForm({
   submitLabel,
   onSubmit,
   onCancel,
-  onKindChange,
 }: {
   formId: string;
   heading: string;
@@ -59,7 +47,6 @@ export function NodeForm({
   submitLabel: string;
   onSubmit: (draft: NodeDraft) => NodeFieldErrors | null;
   onCancel: () => void;
-  onKindChange?: (kind: string) => void;
 }) {
   const [draft, setDraft] = useState<NodeDraft>(initial);
   const [errors, setErrors] = useState<NodeFieldErrors>({});
@@ -70,9 +57,6 @@ export function NodeForm({
     setErrors((prev) =>
       prev[field] ? { ...prev, [field]: undefined } : prev,
     );
-    if (field === "kind") {
-      onKindChange?.(value);
-    }
   }
 
   function handleSubmit(event: React.FormEvent) {
@@ -108,32 +92,12 @@ export function NodeForm({
       <form onSubmit={handleSubmit} noValidate className="grid gap-6">
         <fieldset className="grid gap-5">
           <legend className="text-sm font-semibold">
-            {isVercel ? "About the project" : "About the server"}
+            Node type
           </legend>
-          <p className="hint -mt-3">
-            How this node appears in lists and dashboards.
+          <p className="hint mt-1">
+            What kind of deployment target this is — the setup checklist
+            below follows your choice.
           </p>
-        <div className="field">
-          <label className="field-label" htmlFor={`${formId}-name`}>
-            Name
-          </label>
-          <input
-            id={`${formId}-name`}
-            className="input max-w-md"
-            type="text"
-            autoComplete="off"
-            placeholder="frankfurt-02"
-            value={draft.name}
-            aria-invalid={Boolean(errors.name)}
-            aria-describedby={describedBy("name", `${formId}-name-hint`)}
-            onChange={(event) => set("name", event.target.value)}
-          />
-          <p id={`${formId}-name-hint`} className="hint">
-            Display name. The node slug derives from it and never changes.
-          </p>
-          <FieldError id={`${formId}-name-error`} message={errors.name} />
-        </div>
-
         <div className="field">
           <label className="field-label" htmlFor={`${formId}-kind`}>
             Type
@@ -146,7 +110,7 @@ export function NodeForm({
             aria-describedby={describedBy("kind", `${formId}-kind-hint`)}
             onChange={(event) => set("kind", event.target.value)}
           >
-            {pickerKinds().map((kind) => (
+            {SUPPORTED_NODE_KINDS.map((kind) => (
               <option key={kind} value={kind}>
                 {kind} ({KIND_QUALIFIERS[kind] ?? "self-hosted"})
               </option>
@@ -162,6 +126,37 @@ export function NodeForm({
           <FieldError id={`${formId}-kind-error`} message={errors.kind} />
         </div>
 
+        <NodeKindInstructions kind={draft.kind} />
+        </fieldset>
+
+        <fieldset className="grid gap-5">
+          <legend className="text-sm font-semibold">
+            {isVercel ? "About the project" : "About the server"}
+          </legend>
+          <p className="hint mt-1">
+            How this node appears in lists and dashboards.
+          </p>
+        <div className="field">
+          <label className="field-label" htmlFor={`${formId}-name`}>
+            Name
+          </label>
+          <input
+            id={`${formId}-name`}
+            className="input max-w-md"
+            type="text"
+            autoComplete="off"
+            placeholder={isVercel ? "acme-web" : "frankfurt-02"}
+            value={draft.name}
+            aria-invalid={Boolean(errors.name)}
+            aria-describedby={describedBy("name", `${formId}-name-hint`)}
+            onChange={(event) => set("name", event.target.value)}
+          />
+          <p id={`${formId}-name-hint`} className="hint">
+            Display name. The node slug derives from it and never changes.
+          </p>
+          <FieldError id={`${formId}-name-error`} message={errors.name} />
+        </div>
+
         <div className="field">
           <label className="field-label" htmlFor={`${formId}-location`}>
             Location
@@ -171,7 +166,7 @@ export function NodeForm({
             className="input max-w-md"
             type="text"
             autoComplete="off"
-            placeholder="Frankfurt"
+            placeholder={isVercel ? "acme-team" : "Frankfurt"}
             value={draft.location}
             aria-invalid={Boolean(errors.location)}
             aria-describedby={describedBy("location", `${formId}-location-hint`)}
@@ -193,7 +188,7 @@ export function NodeForm({
           <legend className="text-sm font-semibold">
             Connect
           </legend>
-          <p className="hint -mt-3">
+          <p className="hint mt-1">
             {isVercel
               ? "Where BYOV finds your Vercel project — paste its dashboard URL. Test the endpoint — a failing test never blocks saving."
               : "Where BYOV reaches Coolify. Test the endpoint — a failing test never blocks saving."}
@@ -235,7 +230,7 @@ export function NodeForm({
           <legend className="text-sm font-semibold">
             Serve URLs
           </legend>
-          <p className="hint -mt-3">
+          <p className="hint mt-1">
             Materials for environment URLs. Both are optional — set them
             now or edit the node later.
           </p>

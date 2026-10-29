@@ -251,6 +251,9 @@ Local bootstrap runbook:
 - Pending-until-contact semantics match Coolify: new Vercel nodes
   start Pending, probes are advisory-only and never block saving, and
   Pending tracks adapter contact, not reachability.
+- The Type picker leads the Add/Edit node form and a per-kind setup
+  checklist renders directly beneath it, so the instructions always
+  match the selected kind (Coolify keeps its server checklist).
 - Stack targeting: `byov-stack`, `ai-chatbot` and `vite-spa` target
   both `coolify` and `vercel` (Next.js and static builds fit Vercel);
   `fastapi-service` stays on `coolify` only — a long-running Python
