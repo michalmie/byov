@@ -1,8 +1,9 @@
 /**
  * Route protection: every route requires a valid `byov_session` cookie
- * except the public paths below. Pages redirect to /login?next=<path>;
- * /api/* routes get a 401 JSON response. Authenticated requests carry the
- * verified email and role downstream as headers.
+ * except the public paths and the machine API below. Pages redirect to
+ * /login?next=<path>; /api/* routes get a 401 JSON response.
+ * Authenticated requests carry the verified email and role downstream
+ * as headers.
  */
 import { NextRequest, NextResponse } from "next/server";
 import { SESSION_COOKIE_NAME, verifySession } from "@/lib/auth";
@@ -35,9 +36,20 @@ export function isPublicPath(pathname: string): boolean {
   return false;
 }
 
+/**
+ * Machine API paths: token- or session-authenticated by their own route
+ * handlers (`lib/api-auth.ts`), so the cookie gate passes them through.
+ */
+export function isMachineApiPath(pathname: string): boolean {
+  return pathname === "/api/v1" || pathname.startsWith("/api/v1/");
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname, search } = request.nextUrl;
   if (isPublicPath(pathname)) {
+    return NextResponse.next();
+  }
+  if (isMachineApiPath(pathname)) {
     return NextResponse.next();
   }
 

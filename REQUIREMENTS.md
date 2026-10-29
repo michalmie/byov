@@ -301,4 +301,63 @@ Local bootstrap runbook:
   Build order: control-plane API + token auth → node adapter (Coolify
   app/FQDN/auto-deploy/status/logs) → repo + webhook wiring per app →
   MCP connector with one-snippet agent setup. No MCP endpoint, client,
-  connect script, or API tokens exist yet.
+  or connect script exists yet.
+
+### Cell (slice 1: control-plane API + tokens, built)
+
+- Versioned machine API under `/api/v1/*` for future CLI and MCP
+  clients. Auth is `Authorization: Bearer <token>`; browser callers
+  may use their session cookie instead (member sessions can read and
+  write apps/envs; token management needs a token or an admin
+  session).
+- Tokens (`lib/api-tokens.ts`): opaque `byov_<id>_<secret>` bearers
+  (192-bit secret, WebCrypto-minted like the auth module), stored as
+  SHA-256 hashes in owner-only `data/api-tokens.json` — the secret is
+  shown once at issuance and never again. The first token on a fresh
+  install issues without credentials (bootstrap, same trust model as
+  the first-login admin claim); afterwards issuance needs a token or
+  an admin session. Revocation keeps the record with `revokedAt` set.
+- Apps and environments (`lib/api-apps.ts`): `GET/POST /api/v1/apps`,
+  `GET /api/v1/apps/[slug]`, `GET/POST /api/v1/apps/[slug]/envs`,
+  `GET /api/v1/apps/[slug]/envs/[env]`. Validation mirrors the
+  browser new-app flow (names, slugs, known stacks from the shipped
+  catalog, known nodes); every app starts with one Pending `sandbox`
+  env. State persists in owner-only `data/apps.json` under
+  `BYOV_DATA_DIR` (else `AUTH_DATA_DIR`, else `./data`). The API
+  serves only API-created apps — sample apps stay a UI concern.
+- Envelope: success is `{ ok: true, data }`; every error is
+  `{ ok: false, error }` with an optional per-field `errors` map
+  (401 unauthenticated, 403 member managing tokens, 404 unknown
+  app/env/token, 400 validation).
+- Verified end to end with curl against a production server (issue →
+  call → revoke → 401, plus restart persistence):
+
+```sh
+BASE=http://localhost:3210
+# Bootstrap the first token (fresh data dir only):
+curl -X POST $BASE/api/v1/tokens \
+  -H 'content-type: application/json' \
+  -d '{"name":"ops-laptop"}'
+# → {"ok":true,"data":{"id":"…","token":"byov_…",…}} (201; save the token)
+
+TOKEN=byov_<id>_<secret>
+curl $BASE/api/v1/apps -H "authorization: Bearer $TOKEN"
+# → {"ok":true,"data":[]} (200)
+
+curl -X POST $BASE/api/v1/apps -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"name":"Rota Planner","stack":"byov-stack","node":"coolify-frankfurt"}'
+# → 201 with slug "rota-planner" and one pending "sandbox" env
+
+curl -X POST $BASE/api/v1/apps/rota-planner/envs \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"name":"staging","node":"coolify-frankfurt"}'
+# → 201 {"ok":true,"data":{"name":"staging",…,"status":"pending"}}
+
+curl -X DELETE $BASE/api/v1/tokens/<second-id> \
+  -H "authorization: Bearer $TOKEN"
+# → 200; calls with the revoked token answer 401 from then on
+```
+
+- Still open (later slices): node adapter and Coolify writes, repo
+  and webhook wiring, MCP server/CLI, scoped tokens, token UI pages.
