@@ -3,11 +3,13 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import {
+  emailShell,
   isMailConfigured,
   magicLinkEmail,
   otpEmail,
   sendMail,
   signInEmail,
+  testEmailHtml,
 } from "@/lib/auth-mail";
 import { saveStoredMailAccount } from "@/lib/mail-config";
 
@@ -75,7 +77,7 @@ describe("sendMail dev fallback", () => {
 describe("auth email templates", () => {
   it("builds the OTP email with the code", () => {
     const mail = otpEmail("123456");
-    expect(mail.subject).toContain("sign-in code");
+    expect(mail.subject).toBe("123456 is your BYOV sign-in code");
     expect(mail.text).toContain("123456");
   });
 
@@ -93,7 +95,7 @@ describe("auth email templates", () => {
       code: "123456",
       link: "https://byov.test/api/auth/magic-link/verify?token=x",
     });
-    expect(mail.subject).toContain("code and link");
+    expect(mail.subject).toBe("123456 is your BYOV sign-in code");
     expect(mail.text).toContain("123456");
     expect(mail.text).toContain(
       "https://byov.test/api/auth/magic-link/verify?token=x",
@@ -105,5 +107,73 @@ describe("auth email templates", () => {
     const link = "https://byov.test/api/auth/magic-link/verify?token=x";
     expect(signInEmail({ link })).toEqual(magicLinkEmail(link));
     expect(() => signInEmail({})).toThrow();
+  });
+
+  it("renders the code email as branded HTML", () => {
+    const mail = otpEmail("123456");
+    expect(mail.html).toContain("<!doctype html>");
+    expect(mail.html).toContain("123456");
+    expect(mail.html).toContain("BYOV");
+    expect(mail.html).toContain("monospace");
+    expect(mail.html).not.toContain("Sign in to BYOV</a>");
+  });
+
+  it("renders the link email with a sign-in button and URL fallback", () => {
+    const link = "https://byov.test/api/auth/magic-link/verify?token=x&next=%2F";
+    const mail = magicLinkEmail(link);
+    expect(mail.html).toContain("Sign in to BYOV</a>");
+    // Query-string ampersands are entity-escaped inside hrefs.
+    expect(mail.html).toContain(
+      "https://byov.test/api/auth/magic-link/verify?token=x&amp;next=%2F",
+    );
+    expect(mail.html).toContain("Or paste this link into your browser");
+  });
+
+  it("renders the combined email with both the code and the button", () => {
+    const mail = signInEmail({
+      code: "123456",
+      link: "https://byov.test/api/auth/magic-link/verify?token=x",
+    });
+    expect(mail.html).toContain("123456");
+    expect(mail.html).toContain("Sign in to BYOV</a>");
+  });
+
+  it("centers the code and button with table cells for Outlook", () => {
+    const mail = signInEmail({
+      code: "123456",
+      link: "https://byov.test/api/auth/magic-link/verify?token=x",
+    });
+    // Bulletproof centering: the align attribute on the cell, not div CSS
+    // alone, which Outlook renders inconsistently.
+    expect(mail.html).toMatch(/<td align="center"[^>]*>123456<\/td>/);
+    expect(mail.html).toMatch(
+      /<td align="center"[^>]*><a [^>]*>Sign in to BYOV<\/a>/,
+    );
+  });
+
+  it("keeps a long pasted link from stretching the card", () => {
+    const mail = magicLinkEmail(`https://byov.test/${"x".repeat(500)}`);
+    expect(mail.html).toContain("table-layout:fixed");
+    expect(mail.html).toContain("word-break:break-all");
+  });
+
+  it("escapes markup smuggled into template inputs", () => {
+    const mail = signInEmail({
+      code: "12<script>alert(1)</script>",
+      link: 'https://byov.test/"onmouseover="alert(1)',
+    });
+    expect(mail.html).not.toContain("<script>");
+    expect(mail.html).toContain("&lt;script&gt;");
+    expect(mail.html).toContain("&quot;onmouseover=&quot;");
+    expect(emailShell({ heading: "<b>Hi</b>", bodyHtml: "<p>x</p>" })).toContain(
+      "&lt;b&gt;Hi&lt;/b&gt;",
+    );
+  });
+
+  it("renders the test email without the expiry footer", () => {
+    const html = testEmailHtml("Settings-saved");
+    expect(html).toContain("BYOV test email");
+    expect(html).toContain("Settings-saved sending account");
+    expect(html).not.toContain("expire in 10 minutes");
   });
 });

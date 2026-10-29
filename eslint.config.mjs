@@ -10,6 +10,8 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Agent worktrees hold stale checkouts; never lint those copies.
+    ".ai/**",
   ]),
 ]);
 

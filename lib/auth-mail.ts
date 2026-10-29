@@ -65,17 +65,116 @@ export async function sendMail(input: SendMailInput): Promise<void> {
   });
 }
 
-export function otpEmail(code: string): { subject: string; text: string } {
+export interface AuthEmail {
+  subject: string;
+  text: string;
+  html: string;
+}
+
+/** Escape text for HTML email bodies. */
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;");
+}
+
+/**
+ * Branded HTML shell for auth emails: table layout with inline styles only,
+ * since mail clients ignore stylesheets. The hex palette mirrors the BYOV
+ * CSS tokens (paper, card, near-black action), which clients cannot parse
+ * as oklch(). The heading is escaped; bodyHtml must already be safe —
+ * build it with the helpers below, never from raw user input.
+ */
+export function emailShell({
+  heading,
+  bodyHtml,
+  footer = "This code and link expire in 10 minutes. If you did not request this email, you can ignore it.",
+}: {
+  heading: string;
+  bodyHtml: string;
+  footer?: string;
+}): string {
+  return (
+    `<!doctype html><html><body style="margin:0;padding:24px 12px;background:#f2f2f0;">` +
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="font-family:ui-sans-serif,system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;">` +
+    `<tr><td align="center">` +
+    `<table role="presentation" width="480" cellpadding="0" cellspacing="0" style="max-width:480px;table-layout:fixed;background:#ffffff;border:1px solid #e3e3e0;border-radius:8px;">` +
+    `<tr><td style="padding:32px 32px 8px 32px;">` +
+    `<div style="font-size:20px;font-weight:700;letter-spacing:-0.02em;color:#1c1c1c;">BYOV</div>` +
+    `<div style="font-size:13px;color:#737373;">Bring Your Own Vibe</div>` +
+    `</td></tr>` +
+    `<tr><td style="padding:16px 32px 8px 32px;">` +
+    `<h1 style="margin:0;font-size:18px;font-weight:700;letter-spacing:-0.01em;color:#1c1c1c;">${escapeHtml(heading)}</h1>` +
+    `</td></tr>` +
+    `<tr><td style="padding:8px 32px 32px 32px;font-size:14px;line-height:1.6;color:#3d3d3d;">${bodyHtml}</td></tr>` +
+    `<tr><td style="padding:0 32px 28px 32px;font-size:12px;line-height:1.6;color:#8a8a8a;">` +
+    `${escapeHtml(footer)}` +
+    `</td></tr>` +
+    `</table></td></tr></table></body></html>`
+  );
+}
+
+/**
+ * The 6-digit code in a large letter-spaced mono well. Centered with a
+ * table cell (`align` attribute plus CSS): Outlook ignores div-based
+ * centering inconsistently. The extra 10px left padding compensates the
+ * trailing letter-spacing after the last digit so the code looks centered.
+ */
+function codeHtml(code: string): string {
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:16px 0;">` +
+    `<tr><td align="center" style="background:#f2f2f0;border-radius:6px;text-align:center;` +
+    `padding:18px 12px 18px 22px;` +
+    `font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-size:30px;font-weight:700;letter-spacing:10px;color:#1c1c1c;">` +
+    `${escapeHtml(code)}</td></tr></table>`
+  );
+}
+
+/**
+ * Near-black sign-in button plus a plain-URL fallback for clipboards. The
+ * button sits in a centered table cell (see `codeHtml`); the pasted URL
+ * breaks anywhere so a long token can never stretch the card and push
+ * centered content off-center.
+ */
+function ctaHtml(link: string, label: string): string {
+  const safeLink = escapeHtml(link);
+  return (
+    `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin:20px 0 8px 0;">` +
+    `<tr><td align="center" style="text-align:center;">` +
+    `<a href="${safeLink}" style="display:inline-block;padding:12px 28px;background:#262626;color:#ffffff;` +
+    `border-radius:6px;font-size:14px;font-weight:600;text-decoration:none;">${escapeHtml(label)}</a>` +
+    `</td></tr></table>` +
+    `<div style="margin:12px 0 4px 0;font-size:12px;line-height:1.6;color:#737373;overflow-wrap:anywhere;word-wrap:break-word;word-break:break-all;">` +
+    `Or paste this link into your browser:<br><a href="${safeLink}" style="color:#525252;">${safeLink}</a>` +
+    `</div>`
+  );
+}
+
+export function otpEmail(code: string): AuthEmail {
   return {
-    subject: "Your BYOV sign-in code",
+    subject: `${code} is your BYOV sign-in code`,
     text: `Your BYOV sign-in code is ${code}. It expires in 10 minutes.\n\nIf you did not request this code, you can ignore this email.`,
+    html: emailShell({
+      heading: "Your sign-in code",
+      bodyHtml:
+        `<p style="margin:0 0 4px 0;">Enter this 6-digit code on the sign-in page:</p>` +
+        codeHtml(code),
+    }),
   };
 }
 
-export function magicLinkEmail(link: string): { subject: string; text: string } {
+export function magicLinkEmail(link: string): AuthEmail {
   return {
     subject: "Your BYOV sign-in link",
     text: `Sign in to BYOV with this link (expires in 10 minutes):\n\n${link}\n\nIf you did not request this link, you can ignore this email.`,
+    html: emailShell({
+      heading: "Your sign-in link",
+      bodyHtml:
+        `<p style="margin:0;">Sign in to BYOV with one click:</p>` +
+        ctaHtml(link, "Sign in to BYOV"),
+    }),
   };
 }
 
@@ -89,17 +188,23 @@ export interface SignInEmailInput {
  * either. Falls back to the single-method template when only one method is
  * enabled. At least one of code/link is required.
  */
-export function signInEmail(input: SignInEmailInput): {
-  subject: string;
-  text: string;
-} {
+export function signInEmail(input: SignInEmailInput): AuthEmail {
   if (input.code && input.link) {
+    const { code, link } = input;
     return {
-      subject: "Your BYOV sign-in code and link",
+      subject: `${code} is your BYOV sign-in code`,
       text:
-        `Your BYOV sign-in code is ${input.code}. It expires in 10 minutes.\n\n` +
-        `Or sign in with this link (expires in 10 minutes):\n\n${input.link}\n\n` +
+        `Your BYOV sign-in code is ${code}. It expires in 10 minutes.\n\n` +
+        `Or sign in with this link (expires in 10 minutes):\n\n${link}\n\n` +
         `If you did not request this email, you can ignore it.`,
+      html: emailShell({
+        heading: "Your sign-in code and link",
+        bodyHtml:
+          `<p style="margin:0 0 4px 0;">Enter this 6-digit code on the sign-in page:</p>` +
+          codeHtml(code) +
+          `<p style="margin:20px 0 0 0;">Or sign in with one click:</p>` +
+          ctaHtml(link, "Sign in to BYOV"),
+      }),
     };
   }
   if (input.code) {
@@ -109,4 +214,16 @@ export function signInEmail(input: SignInEmailInput): {
     return magicLinkEmail(input.link);
   }
   throw new Error("signInEmail needs a code, a link, or both.");
+}
+
+/** The admin test email (Settings → Email → Send test) in the same shell. */
+export function testEmailHtml(sendingAccountLabel: string): string {
+  return emailShell({
+    heading: "BYOV test email",
+    bodyHtml:
+      `<p style="margin:0;">This test email was sent from your BYOV workspace ` +
+      `(${escapeHtml(sendingAccountLabel)} sending account). ` +
+      `If you received it, notifications will reach your users.</p>`,
+    footer: "Sent from Settings → Email to check the sending account.",
+  });
 }

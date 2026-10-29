@@ -13,6 +13,7 @@ import {
   isEmailAllowed,
   issueMagicLinkToken,
   issueOtp,
+  resolveRequestOrigin,
   resolveRole,
   sanitizeNextPath,
   SESSION_COOKIE_NAME,
@@ -547,8 +548,9 @@ describe("POST /api/auth/otp/request", () => {
     expect(sendMailMock).toHaveBeenCalledTimes(1);
     const sent = sendMailMock.mock.calls[0]?.[0];
     expect(sent).toMatchObject({ to: "ada@example.com" });
-    expect(sent?.subject).toContain("code and link");
     expect(sent?.text).toMatch(/sign-in code is \d{6}/);
+    const code = String(sent?.text ?? "").match(/sign-in code is (\d{6})/)?.[1];
+    expect(sent?.subject).toBe(`${code} is your BYOV sign-in code`);
     const link = String(sent?.text ?? "").match(/https?:\/\/\S+/)?.[0];
     expect(link).toContain("/api/auth/magic-link/verify?token=");
     expect(link).toContain(`next=${encodeURIComponent("/apps")}`);
@@ -564,7 +566,7 @@ describe("POST /api/auth/otp/request", () => {
     expect(response.status).toBe(200);
     expect(sendMailMock).toHaveBeenCalledTimes(1);
     const sent = sendMailMock.mock.calls[0]?.[0];
-    expect(sent?.subject).toBe("Your BYOV sign-in code");
+    expect(sent?.subject).toMatch(/^\d{6} is your BYOV sign-in code$/);
     expect(sent?.text).not.toContain("http");
   });
 
@@ -722,9 +724,10 @@ describe("magic-link routes", () => {
     expect(sendMailMock).toHaveBeenCalledTimes(1);
 
     const sent = sendMailMock.mock.calls[0]?.[0];
-    expect(sent?.subject).toContain("code and link");
     const text = String(sent?.text ?? "");
     expect(text).toMatch(/sign-in code is \d{6}/);
+    const code = text.match(/sign-in code is (\d{6})/)?.[1];
+    expect(sent?.subject).toBe(`${code} is your BYOV sign-in code`);
     const link = text.match(/https?:\/\/\S+/)?.[0];
     expect(link).toBeDefined();
     const token = new URL(link ?? "").searchParams.get("token") ?? "";
@@ -764,6 +767,33 @@ describe("magic-link routes", () => {
     );
     expect(response.headers.get("location")).toBe(
       "http://localhost/login?error=not-allowed",
+    );
+  });
+
+  it("redirects to the public origin behind a proxy, never 0.0.0.0", async () => {
+    const token = await issueMagicLinkToken("ada@example.com");
+    const headers = {
+      "x-forwarded-host": "byov.example.com",
+      "x-forwarded-proto": "https",
+    };
+
+    const ok = await magicLinkVerify(
+      new Request(
+        `http://0.0.0.0:3014/api/auth/magic-link/verify?token=${encodeURIComponent(token)}&next=${encodeURIComponent("/apps")}`,
+        { headers },
+      ),
+    );
+    expect(ok.status).toBe(307);
+    expect(ok.headers.get("location")).toBe("https://byov.example.com/apps");
+
+    const bad = await magicLinkVerify(
+      new Request(
+        "http://0.0.0.0:3014/api/auth/magic-link/verify?token=bogus",
+        { headers },
+      ),
+    );
+    expect(bad.headers.get("location")).toBe(
+      "https://byov.example.com/login?error=not-allowed",
     );
   });
 
@@ -827,6 +857,66 @@ describe("GET + DELETE /api/auth/session", () => {
     expect(response.headers.get("set-cookie")).toContain(
       `${SESSION_COOKIE_NAME}=`,
     );
+  });
+});
+
+describe("resolveRequestOrigin", () => {
+  function getRequest(url: string, headers?: Record<string, string>) {
+    return new Request(url, { headers });
+  }
+
+  it("prefers NEXT_PUBLIC_SITE_URL and strips trailing slashes", () => {
+    setEnv({ NEXT_PUBLIC_SITE_URL: "https://byov.example.com///" });
+    expect(
+      resolveRequestOrigin(
+        getRequest("http://localhost/api/auth/otp/request"),
+      ),
+    ).toBe("https://byov.example.com");
+  });
+
+  it("rewrites a 0.0.0.0 request host to localhost", () => {
+    expect(
+      resolveRequestOrigin(
+        getRequest("http://0.0.0.0:3014/api/auth/otp/request"),
+      ),
+    ).toBe("http://localhost:3014");
+  });
+
+  it("uses the forwarded host and proto behind a proxy", () => {
+    expect(
+      resolveRequestOrigin(
+        getRequest("http://0.0.0.0:3014/api/auth/otp/request", {
+          "x-forwarded-host": "byov.example.com",
+          "x-forwarded-proto": "https",
+        }),
+      ),
+    ).toBe("https://byov.example.com");
+  });
+
+  it("falls back to the request origin when configured and forwarded values are junk", () => {
+    setEnv({ NEXT_PUBLIC_SITE_URL: "not a url" });
+    expect(
+      resolveRequestOrigin(
+        getRequest("http://localhost:3014/api/auth/otp/request", {
+          "x-forwarded-host": "exa mple.com",
+        }),
+      ),
+    ).toBe("http://localhost:3014");
+  });
+
+  it("never emails a magic link with a 0.0.0.0 host", async () => {
+    const response = await magicLinkRequest(
+      jsonRequest("http://0.0.0.0:3014/api/auth/magic-link/request", {
+        email: "ada@example.com",
+      }),
+    );
+    expect(response.status).toBe(200);
+    expect(sendMailMock).toHaveBeenCalledTimes(1);
+    const sent = sendMailMock.mock.calls[0]?.[0];
+    const link = String(sent?.text ?? "").match(/https?:\/\/\S+/)?.[0] ?? "";
+    expect(link).toContain("http://localhost:3014/api/auth/magic-link/verify");
+    expect(link).not.toContain("0.0.0.0");
+    expect(String(sent?.html ?? "")).not.toContain("0.0.0.0");
   });
 });
 
