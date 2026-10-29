@@ -111,6 +111,22 @@ export const DOCS_SECTIONS: DocsSection[] = [
       oauthGuide("apple"),
     ],
   },
+  {
+    id: "apps",
+    title: "Apps",
+    description:
+      "Per-app setup: agent instructions and the files that keep each app's repo in sync with BYOV.",
+    guides: [
+      {
+        slug: ["agents-prompt"],
+        href: "/docs/agents-prompt",
+        file: "docs/agents-prompt.md",
+        label: "Per-app AGENTS.md prompt",
+        description:
+          "Where to find the proposed AGENTS.md for an app, what it covers, and how to install it in the repo.",
+      },
+    ],
+  },
 ];
 
 export function allGuides(): DocsGuideMeta[] {
