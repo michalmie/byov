@@ -23,11 +23,19 @@ if [ -f "$ENV_FILE" ]; then
   fi
 fi
 
-# Always sync dependencies from the lockfile: installing only when
-# node_modules is missing leaves stale dependencies after any commit
-# that adds or upgrades a package, failing the tests below.
-echo "Syncing dependencies from package-lock.json"
-npm ci --no-audit --no-fund
+# Sync dependencies when the lockfile changed since the last install:
+# installing only when node_modules is missing leaves stale dependencies
+# after any commit that adds or upgrades a package (the pre-build tests
+# then fail on unresolvable imports), while syncing unconditionally would
+# break redeploys during a registry outage. The hash records the exact
+# lockfile the current node_modules was installed from.
+echo "Syncing dependencies from package-lock.json if needed"
+LOCK_HASH_FILE="$ROOT_DIR/node_modules/.factory-lock-hash"
+CURRENT_HASH=$(sha256sum package-lock.json 2>/dev/null | awk '{print $1}')
+if [ ! -d node_modules ] || [ ! -f "$LOCK_HASH_FILE" ] || [ "$(cat "$LOCK_HASH_FILE")" != "$CURRENT_HASH" ]; then
+  npm ci --no-audit --no-fund
+  printf '%s' "$CURRENT_HASH" > "$LOCK_HASH_FILE"
+fi
 
 echo "Running unit tests for $ENVIRONMENT (clean environment, like CI)"
 env -i "PATH=$PATH" "HOME=$HOME" "CI=true" npm run test:unit
