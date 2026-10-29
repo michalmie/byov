@@ -1,0 +1,183 @@
+/* Rendered guide HTML (from lib/docs.ts) styled to match the shell. */
+
+.body {
+  margin-top: 1.5rem;
+  color: var(--color-ink);
+  font-size: 0.9375rem;
+  line-height: 1.65;
+  overflow-wrap: anywhere;
+}
+
+.body > *:first-child {
+  margin-top: 0;
+}
+
+.body > *:last-child {
+  margin-bottom: 0;
+}
+
+.body h2,
+.body h3,
+.body h4 {
+  scroll-margin-top: 68px;
+  letter-spacing: -0.01em;
+}
+
+.body h2 {
+  margin: 2.25rem 0 0.75rem;
+  font-size: 1.25rem;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.body h3 {
+  margin: 1.75rem 0 0.5rem;
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.body h4 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.4;
+}
+
+.body p {
+  margin: 0 0 1rem;
+  max-width: 68ch;
+}
+
+.body a {
+  color: var(--color-ink);
+  text-decoration: underline;
+  text-decoration-color: var(--color-rule);
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: text-decoration-color var(--dur-micro) var(--ease-out);
+}
+
+.body a:hover {
+  text-decoration-color: var(--color-ink);
+}
+
+.body strong {
+  font-weight: 600;
+}
+
+.body ul,
+.body ol {
+  margin: 0 0 1rem;
+  padding-left: 1.5rem;
+  max-width: 68ch;
+}
+
+.body ul {
+  list-style: disc;
+}
+
+.body ol {
+  list-style: decimal;
+}
+
+.body li {
+  margin: 0.375rem 0;
+  padding-left: 0.25rem;
+}
+
+.body li > ul,
+.body li > ol {
+  margin-bottom: 0.25rem;
+}
+
+.body li::marker {
+  color: var(--color-muted);
+}
+
+.body code {
+  font-family: var(--font-mono);
+  font-size: 0.8125em;
+  background: var(--color-paper-2);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-tag);
+  padding: 0.125rem 0.375rem;
+  overflow-wrap: anywhere;
+}
+
+.body pre {
+  margin: 0 0 1.25rem;
+  padding: 1rem 1.25rem;
+  overflow-x: auto;
+  background: var(--color-paper-2);
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+  font-family: var(--font-mono);
+  font-size: 0.8125rem;
+  line-height: 1.6;
+  tab-size: 4;
+}
+
+.body pre code {
+  padding: 0;
+  background: none;
+  border: 0;
+  border-radius: 0;
+  font-size: inherit;
+}
+
+.body blockquote {
+  margin: 0 0 1rem;
+  padding: 0.125rem 0 0.125rem 1rem;
+  border-left: 2px solid var(--color-rule);
+  color: var(--color-ink-2);
+}
+
+.body blockquote > *:last-child {
+  margin-bottom: 0;
+}
+
+.body table {
+  width: 100%;
+  margin: 0 0 1.5rem;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.body th {
+  padding: 0.5rem 1rem 0.5rem 0;
+  border-bottom: 1px solid var(--color-rule);
+  color: var(--color-muted);
+  font-size: 0.75rem;
+  font-weight: 500;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.body th:last-child,
+.body td:last-child {
+  padding-right: 0;
+}
+
+.body td {
+  padding: 0.75rem 1rem 0.75rem 0;
+  border-bottom: 1px solid var(--color-rule-2);
+  vertical-align: top;
+}
+
+.body tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.body hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid var(--color-rule);
+}
+
+.body img {
+  max-width: 100%;
+  border: 1px solid var(--color-rule);
+  border-radius: var(--radius-card);
+}
