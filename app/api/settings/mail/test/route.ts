@@ -1,9 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  checkRateLimit,
-  isValidEmail,
-  sessionFromRequest,
-} from "@/lib/auth";
+import { isValidEmail, sessionFromRequest } from "@/lib/auth";
+import { checkRateLimit } from "@/lib/auth-store";
 import { getMailAccountStatus } from "@/lib/mail-config";
 import { sendMail, testEmailHtml } from "@/lib/auth-mail";
 
@@ -42,13 +39,13 @@ export async function POST(request: NextRequest) {
       { status: 400 },
     );
   }
-  if (!checkRateLimit(`mail-test:${session.email}`)) {
+  if (!(await checkRateLimit(`mail-test:${session.email}`))) {
     return NextResponse.json(
       { ok: false, error: "Too many requests. Try again in a minute." },
       { status: 429 },
     );
   }
-  const status = getMailAccountStatus();
+  const status = await getMailAccountStatus();
   if (!status.configured) {
     return NextResponse.json(
       {

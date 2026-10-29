@@ -1,6 +1,3 @@
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import {
   emailShell,
@@ -15,38 +12,86 @@ import { saveStoredMailAccount } from "@/lib/mail-config";
 
 const savedEnv = { ...process.env };
 
-beforeEach(() => {
+// In-memory fake for the single-row `mail_account` table.
+vi.mock("@/lib/db", () => {
+  let row: Record<string, unknown> | null = null;
+
+  function norm(text: string): string {
+    return text.replace(/\s+/g, " ").trim().toUpperCase();
+  }
+
+  async function query(
+    text: string,
+    params: unknown[] = [],
+  ): Promise<Record<string, unknown>[]> {
+    const sql = norm(text);
+    if (sql.startsWith("INSERT INTO MAIL_ACCOUNT")) {
+      const [host, port, security, username, pass, from_address] = params;
+      row = { host, port, security, username, pass, from_address };
+      return [];
+    }
+    if (sql.startsWith("DELETE FROM MAIL_ACCOUNT")) {
+      row = null;
+      return [];
+    }
+    if (sql.startsWith("SELECT HOST, PORT, SECURITY")) {
+      return row ? [{ ...row }] : [];
+    }
+    throw new Error(`fake db: unexpected SQL: ${text}`);
+  }
+
+  async function queryOne(
+    text: string,
+    params: unknown[] = [],
+  ): Promise<Record<string, unknown> | null> {
+    const rows = await query(text, params);
+    return rows[0] ?? null;
+  }
+
+  return {
+    query,
+    queryOne,
+    registerMigration: () => {},
+    __resetFakeDb: () => {
+      row = null;
+    },
+  };
+});
+
+async function resetFakeDb(): Promise<void> {
+  const db = (await import("@/lib/db")) as unknown as {
+    __resetFakeDb: () => void;
+  };
+  db.__resetFakeDb();
+}
+
+beforeEach(async () => {
   delete process.env.SMTP_HOST;
   delete process.env.SMTP_PORT;
   delete process.env.SMTP_USER;
   delete process.env.SMTP_PASS;
   delete process.env.SMTP_FROM;
-  // Fresh temp data dir: config resolution must never see the real ./data.
-  process.env.AUTH_DATA_DIR = mkdtempSync(join(tmpdir(), "byov-mail-test-"));
+  await resetFakeDb();
   vi.spyOn(console, "log").mockImplementation(() => {});
 });
 
 afterEach(() => {
-  const dataDir = process.env.AUTH_DATA_DIR;
-  if (dataDir && dataDir.startsWith(tmpdir())) {
-    rmSync(dataDir, { recursive: true, force: true });
-  }
   vi.restoreAllMocks();
   process.env = { ...savedEnv };
 });
 
 describe("isMailConfigured", () => {
-  it("is false without SMTP_HOST and true with one", () => {
-    expect(isMailConfigured()).toBe(false);
+  it("is false without SMTP_HOST and true with one", async () => {
+    expect(await isMailConfigured()).toBe(false);
     process.env.SMTP_HOST = "smtp.example.com";
-    expect(isMailConfigured()).toBe(true);
+    expect(await isMailConfigured()).toBe(true);
     process.env.SMTP_HOST = "   ";
-    expect(isMailConfigured()).toBe(false);
+    expect(await isMailConfigured()).toBe(false);
   });
 
-  it("is true with a Settings-saved account even without env", () => {
-    expect(isMailConfigured()).toBe(false);
-    saveStoredMailAccount({
+  it("is true with a Settings-saved account even without env", async () => {
+    expect(await isMailConfigured()).toBe(false);
+    await saveStoredMailAccount({
       host: "smtp.example.com",
       port: 587,
       security: "auto",
@@ -54,7 +99,7 @@ describe("isMailConfigured", () => {
       pass: "",
       from: "",
     });
-    expect(isMailConfigured()).toBe(true);
+    expect(await isMailConfigured()).toBe(true);
   });
 });
 

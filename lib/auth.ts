@@ -1,11 +1,14 @@
 /**
- * Passwordless auth core: server sessions, email allowlist, rate limiting,
- * one-time codes and magic-link tokens.
+ * Passwordless auth core: server sessions, email allowlist, roles and
+ * magic-link tokens. One-time codes and rate limiting live in the
+ * database-backed `lib/auth-store.ts` (Node-only) so this module stays
+ * Edge-safe.
  *
  * This module is imported by `middleware.ts`, so it must stay Edge-safe:
- * Web Crypto only, no `node:*` imports, no `Buffer`. All env vars are read
- * lazily inside functions (never cached at module load) so tests and
- * serverless instances always see the current configuration.
+ * Web Crypto only, no `node:*` imports, no `Buffer`, no database.
+ * All env vars are read lazily inside functions (never cached at module
+ * load) so tests and serverless instances always see the current
+ * configuration.
  */
 
 export type AuthProviderId =
@@ -44,11 +47,7 @@ export interface AuthProviderInfo {
 export const SESSION_COOKIE_NAME = "byov_session";
 /** 12 hours, in seconds. */
 export const SESSION_MAX_AGE_SECONDS = 43200;
-const OTP_TTL_MS = 10 * 60 * 1000;
-const OTP_MAX_ATTEMPTS = 5;
 const MAGIC_LINK_TTL_SECONDS = 10 * 60;
-const RATE_LIMIT_WINDOW_MS = 60 * 1000;
-const RATE_LIMIT_MAX_HITS = 5;
 
 const DEV_FALLBACK_SECRET = "dev-only-insecure-secret";
 
@@ -131,12 +130,6 @@ function timingSafeEqualString(a: string, b: string): boolean {
     diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   }
   return diff === 0;
-}
-
-function randomDigits(length: number): string {
-  const bytes = new Uint8Array(length);
-  globalThis.crypto.getRandomValues(bytes);
-  return Array.from(bytes, (byte) => String(byte % 10)).join("");
 }
 
 function randomNonce(): string {
@@ -238,7 +231,8 @@ export interface RoleResolution {
 /**
  * Pure role decision: configured admins and the bootstrap holder are
  * admins, everyone else is a member. Reading and claiming the bootstrap
- * record is file I/O and lives in `lib/auth-bootstrap.ts` (Node-only).
+ * record is a database operation and lives in `lib/auth-bootstrap.ts`
+ * (Node-only).
  */
 export function resolveRole(email: string, input: RoleResolution): UserRole {
   const normalized = email.trim().toLowerCase();
@@ -399,86 +393,6 @@ export function sessionCookieOptions(
     secure: shouldUseSecureCookies(request),
     maxAge: SESSION_MAX_AGE_SECONDS,
   };
-}
-
-// ---------------------------------------------------------------------------
-// Rate limiter (in-memory, 5 hits per key per rolling minute)
-// ---------------------------------------------------------------------------
-
-// NOTE: single-instance in-memory state. It resets on restart/redeploy and
-// is not shared across instances; a shared store (Redis/KV) is the follow-up
-// when BYOV runs more than one server instance. The same limit applies to
-// the OTP store below; magic-link tokens are stateless and unaffected.
-const rateLimitHits = new Map<string, number[]>();
-
-/** Returns true when the hit is allowed (and records it), false when capped. */
-export function checkRateLimit(key: string): boolean {
-  const now = Date.now();
-  const windowStart = now - RATE_LIMIT_WINDOW_MS;
-  const hits = (rateLimitHits.get(key) ?? []).filter(
-    (at) => at > windowStart,
-  );
-  if (hits.length >= RATE_LIMIT_MAX_HITS) {
-    rateLimitHits.set(key, hits);
-    return false;
-  }
-  hits.push(now);
-  rateLimitHits.set(key, hits);
-  return true;
-}
-
-// ---------------------------------------------------------------------------
-// One-time codes (in-memory, keyed by lowercase email)
-// ---------------------------------------------------------------------------
-
-interface OtpEntry {
-  code: string;
-  exp: number;
-  attempts: number;
-}
-
-// NOTE: single-instance in-memory store — see the rate-limiter note above.
-const otpStore = new Map<string, OtpEntry>();
-
-export function issueOtp(
-  email: string,
-  options?: { ttlMs?: number },
-): { code: string; expiresAt: number } {
-  const key = email.trim().toLowerCase();
-  const code = randomDigits(6);
-  const expiresAt = Date.now() + (options?.ttlMs ?? OTP_TTL_MS);
-  otpStore.set(key, { code, exp: expiresAt, attempts: 0 });
-  return { code, expiresAt };
-}
-
-export type OtpVerifyResult =
-  | { ok: true }
-  | { ok: false; reason: "missing" | "expired" | "locked" | "mismatch" };
-
-export function verifyOtp(email: string, code: string): OtpVerifyResult {
-  const key = email.trim().toLowerCase();
-  const entry = otpStore.get(key);
-  if (!entry) {
-    return { ok: false, reason: "missing" };
-  }
-  if (entry.exp <= Date.now()) {
-    otpStore.delete(key);
-    return { ok: false, reason: "expired" };
-  }
-  if (entry.attempts >= OTP_MAX_ATTEMPTS) {
-    otpStore.delete(key);
-    return { ok: false, reason: "locked" };
-  }
-  if (!timingSafeEqualString(code.trim(), entry.code)) {
-    entry.attempts += 1;
-    if (entry.attempts >= OTP_MAX_ATTEMPTS) {
-      otpStore.delete(key);
-      return { ok: false, reason: "locked" };
-    }
-    return { ok: false, reason: "mismatch" };
-  }
-  otpStore.delete(key);
-  return { ok: true };
 }
 
 // ---------------------------------------------------------------------------
@@ -665,8 +579,3 @@ export function resolveRequestOrigin(request: Request): string {
   return rewriteUnspecifiedHost(new URL(request.url).origin);
 }
 
-/** Test-only reset for the in-memory rate-limiter and OTP stores. */
-export function _resetAuthStoresForTests(): void {
-  rateLimitHits.clear();
-  otpStore.clear();
-}

@@ -1,18 +1,12 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, vi } from "vitest";
 import { NextRequest } from "next/server";
 import {
-  _resetAuthStoresForTests,
-  checkRateLimit,
   createSession,
   getAdminEmails,
   getAuthProviders,
   isAdminEmail,
   isEmailAllowed,
   issueMagicLinkToken,
-  issueOtp,
   resolveRequestOrigin,
   resolveRole,
   sanitizeNextPath,
@@ -20,12 +14,11 @@ import {
   sessionCookieOptions,
   shouldUseSecureCookies,
   verifyMagicLinkToken,
-  verifyOtp,
   verifySession,
 } from "@/lib/auth";
+import { checkRateLimit, issueOtp, verifyOtp } from "@/lib/auth-store";
 import {
   getBootstrapEmail,
-  getBootstrapFilePath,
   resolveLoginRole,
 } from "@/lib/auth-bootstrap";
 import { isPublicPath } from "@/middleware";
@@ -47,6 +40,120 @@ vi.mock("@/lib/auth-mail", async (importOriginal) => {
 });
 
 const sendMailMock = vi.mocked(sendMail);
+
+// In-memory fake for the `auth_otps`, `auth_rate_limits` and
+// `auth_bootstrap` tables: the real store modules run unmodified against
+// it, so these tests exercise their SQL and semantics without a live DB.
+vi.mock("@/lib/db", () => {
+  interface OtpRow {
+    code: string;
+    expires_at: string;
+    attempts: number;
+  }
+  const otps = new Map<string, OtpRow>();
+  const hits = new Map<string, number[]>();
+  let bootstrapEmail: unknown = null;
+  let failDb = false;
+
+  function norm(text: string): string {
+    return text.replace(/\s+/g, " ").trim().toUpperCase();
+  }
+
+  async function query(
+    text: string,
+    params: unknown[] = [],
+  ): Promise<Record<string, unknown>[]> {
+    if (failDb) {
+      throw new Error("fake db failure");
+    }
+    const sql = norm(text);
+    const [p0, p1, p2] = params as [string, string, string];
+    if (sql.startsWith("INSERT INTO AUTH_OTPS")) {
+      otps.set(p0, { code: p1, expires_at: p2, attempts: 0 });
+      return [];
+    }
+    if (sql.startsWith("UPDATE AUTH_OTPS SET ATTEMPTS")) {
+      const entry = otps.get(p0);
+      if (!entry) {
+        return [];
+      }
+      entry.attempts += 1;
+      return [{ attempts: entry.attempts }];
+    }
+    if (sql.startsWith("DELETE FROM AUTH_OTPS")) {
+      otps.delete(p0);
+      return [];
+    }
+    if (sql.startsWith("SELECT CODE, EXPIRES_AT, ATTEMPTS")) {
+      const entry = otps.get(p0);
+      return entry ? [{ ...entry }] : [];
+    }
+    if (sql.startsWith("DELETE FROM AUTH_RATE_LIMITS")) {
+      const cutoff = new Date(p1).getTime();
+      hits.set(p0, (hits.get(p0) ?? []).filter((at) => at > cutoff));
+      return [];
+    }
+    if (sql.startsWith("SELECT COUNT(*)")) {
+      const cutoff = new Date(p1).getTime();
+      const count = (hits.get(p0) ?? []).filter((at) => at > cutoff).length;
+      return [{ count }];
+    }
+    if (sql.startsWith("INSERT INTO AUTH_RATE_LIMITS")) {
+      const list = hits.get(p0) ?? [];
+      list.push(new Date(p1).getTime());
+      hits.set(p0, list);
+      return [];
+    }
+    if (sql.startsWith("SELECT ADMIN_EMAIL")) {
+      return bootstrapEmail === null ? [] : [{ admin_email: bootstrapEmail }];
+    }
+    if (sql.startsWith("INSERT INTO AUTH_BOOTSTRAP")) {
+      if (bootstrapEmail !== null) {
+        return [];
+      }
+      bootstrapEmail = p0;
+      return [{ admin_email: p0 }];
+    }
+    throw new Error(`fake db: unexpected SQL: ${text}`);
+  }
+
+  async function queryOne(
+    text: string,
+    params: unknown[] = [],
+  ): Promise<Record<string, unknown> | null> {
+    const rows = await query(text, params);
+    return rows[0] ?? null;
+  }
+
+  return {
+    query,
+    queryOne,
+    registerMigration: () => {},
+    __resetFakeDb: () => {
+      otps.clear();
+      hits.clear();
+      bootstrapEmail = null;
+      failDb = false;
+    },
+    __seedBootstrapEmail: (value: unknown) => {
+      bootstrapEmail = value;
+    },
+    __setFakeDbFailure: (value: boolean) => {
+      failDb = value;
+    },
+  };
+});
+
+interface FakeDbControls {
+  __resetFakeDb: () => void;
+  __seedBootstrapEmail: (value: unknown) => void;
+  __setFakeDbFailure: (value: boolean) => void;
+}
+
+async function fakeDb(): Promise<FakeDbControls> {
+  return (await import("@/lib/db")) as unknown as FakeDbControls;
+}
+
 const savedEnv = { ...process.env };
 
 function setEnv(vars: Record<string, string | undefined>) {
@@ -65,9 +172,6 @@ function clearAuthEnv() {
     AUTH_ALLOWED_EMAILS: undefined,
     AUTH_ALLOWED_DOMAINS: undefined,
     AUTH_ADMIN_EMAILS: undefined,
-    // Fresh temp data dir per test: login routes resolve roles through the
-    // bootstrap record, which must never touch the real ./data in tests.
-    AUTH_DATA_DIR: mkdtempSync(join(tmpdir(), "byov-auth-test-")),
     AUTH_PASSWORDLESS_ENABLED: undefined,
     AUTH_MAGIC_LINK_ENABLED: undefined,
     AUTH_ENTRA_ENABLED: undefined,
@@ -96,9 +200,9 @@ function jsonRequest(url: string, body: unknown): Request {
   });
 }
 
-beforeEach(() => {
+beforeEach(async () => {
   clearAuthEnv();
-  _resetAuthStoresForTests();
+  (await fakeDb()).__resetFakeDb();
   sendMailMock.mockReset();
   sendMailMock.mockResolvedValue(undefined);
   vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -106,10 +210,6 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-  const dataDir = process.env.AUTH_DATA_DIR;
-  if (dataDir && dataDir.startsWith(tmpdir())) {
-    rmSync(dataDir, { recursive: true, force: true });
-  }
   vi.restoreAllMocks();
   process.env = { ...savedEnv };
   vi.useRealTimers();
@@ -295,47 +395,42 @@ describe("admin roles", () => {
 });
 
 describe("bootstrap claim", () => {
-  it("first login claims admin and persists the record", () => {
-    expect(getBootstrapEmail()).toBeNull();
-    expect(resolveLoginRole("Ada@Example.com")).toBe("admin");
-    expect(getBootstrapEmail()).toBe("ada@example.com");
-    expect(readFileSync(getBootstrapFilePath(), "utf8")).toContain(
-      "ada@example.com",
-    );
+  it("first login claims admin and persists the record", async () => {
+    expect(await getBootstrapEmail()).toBeNull();
+    expect(await resolveLoginRole("Ada@Example.com")).toBe("admin");
+    expect(await getBootstrapEmail()).toBe("ada@example.com");
+    // A later login for someone else sees the persisted claim.
+    expect(await resolveLoginRole("bob@example.com")).toBe("member");
   });
 
-  it("later logins are members while the holder stays admin", () => {
-    expect(resolveLoginRole("ada@example.com")).toBe("admin");
-    expect(resolveLoginRole("bob@example.com")).toBe("member");
-    expect(resolveLoginRole("ADA@example.com")).toBe("admin");
-    expect(getBootstrapEmail()).toBe("ada@example.com");
+  it("later logins are members while the holder stays admin", async () => {
+    expect(await resolveLoginRole("ada@example.com")).toBe("admin");
+    expect(await resolveLoginRole("bob@example.com")).toBe("member");
+    expect(await resolveLoginRole("ADA@example.com")).toBe("admin");
+    expect(await getBootstrapEmail()).toBe("ada@example.com");
   });
 
-  it("uses AUTH_ADMIN_EMAILS without claiming the bootstrap", () => {
+  it("uses AUTH_ADMIN_EMAILS without claiming the bootstrap", async () => {
     setEnv({ AUTH_ADMIN_EMAILS: "root@example.org" });
-    expect(resolveLoginRole("root@example.org")).toBe("admin");
-    expect(resolveLoginRole("ada@example.com")).toBe("member");
-    expect(getBootstrapEmail()).toBeNull();
+    expect(await resolveLoginRole("root@example.org")).toBe("admin");
+    expect(await resolveLoginRole("ada@example.com")).toBe("member");
+    expect(await getBootstrapEmail()).toBeNull();
   });
 
-  it("ignores a corrupt bootstrap record", () => {
-    writeFileSync(getBootstrapFilePath(), "not json{{{");
-    expect(getBootstrapEmail()).toBeNull();
+  it("ignores a malformed bootstrap record", async () => {
+    (await fakeDb()).__seedBootstrapEmail("not-an-email");
+    expect(await getBootstrapEmail()).toBeNull();
+    (await fakeDb()).__seedBootstrapEmail(42);
+    expect(await getBootstrapEmail()).toBeNull();
   });
 
-  it("fails closed to member when the record is unwritable", () => {
-    const blockFile = join(
-      process.env.AUTH_DATA_DIR ?? tmpdir(),
-      "block",
-    );
-    writeFileSync(blockFile, "in the way");
-    setEnv({ AUTH_DATA_DIR: join(blockFile, "nested") });
+  it("fails closed to member when the database is unreachable", async () => {
+    (await fakeDb()).__setFakeDbFailure(true);
     const error = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(resolveLoginRole("ada@example.com")).toBe("member");
+    expect(await resolveLoginRole("ada@example.com")).toBe("member");
     expect(error).toHaveBeenCalledWith(
       expect.stringContaining("bootstrap admin record"),
     );
-    rmSync(blockFile, { force: true });
   });
 });
 
@@ -376,59 +471,61 @@ describe("isEmailAllowed", () => {
 });
 
 describe("OTP codes", () => {
-  it("issues a 6-digit code that verifies once", () => {
-    const { code } = issueOtp("ada@example.com");
+  it("issues a 6-digit code that verifies once", async () => {
+    const { code } = await issueOtp("ada@example.com");
     expect(code).toMatch(/^\d{6}$/);
-    expect(verifyOtp("ADA@example.com", code)).toEqual({ ok: true });
-    expect(verifyOtp("ada@example.com", code)).toEqual({
+    expect(await verifyOtp("ADA@example.com", code)).toEqual({ ok: true });
+    expect(await verifyOtp("ada@example.com", code)).toEqual({
       ok: false,
       reason: "missing",
     });
   });
 
-  it("rejects wrong codes without consuming the real one", () => {
-    const { code } = issueOtp("ada@example.com");
-    expect(verifyOtp("ada@example.com", "000000")).toEqual({
+  it("rejects wrong codes without consuming the real one", async () => {
+    const { code } = await issueOtp("ada@example.com");
+    expect(await verifyOtp("ada@example.com", "000000")).toEqual({
       ok: false,
       reason: "mismatch",
     });
-    expect(verifyOtp("ada@example.com", code)).toEqual({ ok: true });
+    expect(await verifyOtp("ada@example.com", code)).toEqual({ ok: true });
   });
 
-  it("rejects expired codes", () => {
-    const { code } = issueOtp("ada@example.com", { ttlMs: -1 });
-    expect(verifyOtp("ada@example.com", code)).toEqual({
+  it("rejects expired codes", async () => {
+    const { code } = await issueOtp("ada@example.com", { ttlMs: -1 });
+    expect(await verifyOtp("ada@example.com", code)).toEqual({
       ok: false,
       reason: "expired",
     });
   });
 
-  it("locks the code after 5 wrong attempts", () => {
-    const { code } = issueOtp("ada@example.com");
+  it("locks the code after 5 wrong attempts", async () => {
+    const { code } = await issueOtp("ada@example.com");
     for (let i = 0; i < 4; i += 1) {
-      expect(verifyOtp("ada@example.com", "000000")).toEqual({
+      expect(await verifyOtp("ada@example.com", "000000")).toEqual({
         ok: false,
         reason: "mismatch",
       });
     }
-    expect(verifyOtp("ada@example.com", "000000")).toEqual({
+    expect(await verifyOtp("ada@example.com", "000000")).toEqual({
       ok: false,
       reason: "locked",
     });
-    expect(verifyOtp("ada@example.com", code)).toEqual({
+    expect(await verifyOtp("ada@example.com", code)).toEqual({
       ok: false,
       reason: "missing",
     });
   });
 
-  it("replaces the previous code when re-issued", () => {
-    const first = issueOtp("ada@example.com");
-    const second = issueOtp("ada@example.com");
-    expect(verifyOtp("ada@example.com", first.code)).toEqual({
+  it("replaces the previous code when re-issued", async () => {
+    const first = await issueOtp("ada@example.com");
+    const second = await issueOtp("ada@example.com");
+    expect(await verifyOtp("ada@example.com", first.code)).toEqual({
       ok: false,
       reason: "mismatch",
     });
-    expect(verifyOtp("ada@example.com", second.code)).toEqual({ ok: true });
+    expect(await verifyOtp("ada@example.com", second.code)).toEqual({
+      ok: true,
+    });
   });
 });
 
@@ -460,23 +557,23 @@ describe("magic-link tokens", () => {
 });
 
 describe("rate limiter", () => {
-  it("allows 5 hits per key per minute, then caps", () => {
+  it("allows 5 hits per key per minute, then caps", async () => {
     for (let i = 0; i < 5; i += 1) {
-      expect(checkRateLimit("key-a")).toBe(true);
+      expect(await checkRateLimit("key-a")).toBe(true);
     }
-    expect(checkRateLimit("key-a")).toBe(false);
-    expect(checkRateLimit("key-b")).toBe(true);
+    expect(await checkRateLimit("key-a")).toBe(false);
+    expect(await checkRateLimit("key-b")).toBe(true);
   });
 
-  it("resets after the window passes", () => {
+  it("resets after the window passes", async () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
     for (let i = 0; i < 5; i += 1) {
-      expect(checkRateLimit("window-key")).toBe(true);
+      expect(await checkRateLimit("window-key")).toBe(true);
     }
-    expect(checkRateLimit("window-key")).toBe(false);
+    expect(await checkRateLimit("window-key")).toBe(false);
     vi.setSystemTime(new Date("2026-01-01T00:01:01Z"));
-    expect(checkRateLimit("window-key")).toBe(true);
+    expect(await checkRateLimit("window-key")).toBe(true);
   });
 });
 
@@ -664,7 +761,7 @@ describe("POST /api/auth/otp/request", () => {
 
 describe("POST /api/auth/otp/verify", () => {
   it("sets the session cookie on a valid code", async () => {
-    const { code } = issueOtp("ada@example.com");
+    const { code } = await issueOtp("ada@example.com");
     const response = await otpVerify(
       jsonRequest("http://localhost/api/auth/otp/verify", {
         email: "ada@example.com",
@@ -685,7 +782,7 @@ describe("POST /api/auth/otp/verify", () => {
 
   it("grants the configured admin role on verify", async () => {
     setEnv({ AUTH_ADMIN_EMAILS: "ada@example.com" });
-    const { code } = issueOtp("ada@example.com");
+    const { code } = await issueOtp("ada@example.com");
     const response = await otpVerify(
       jsonRequest("http://localhost/api/auth/otp/verify", {
         email: "ada@example.com",
@@ -698,7 +795,7 @@ describe("POST /api/auth/otp/verify", () => {
   });
 
   it("first verified login claims bootstrap admin, later ones are members", async () => {
-    const first = issueOtp("ada@example.com");
+    const first = await issueOtp("ada@example.com");
     const firstResponse = await otpVerify(
       jsonRequest("http://localhost/api/auth/otp/verify", {
         email: "ada@example.com",
@@ -709,7 +806,7 @@ describe("POST /api/auth/otp/verify", () => {
       (await verifySession(sessionCookieFrom(firstResponse)))?.role,
     ).toBe("admin");
 
-    const second = issueOtp("bob@example.com");
+    const second = await issueOtp("bob@example.com");
     const secondResponse = await otpVerify(
       jsonRequest("http://localhost/api/auth/otp/verify", {
         email: "bob@example.com",
@@ -719,11 +816,11 @@ describe("POST /api/auth/otp/verify", () => {
     expect(
       (await verifySession(sessionCookieFrom(secondResponse)))?.role,
     ).toBe("member");
-    expect(getBootstrapEmail()).toBe("ada@example.com");
+    expect(await getBootstrapEmail()).toBe("ada@example.com");
   });
 
   it("rejects wrong codes with a generic 401", async () => {
-    issueOtp("ada@example.com");
+    await issueOtp("ada@example.com");
     const response = await otpVerify(
       jsonRequest("http://localhost/api/auth/otp/verify", {
         email: "ada@example.com",
