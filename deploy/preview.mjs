@@ -12,6 +12,7 @@ export function readRequest(file) {
   const dir = fs.realpathSync(path.dirname(file));
   if (r.version !== 1 || !/^[0-9a-f-]{36}$/.test(r.id) || path.basename(dir) !== r.id
     || r.directory !== dir || r.checkout !== path.join(dir, 'checkout')
+    || r.allowEmail !== undefined && typeof r.allowEmail !== 'boolean'
     || !Number.isInteger(r.ports?.web) || r.ports.web < 1024 || r.ports.web > 65535) throw new Error('Invalid preview request.');
   const origin = new URL(r.origin);
   if (origin.protocol !== 'http:' || origin.username || origin.password || origin.origin !== r.origin
@@ -27,8 +28,59 @@ export function readRequest(file) {
 function write(file, value) {
   fs.writeFileSync(file, JSON.stringify(value, null, 2) + '\n', { mode: 0o600 });
 }
+/** Install Factory's copied mail account into the preview checkout when the
+ * operator enabled email sending, so the app sends through the same saved
+ * account as the normal environment. Without the opt-in any account file is
+ * removed instead; the app then falls back to its console mail logging. */
+export function installPreviewMail(r) {
+  const target = path.join(r.checkout, 'data', 'mail.json');
+  if (r.allowEmail !== true) {
+    fs.rmSync(target, { force: true });
+    return null;
+  }
+  for (const entry of [path.dirname(target), target]) {
+    let entryStat = null;
+    try { entryStat = fs.lstatSync(entry); } catch { /* absent entries are created below */ }
+    if (entryStat?.isSymbolicLink()) throw new Error('The preview mail target must not be a symlink.');
+  }
+  let raw;
+  try {
+    raw = fs.readFileSync(path.join(r.directory, 'email-account.json'), 'utf8');
+  } catch {
+    throw new Error('Email sending is enabled but the preview mail account is missing.');
+  }
+  let account;
+  try {
+    account = JSON.parse(raw);
+  } catch {
+    throw new Error('The preview mail account is invalid. Save it again in Settings → Email.');
+  }
+  if (!account || typeof account !== 'object' || Array.isArray(account)
+    || typeof account.host !== 'string' || !account.host.trim()
+    || typeof account.port !== 'number' || !Number.isInteger(account.port) || account.port < 1 || account.port > 65535
+    || !['auto', 'ssl', 'starttls'].includes(account.security)
+    || typeof account.user !== 'string' || typeof account.pass !== 'string' || typeof account.from !== 'string') {
+    throw new Error('The preview mail account is invalid. Save it again in Settings → Email.');
+  }
+  const stored = { host: account.host.trim(), port: account.port, security: account.security, user: account.user.trim(), pass: account.pass, from: account.from.trim() };
+  fs.mkdirSync(path.dirname(target), { recursive: true, mode: 0o700 });
+  fs.writeFileSync(target, `${JSON.stringify(stored)}\n`, { mode: 0o600 });
+  if (stored.pass) {
+    const redactionFile = path.join(r.directory, 'redaction.json');
+    let redacted = [];
+    try {
+      const existing = JSON.parse(fs.readFileSync(redactionFile, 'utf8'));
+      if (Array.isArray(existing)) redacted = existing.filter(entry => typeof entry === 'string');
+    } catch { /* no redaction file yet */ }
+    if (!redacted.includes(stored.pass)) redacted.push(stored.pass);
+    write(redactionFile, redacted);
+  }
+  return target;
+}
 export function previewEnvironment(r, secrets) {
-  // No source dotenv, marketplace credentials, SMTP or payment keys are copied.
+  // No source dotenv, marketplace credentials, SMTP or payment keys are copied
+  // into the environment. Mail arrives only as a validated file install with
+  // the explicit per-preview email opt-in (see installPreviewMail).
   return { PATH: process.env.PATH || '/usr/local/bin:/usr/bin:/bin', HOME: path.join(r.directory, 'home'),
     LANG: 'C.UTF-8', CI: '1', NODE_ENV: 'production', NODE_OPTIONS: '--max-old-space-size=2048',
     NEXT_TELEMETRY_DISABLED: '1', NEXT_PUBLIC_SITE_URL: r.origin, PORT: String(r.ports.web),
@@ -59,6 +111,7 @@ export async function main(step, file) {
     const secrets = { cookieSecret: randomBytes(32).toString('hex'), downloadSecret: randomBytes(32).toString('hex'),
       adminPassword: randomBytes(18).toString('base64url') };
     write(path.join(r.directory, 'secrets.json'), secrets);
+    installPreviewMail(r);
     // Next loads .env.production as well as .env.local. Remove any committed
     // dotenv from this disposable checkout before generating preview variables.
     for (const name of fs.readdirSync(r.checkout).filter(n => n === '.env' || n.startsWith('.env.'))) {
@@ -73,7 +126,9 @@ export async function main(step, file) {
     const pkg = JSON.parse(fs.readFileSync(path.join(r.checkout, 'package.json'), 'utf8'));
     if (!pkg.dependencies?.next || !fs.existsSync(path.join(r.checkout, 'package-lock.json'))) throw new Error('A standalone Next.js app and committed npm lockfile are required.');
     run('npm', ['ci', '--include=dev', '--ignore-scripts', '--no-audit', '--no-fund'], r, env, 600_000);
-    console.log('Preview dependencies and disposable local data prepared. External service credentials are absent.');
+    console.log(r.allowEmail === true
+      ? 'Preview dependencies, disposable local data and the saved mail account prepared.'
+      : 'Preview dependencies and disposable local data prepared. External service credentials are absent.');
     return;
   }
   assertOwned(r, JSON.parse(fs.readFileSync(resourceFile, 'utf8')));
