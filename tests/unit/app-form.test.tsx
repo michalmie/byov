@@ -17,7 +17,7 @@ function renderForm(
       formId="new-app"
       heading={omitHeading ? undefined : "Create app"}
       lede={omitHeading ? undefined : "Pick a stack."}
-      initial={{ name: "", description: "", stack: "", node: "" }}
+      initial={{ name: "", slug: "", description: "", stack: "", node: "" }}
       stacks={stacks}
       nodes={nodes}
       preferredNode=""
@@ -51,6 +51,40 @@ describe("AppForm stack prefill", () => {
     expect(
       screen.getByRole("region", { name: "New app form" }),
     ).toBeInTheDocument();
+  });
+
+  it("previews the name-based slug in the placeholder", () => {
+    renderForm();
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Rota Planner" },
+    });
+    expect(screen.getByLabelText("Slug")).toHaveAttribute(
+      "placeholder",
+      "rota-planner",
+    );
+  });
+
+  it("submits an explicit slug override", () => {
+    const seen: string[] = [];
+    renderForm(undefined, (draft) => {
+      seen.push(draft.slug);
+      return null;
+    });
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Rota Planner" },
+    });
+    fireEvent.change(screen.getByLabelText("Slug"), {
+      target: { value: "rota-eu" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create app" }));
+    expect(seen).toEqual(["rota-eu"]);
+  });
+
+  it("renders description as a multiline textarea", () => {
+    renderForm();
+    const description = screen.getByLabelText("Description");
+    expect(description.tagName).toBe("TEXTAREA");
+    expect(description).toHaveAttribute("rows", "4");
   });
 
   it("submits the prefilled stack with an explicit choice winning", () => {

@@ -7,6 +7,7 @@ import { listStacks } from "@/lib/stacks";
 const app = buildApp(
   {
     name: "Rota Planner",
+    slug: "",
     description: "Shift planning without the spreadsheet.",
     stack: listStacks()[0].slug,
     node: listNodes()[0].slug,

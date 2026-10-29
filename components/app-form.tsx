@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import type { Node } from "@/lib/control-plane";
-import type { AppDraft, AppField, AppFieldErrors } from "@/lib/apps";
+import { slugifyAppName, type AppDraft, type AppField, type AppFieldErrors } from "@/lib/apps";
 import type { TechStack } from "@/lib/stacks";
 
 function FieldError({ id, message }: { id: string; message?: string }) {
@@ -121,19 +121,45 @@ export function AppForm({
             onChange={(event) => set("name", event.target.value)}
           />
           <p id={`${formId}-name-hint`} className="hint">
-            Display name. The app slug derives from it and never changes.
+            Display name shown in lists and shortcuts.
           </p>
           <FieldError id={`${formId}-name-error`} message={errors.name} />
+        </div>
+
+        <div className="field">
+          <label className="field-label" htmlFor={`${formId}-slug`}>
+            Slug
+          </label>
+          <input
+            id={`${formId}-slug`}
+            className="input max-w-md mono"
+            type="text"
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            placeholder={
+              draft.slug.trim() || slugifyAppName(draft.name) || "rota-planner"
+            }
+            value={draft.slug}
+            aria-invalid={Boolean(errors.slug)}
+            aria-describedby={describedBy("slug", `${formId}-slug-hint`)}
+            onChange={(event) => set("slug", event.target.value)}
+          />
+          <p id={`${formId}-slug-hint`} className="hint">
+            Lowercase letters, numbers and hyphens. Leave blank to use the
+            name-based default; the slug never changes.
+          </p>
+          <FieldError id={`${formId}-slug-error`} message={errors.slug} />
         </div>
 
         <div className="field">
           <label className="field-label" htmlFor={`${formId}-description`}>
             Description
           </label>
-          <input
+          <textarea
             id={`${formId}-description`}
             className="input max-w-md"
-            type="text"
+            rows={4}
             autoComplete="off"
             placeholder="Shift planning without the spreadsheet."
             value={draft.description}
@@ -145,7 +171,8 @@ export function AppForm({
             onChange={(event) => set("description", event.target.value)}
           />
           <p id={`${formId}-description-hint`} className="hint">
-            One line for the apps list and dashboard.
+            A few lines for the app page; keep the first line short for
+            lists.
           </p>
           <FieldError
             id={`${formId}-description-error`}

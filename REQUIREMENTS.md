@@ -70,10 +70,13 @@ The solution has three parts:
 
 ### Control Plane UI (fifth slice)
 
-- New app flow (`/apps/new`): name, description, tech stack and
-  Sandbox node; workspace apps live in the browser until the API
-  lands. Sample apps stay read-only and the slug never changes after
-  creation.
+- New app flow (`/apps/new`): name, editable slug, multi-line
+  description (2000 chars), tech stack and Sandbox node; workspace
+  apps live in the browser until the API lands. Sample apps stay
+  read-only and the slug never changes after creation. A blank slug
+  derives from the name; an explicit one must be unique lowercase
+  labels joined by hyphens. Long descriptions clamp to two lines in
+  lists and keep line breaks on the app page.
 - Every new app starts with one `sandbox` environment on the chosen
   node, Pending until the first deploy; the five governed checks ride
   along green until the first run proves otherwise.

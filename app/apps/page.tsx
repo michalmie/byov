@@ -57,7 +57,7 @@ export default function Apps() {
                         {app.name}
                       </Link>
                       <span
-                        className="block max-w-[45ch] text-sm"
+                        className="max-w-[45ch] text-sm line-clamp-2"
                         style={{ color: "var(--color-ink-2)" }}
                       >
                         {app.description}

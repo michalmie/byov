@@ -20,6 +20,7 @@ const stackSlugs = listStacks().map((stack) => stack.slug);
 function draft(overrides: Partial<AppDraft> = {}): AppDraft {
   return {
     name: "Rota Planner",
+    slug: "",
     description: "Shift planning without the spreadsheet.",
     stack: stackSlugs[0],
     node: nodes[0].slug,
@@ -70,7 +71,7 @@ describe("validateAppDraft", () => {
     expect(errors.name).toMatch(/name/i);
   });
 
-  it("rejects a name that clashes with an existing slug", () => {
+  it("rejects a duplicate name", () => {
     const errors = validateAppDraft(
       draft({ name: "Shopfloor Tickets" }),
       listApps(),
@@ -88,6 +89,66 @@ describe("validateAppDraft", () => {
       stackSlugs,
     );
     expect(errors.name).toMatch(/already exists/);
+  });
+
+  it("accepts an explicit slug override", () => {
+    expect(
+      validateAppDraft(
+        draft({ slug: "rota-planner-2" }),
+        listApps(),
+        nodes,
+        stackSlugs,
+      ),
+    ).toEqual({});
+  });
+
+  it("rejects a malformed explicit slug", () => {
+    for (const slug of [
+      "Rota Planner",
+      "-rota-planner",
+      "rota-planner-",
+      "rota--planner",
+      "rota_planner",
+    ]) {
+      const errors = validateAppDraft(
+        draft({ slug }),
+        listApps(),
+        nodes,
+        stackSlugs,
+      );
+      expect(errors.slug).toMatch(/lowercase letters/);
+    }
+  });
+
+  it("rejects an explicit slug that is already taken", () => {
+    const errors = validateAppDraft(
+      draft({ slug: "shopfloor-tickets" }),
+      listApps(),
+      nodes,
+      stackSlugs,
+    );
+    expect(errors.slug).toMatch(/already exists/);
+  });
+
+  it("asks for an explicit slug when the derived one is taken", () => {
+    const errors = validateAppDraft(
+      draft({ name: "Shopfloor tickets!" }),
+      listApps(),
+      nodes,
+      stackSlugs,
+    );
+    expect(errors.name).toBeUndefined();
+    expect(errors.slug).toMatch(/different slug/);
+  });
+
+  it("asks for an explicit slug when the name yields none", () => {
+    const errors = validateAppDraft(
+      draft({ name: "!!!", slug: "" }),
+      listApps(),
+      nodes,
+      stackSlugs,
+    );
+    expect(errors.slug).toMatch(/explicitly/);
   });
 
   it("requires a description", () => {
@@ -150,6 +211,14 @@ describe("buildApp", () => {
     expect(app.slug).toBe("shopfloor-tickets-2");
   });
 
+  it("uses an explicit slug verbatim", () => {
+    const app = buildApp(
+      draft({ name: "Rota Planner", slug: "  rota-eu " }),
+      listApps(),
+    );
+    expect(app.slug).toBe("rota-eu");
+  });
+
   it("trims the name, description and stack", () => {
     const app = buildApp(
       draft({ name: "  Rota Planner ", description: "  Shifts. " }),
@@ -157,6 +226,27 @@ describe("buildApp", () => {
     );
     expect(app.name).toBe("Rota Planner");
     expect(app.description).toBe("Shifts.");
+  });
+
+  it("keeps multiline descriptions up to the limit", () => {
+    const description = "Line one.\nLine two.\nLine three.";
+    const app = buildApp(draft({ description }), listApps());
+    expect(app.description).toBe(description);
+    expect(
+      validateAppDraft(
+        draft({ description: "x".repeat(2000) }),
+        listApps(),
+        nodes,
+        stackSlugs,
+      ),
+    ).toEqual({});
+    const errors = validateAppDraft(
+      draft({ description: "x".repeat(2001) }),
+      listApps(),
+      nodes,
+      stackSlugs,
+    );
+    expect(errors.description).toMatch(/2000/);
   });
 });
 

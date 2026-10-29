@@ -97,7 +97,7 @@ export function AppDetailView({ slug }: { slug: string }) {
             {custom ? " · workspace app" : ""}
           </p>
           <p
-            className="mt-3 max-w-[65ch] text-sm"
+            className="mt-3 max-w-[65ch] text-sm whitespace-pre-line"
             style={{ color: "var(--color-ink-2)" }}
           >
             {app.description}

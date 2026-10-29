@@ -20,11 +20,17 @@ export const APPS_STORAGE_KEY = "byov:apps:v1";
 export const SANDBOX_ENV_NAME = "sandbox";
 
 const MAX_NAME = 60;
-const MAX_DESCRIPTION = 200;
+const MAX_SLUG = 60;
+const MAX_DESCRIPTION = 2000;
+
+/** Lowercase labels joined by single hyphens, no edges. */
+const SLUG_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 
 /** Raw form values for creating an app. */
 export interface AppDraft {
   name: string;
+  /** Explicit slug; blank derives from the name. */
+  slug: string;
   description: string;
   /** Tech stack slug from the managed catalog. */
   stack: string;
@@ -32,7 +38,7 @@ export interface AppDraft {
   node: string;
 }
 
-export type AppField = "name" | "description" | "stack" | "node";
+export type AppField = "name" | "slug" | "description" | "stack" | "node";
 export type AppFieldErrors = Partial<Record<AppField, string>>;
 
 export function slugifyAppName(name: string): string {
@@ -71,15 +77,32 @@ export function validateAppDraft(
     errors.name = "Give the app a name.";
   } else if (name.length > MAX_NAME) {
     errors.name = `Keep the name under ${MAX_NAME} characters.`;
+  } else if (
+    existing.some(
+      (app) => app.name.trim().toLowerCase() === name.toLowerCase(),
+    )
+  ) {
+    errors.name = "An app with this name already exists.";
+  }
+
+  const explicitSlug = draft.slug.trim();
+  if (explicitSlug) {
+    if (explicitSlug.length > MAX_SLUG) {
+      errors.slug = `Keep the slug under ${MAX_SLUG} characters.`;
+    } else if (!SLUG_PATTERN.test(explicitSlug)) {
+      errors.slug =
+        "Use lowercase letters, numbers and hyphens, e.g. rota-planner.";
+    } else if (existing.some((app) => app.slug === explicitSlug)) {
+      errors.slug = "An app with this slug already exists.";
+    }
   } else {
-    const slug = slugifyAppName(name);
-    const clash = existing.some(
-      (app) =>
-        app.slug === slug ||
-        app.name.trim().toLowerCase() === name.toLowerCase(),
-    );
-    if (clash) {
-      errors.name = "An app with this name already exists.";
+    const derived = slugifyAppName(name);
+    if (!derived) {
+      errors.slug =
+        "Use a name with letters or numbers, or set the slug explicitly.";
+    } else if (existing.some((app) => app.slug === derived)) {
+      errors.slug =
+        "An app with this slug already exists — set a different slug.";
     }
   }
 
@@ -123,11 +146,14 @@ export function sandboxEnv(nodeSlug: string): AppEnvironment {
 
 /** Build a validated draft into a workspace app. */
 export function buildApp(draft: AppDraft, existing: readonly App[]): App {
+  const explicitSlug = draft.slug.trim();
   return {
-    slug: uniqueAppSlug(
-      draft.name,
-      existing.map((app) => app.slug),
-    ),
+    slug: explicitSlug
+      ? explicitSlug
+      : uniqueAppSlug(
+          draft.name,
+          existing.map((app) => app.slug),
+        ),
     name: draft.name.trim(),
     stack: draft.stack.trim(),
     description: draft.description.trim(),

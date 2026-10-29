@@ -21,7 +21,7 @@ function NewAppForm() {
   return (
     <AppForm
       formId="new-app"
-      initial={{ name: "", description: "", stack: "", node: "" }}
+      initial={{ name: "", slug: "", description: "", stack: "", node: "" }}
       stacks={stacks}
       nodes={nodes}
       preferredNode={settings.defaultNode}
