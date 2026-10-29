@@ -60,6 +60,17 @@ describe("buildAgentsPrompt", () => {
     expect(prompt).toContain("Coolify");
   });
 
+  it("keeps the Sandbox URL copy node-neutral for every node kind", () => {
+    const prompt = buildAgentsPrompt({
+      app: sampleApp(),
+      stack: byovStack,
+      nodeName: "Frankfurt 01",
+      sandboxUrl: "https://rota-planner.example.test",
+    });
+    expect(prompt).toContain("node FQDN");
+    expect(prompt).not.toMatch(/Coolify FQDN/);
+  });
+
   it("lists the five required gates with the local gate line", () => {
     const prompt = buildAgentsPrompt({
       app: sampleApp(),

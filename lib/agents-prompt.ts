@@ -94,7 +94,7 @@ export function buildAgentsPrompt(input: AgentsPromptInput): string {
   );
   if (sandboxUrl) {
     lines.push(
-      `- **Sandbox URL** — \`${sandboxUrl}\`. The app runs here: API base, webhook target, and Coolify FQDN all use it.`,
+      `- **Sandbox URL** — \`${sandboxUrl}\`. The app runs here: API base, webhook target, and node FQDN all use it.`,
     );
   } else {
     lines.push(
