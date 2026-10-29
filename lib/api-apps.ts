@@ -1,6 +1,6 @@
 /**
  * Server-side app store for the control-plane API: the apps created over
- * `/api/v1/apps`, persisted as JSON under the server data dir.
+ * `/api/v1/apps`, persisted as JSONB documents in Postgres.
  *
  * Validation mirrors the browser new-app flow (`lib/apps.ts`): names,
  * slugs and descriptions follow the same rules, every new app starts
@@ -8,12 +8,12 @@
  * stacks come from the shipped catalog (`lib/stacks.ts`), known nodes
  * from the control-plane dataset (`lib/control-plane.ts`).
  *
- * Node-only (reads the data dir): never import from `middleware.ts`
+ * Node-only (reads the database): never import from `middleware.ts`
  * (Edge) or client components.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { query, queryOne } from "@/lib/db";
+import "@/db/migrations/0001_tokens_apps";
 import {
   buildApp,
   parseStoredApps,
@@ -23,58 +23,53 @@ import {
   type AppFieldErrors,
 } from "./apps";
 import { listNodes, type App, type AppEnvironment } from "./control-plane";
-import { getServerDataDir } from "./api-tokens";
 import { listStacks } from "./stacks";
-
-export const API_APPS_FILE_NAME = "apps.json";
 
 /** Lowercase labels joined by single hyphens, no edges (env names). */
 const ENV_NAME_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const MAX_ENV_NAME = 60;
 
-export function getApiAppsFilePath(): string {
-  return join(getServerDataDir(), API_APPS_FILE_NAME);
+/** One `api_apps` row: `pg` parses the JSONB document into an object. */
+interface ApiAppRow {
+  slug: string;
+  data: unknown;
 }
 
-/** Apps created over the API; a missing or corrupt file reads as []. */
-export function readApiApps(): App[] {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(getApiAppsFilePath(), "utf8"));
-  } catch {
-    return [];
-  }
-  const apps = isAppsFile(parsed) ? parseStoredApps(parsed.apps) : undefined;
-  return apps ?? [];
-}
-
-function isAppsFile(value: unknown): value is { apps: unknown } {
+function isUniqueViolation(error: unknown): boolean {
   return (
-    typeof value === "object" &&
-    value !== null &&
-    !Array.isArray(value) &&
-    "apps" in value
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "23505"
   );
 }
 
-function writeApiApps(apps: App[]): void {
-  mkdirSync(getServerDataDir(), { recursive: true });
-  writeFileSync(getApiAppsFilePath(), `${JSON.stringify({ apps })}\n`, {
-    mode: 0o600,
-  });
+/** Apps created over the API, oldest first; corrupt rows are skipped. */
+export async function readApiApps(): Promise<App[]> {
+  const rows = await query<ApiAppRow>(
+    "SELECT slug, data FROM api_apps ORDER BY created_at ASC, slug ASC",
+  );
+  return parseStoredApps(rows.map((row) => row.data)) ?? [];
 }
 
 /**
  * Apps created over the API. Sample apps stay a UI concern: the machine
  * API serves only real persisted state, never placeholder rows.
  */
-export function listApiApps(): App[] {
+export async function listApiApps(): Promise<App[]> {
   return readApiApps();
 }
 
 /** Find an API-created app by slug. */
-export function findApp(slug: string): App | undefined {
-  return readApiApps().find((app) => app.slug === slug);
+export async function findApp(slug: string): Promise<App | undefined> {
+  const row = await queryOne<ApiAppRow>(
+    "SELECT slug, data FROM api_apps WHERE slug = $1",
+    [slug],
+  );
+  if (!row) {
+    return undefined;
+  }
+  return parseStoredApps([row.data])?.[0];
 }
 
 function knownNodeSlugs(): string[] {
@@ -113,8 +108,10 @@ export type CreateApiAppResult =
  * blank slugs derive from the name, every app starts with one Sandbox
  * environment on the chosen node.
  */
-export function createApiApp(input: CreateApiAppInput): CreateApiAppResult {
-  const stored = readApiApps();
+export async function createApiApp(
+  input: CreateApiAppInput,
+): Promise<CreateApiAppResult> {
+  const stored = await readApiApps();
   const draft = asDraft(input);
   const errors = validateAppDraft(
     draft,
@@ -126,8 +123,32 @@ export function createApiApp(input: CreateApiAppInput): CreateApiAppResult {
     return { ok: false, errors };
   }
   const app = buildApp(draft, stored);
-  stored.push(app);
-  writeApiApps(stored);
+  try {
+    await query("INSERT INTO api_apps (slug, data) VALUES ($1, $2)", [
+      app.slug,
+      JSON.stringify(app),
+    ]);
+  } catch (error) {
+    // Lost a race with a concurrent create for the same slug: report the
+    // conflict the same way validation does.
+    if (isUniqueViolation(error)) {
+      const raced = await readApiApps();
+      const racedErrors = validateAppDraft(
+        draft,
+        raced,
+        listNodes(),
+        knownStackSlugs(),
+      );
+      return {
+        ok: false,
+        errors:
+          Object.keys(racedErrors).length > 0
+            ? racedErrors
+            : { slug: "An app with this slug already exists." },
+      };
+    }
+    throw error;
+  }
   return { ok: true, app };
 }
 
@@ -181,12 +202,11 @@ function validateEnvInput(
  * Add an environment to an API-created app. New envs start Pending until
  * the first deploy.
  */
-export function addApiEnv(
+export async function addApiEnv(
   slug: string,
   input: CreateApiEnvInput,
-): CreateApiEnvResult {
-  const stored = readApiApps();
-  const app = stored.find((entry) => entry.slug === slug);
+): Promise<CreateApiEnvResult> {
+  const app = await findApp(slug);
   if (!app) {
     return { ok: false, errors: { app: `No app found for slug "${slug}".` } };
   }
@@ -203,16 +223,19 @@ export function addApiEnv(
     ...(url ? { url } : {}),
   };
   app.envs.push(env);
-  writeApiApps(stored);
+  await query(
+    "UPDATE api_apps SET data = $1, updated_at = now() WHERE slug = $2",
+    [JSON.stringify(app), slug],
+  );
   return { ok: true, app, env };
 }
 
 /** Find one environment of an API-created app, or null. */
-export function findAppEnv(
+export async function findAppEnv(
   slug: string,
   envName: string,
-): { app: App; env: AppEnvironment } | null {
-  const app = findApp(slug);
+): Promise<{ app: App; env: AppEnvironment } | null> {
+  const app = await findApp(slug);
   if (!app) {
     return null;
   }

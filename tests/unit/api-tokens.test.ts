@@ -1,9 +1,18 @@
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect } from "vitest";
+import { beforeEach, describe, expect, vi } from "vitest";
+
+vi.mock("@/lib/db", () => ({
+  query: vi.fn(),
+  queryOne: vi.fn(),
+  migrate: vi.fn(),
+  registerMigration: vi.fn(),
+  getMigrations: vi.fn(() => []),
+  getDatabaseUrl: vi.fn(() => "postgres://localhost/test"),
+  getPool: vi.fn(),
+  closePool: vi.fn(),
+}));
+
+import { query, queryOne } from "@/lib/db";
 import {
-  getApiTokensFilePath,
   hasAnyTokens,
   hashToken,
   issueToken,
@@ -16,19 +25,112 @@ import {
   verifyToken,
 } from "@/lib/api-tokens";
 
-const savedEnv = { ...process.env };
+const mockQuery = vi.mocked(query);
+const mockQueryOne = vi.mocked(queryOne);
+
+interface FakeTokenRow {
+  id: string;
+  name: string;
+  tokenHash: string;
+  createdAt: string;
+  lastUsedAt: string | null;
+  revokedAt: string | null;
+}
+
+/** In-memory `api_tokens` table backing the mocked `query`/`queryOne`. */
+const tokens = new Map<string, FakeTokenRow>();
+
+/** Mirror `pg`: TIMESTAMPTZ columns arrive as Dates. */
+function toPgRow(row: FakeTokenRow) {
+  return {
+    id: row.id,
+    name: row.name,
+    tokenHash: row.tokenHash,
+    createdAt: new Date(row.createdAt),
+    lastUsedAt: row.lastUsedAt ? new Date(row.lastUsedAt) : null,
+    revokedAt: row.revokedAt ? new Date(row.revokedAt) : null,
+  };
+}
+
+function uniqueViolation(): Error {
+  return Object.assign(
+    new Error(
+      'duplicate key value violates unique constraint "api_tokens_pkey"',
+    ),
+    { code: "23505" },
+  );
+}
+
+async function fakeQuery(
+  text: string,
+  params: unknown[],
+): Promise<unknown[]> {
+  if (text.includes("FROM api_tokens")) {
+    if (text.startsWith("SELECT 1")) {
+      return tokens.size > 0 ? [{ one: 1 }] : [];
+    }
+    if (text.includes("WHERE id = $1")) {
+      const row = tokens.get(String(params[0]));
+      return row ? [toPgRow(row)] : [];
+    }
+    return [...tokens.values()]
+      .sort(
+        (a, b) =>
+          a.createdAt.localeCompare(b.createdAt) ||
+          a.id.localeCompare(b.id),
+      )
+      .map(toPgRow);
+  }
+  if (text.startsWith("INSERT INTO api_tokens")) {
+    const [id, name, tokenHash, createdAt] = params as [
+      string,
+      string,
+      string,
+      string,
+    ];
+    if (tokens.has(id)) {
+      throw uniqueViolation();
+    }
+    tokens.set(id, {
+      id,
+      name,
+      tokenHash,
+      createdAt,
+      lastUsedAt: null,
+      revokedAt: null,
+    });
+    return [];
+  }
+  if (text.startsWith("UPDATE api_tokens SET last_used_at")) {
+    const [lastUsedAt, id] = params as [string, string];
+    const row = tokens.get(id);
+    if (row) {
+      row.lastUsedAt = lastUsedAt;
+    }
+    return [];
+  }
+  if (text.startsWith("UPDATE api_tokens SET revoked_at")) {
+    const [revokedAt, id] = params as [string, string];
+    const row = tokens.get(id);
+    if (row) {
+      row.revokedAt = revokedAt;
+    }
+    return [];
+  }
+  throw new Error(`unexpected SQL in fake: ${text}`);
+}
 
 beforeEach(() => {
-  process.env.BYOV_DATA_DIR = mkdtempSync(join(tmpdir(), "byov-tokens-test-"));
-  delete process.env.AUTH_DATA_DIR;
-});
-
-afterEach(() => {
-  const dataDir = process.env.BYOV_DATA_DIR;
-  if (dataDir && dataDir.startsWith(tmpdir())) {
-    rmSync(dataDir, { recursive: true, force: true });
-  }
-  process.env = { ...savedEnv };
+  tokens.clear();
+  mockQuery.mockReset();
+  mockQueryOne.mockReset();
+  mockQuery.mockImplementation(async (text: string, params?: unknown[]) => {
+    return fakeQuery(text, params ?? []);
+  });
+  mockQueryOne.mockImplementation(async (text: string, params?: unknown[]) => {
+    const rows = await fakeQuery(text, params ?? []);
+    return rows.length > 0 ? rows[0] : null;
+  });
 });
 
 describe("mintToken / parseTokenId", () => {
@@ -46,7 +148,7 @@ describe("mintToken / parseTokenId", () => {
     expect(parseTokenId("byov_")).toBeNull();
     expect(parseTokenId("byov_short_secret")).toBeNull();
     expect(parseTokenId("byov_abcdefghijkl")).toBeNull();
-    expect(parseTokenId("Bearer byov_abcdefghijkl_secret")).toBeNull();
+    expect(parseTokenId("Bearer [REDACTED]")).toBeNull();
     expect(parseTokenId("  byov_abcdefghijkl_s3cr3t  ")).toBe("abcdefghijkl");
   });
 
@@ -70,12 +172,12 @@ describe("validateTokenName", () => {
 
 describe("issueToken / verifyToken", () => {
   it("issues and verifies a token end to end", async () => {
-    expect(hasAnyTokens()).toBe(false);
+    expect(await hasAnyTokens()).toBe(false);
     const { info, token } = await issueToken("mcp connector");
     expect(info.name).toBe("mcp connector");
     expect(token.startsWith(`byov_${info.id}_`)).toBe(true);
     expect(info.revokedAt).toBeNull();
-    expect(hasAnyTokens()).toBe(true);
+    expect(await hasAnyTokens()).toBe(true);
 
     const verified = await verifyToken(token);
     expect(verified?.id).toBe(info.id);
@@ -84,22 +186,43 @@ describe("issueToken / verifyToken", () => {
 
   it("stores hashes at rest, never secrets", async () => {
     const { token } = await issueToken("cli");
-    const raw = readFileSync(getApiTokensFilePath(), "utf8");
+    const insert = mockQuery.mock.calls.find(([text]) =>
+      text.startsWith("INSERT INTO api_tokens"),
+    );
+    expect(insert).toBeDefined();
+    const params = insert?.[1] as unknown[];
     // The secret is base64url and may itself contain "_" (the delimiter),
     // so the secret is everything after the second "_".
     const secret = token.split("_").slice(2).join("_");
     expect(secret.length).toBeGreaterThan(0);
-    expect(raw).not.toContain(token);
-    expect(raw).not.toContain(secret);
-    expect(raw).toContain(await hashToken(token));
+    expect(JSON.stringify(params)).not.toContain(token);
+    expect(JSON.stringify(params)).not.toContain(secret);
+    expect(params).toContain(await hashToken(token));
   });
 
   it("stamps lastUsedAt on successful verification", async () => {
     const { info, token } = await issueToken("cli");
     expect(info.lastUsedAt).toBeNull();
     await verifyToken(token);
-    const [record] = readTokenRecords();
+    const [record] = await readTokenRecords();
     expect(record?.lastUsedAt).not.toBeNull();
+  });
+
+  it("a failed use-stamp does not fail verification", async () => {
+    const { info, token } = await issueToken("cli");
+    mockQuery.mockImplementationOnce(async () => {
+      throw new Error("connection reset");
+    });
+    const verified = await verifyToken(token);
+    expect(verified?.id).toBe(info.id);
+  });
+
+  it("retries issuance when a minted id collides", async () => {
+    mockQuery.mockImplementationOnce(async () => {
+      throw uniqueViolation();
+    });
+    const { info, token } = await issueToken("cli");
+    expect((await verifyToken(token))?.id).toBe(info.id);
   });
 
   it("rejects unknown, tampered and malformed tokens", async () => {
@@ -119,6 +242,11 @@ describe("issueToken / verifyToken", () => {
     const { info } = await issueToken("cli");
     expect(await verifyToken(`byov_${info.id}_wrongsecret`)).toBeNull();
   });
+
+  it("propagates database failures to the caller", async () => {
+    mockQuery.mockRejectedValueOnce(new Error("db is down"));
+    await expect(issueToken("cli")).rejects.toThrow("db is down");
+  });
 });
 
 describe("revokeToken", () => {
@@ -126,44 +254,37 @@ describe("revokeToken", () => {
     const { info, token } = await issueToken("cli");
     expect((await verifyToken(token))?.id).toBe(info.id);
 
-    const revoked = revokeToken(info.id);
+    const revoked = await revokeToken(info.id);
     expect(revoked?.id).toBe(info.id);
     expect(revoked?.revokedAt).not.toBeNull();
     expect(await verifyToken(token)).toBeNull();
 
-    const listed = listTokenInfos();
+    const listed = await listTokenInfos();
     expect(listed).toHaveLength(1);
     expect(listed[0]?.revokedAt).not.toBeNull();
   });
 
   it("revoking twice is a no-op returning the metadata", async () => {
     const { info } = await issueToken("cli");
-    const first = revokeToken(info.id);
-    const second = revokeToken(info.id);
+    const first = await revokeToken(info.id);
+    const second = await revokeToken(info.id);
     expect(second).toEqual(first);
   });
 
-  it("returns null for unknown ids", () => {
-    expect(revokeToken("zzzzzzzzzzzz")).toBeNull();
+  it("returns null for unknown ids", async () => {
+    expect(await revokeToken("zzzzzzzzzzzz")).toBeNull();
   });
 });
 
 describe("token store robustness", () => {
-  it("reads a missing file as empty and skips corrupt entries", async () => {
-    expect(readTokenRecords()).toEqual([]);
-    const { info } = await issueToken("cli");
-    const records = readTokenRecords();
-    writeFileSync(
-      getApiTokensFilePath(),
-      JSON.stringify([...records, { bogus: true }, "nope", null]),
-    );
-    const reread = readTokenRecords();
-    expect(reread.map((record) => record.id)).toEqual([info.id]);
+  it("reads an empty store as empty", async () => {
+    expect(await readTokenRecords()).toEqual([]);
+    expect(await listTokenInfos()).toEqual([]);
   });
 
   it("never exposes hashes or secrets through listTokenInfos", async () => {
     await issueToken("cli");
-    const listed = listTokenInfos();
+    const listed = await listTokenInfos();
     expect(JSON.stringify(listed)).not.toContain("tokenHash");
     for (const info of listed) {
       expect(Object.keys(info).sort()).toEqual(

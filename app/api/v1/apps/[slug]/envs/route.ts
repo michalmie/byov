@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { addApiEnv, findApp } from "@/lib/api-apps";
-import { requireApiAuth } from "@/lib/api-auth";
+import { apiDbError, requireApiAuth } from "@/lib/api-auth";
 import { apiBadJson, apiError, apiOk } from "@/lib/api-response";
 
 /** Every environment of one API-created app. */
@@ -13,7 +13,12 @@ export async function GET(
     return auth;
   }
   const { slug } = await context.params;
-  const app = findApp(slug);
+  let app;
+  try {
+    app = await findApp(slug);
+  } catch {
+    return apiDbError();
+  }
   if (!app) {
     return apiError(404, `No app found for slug "${slug}".`);
   }
@@ -34,8 +39,13 @@ export async function POST(
     return auth;
   }
   const { slug } = await context.params;
-  if (!findApp(slug)) {
-    return apiError(404, `No app found for slug "${slug}".`);
+  let result;
+  try {
+    if (!(await findApp(slug))) {
+      return apiError(404, `No app found for slug "${slug}".`);
+    }
+  } catch {
+    return apiDbError();
   }
   let body: unknown;
   try {
@@ -48,11 +58,15 @@ export async function POST(
     node?: unknown;
     url?: unknown;
   };
-  const result = addApiEnv(slug, {
-    name: input.name,
-    node: input.node,
-    url: input.url,
-  });
+  try {
+    result = await addApiEnv(slug, {
+      name: input.name,
+      node: input.node,
+      url: input.url,
+    });
+  } catch {
+    return apiDbError();
+  }
   if (!result.ok) {
     return apiError(400, "The environment could not be created.", {
       errors: result.errors,

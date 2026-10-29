@@ -2,12 +2,12 @@
  * Control-plane API tokens: issuance, verification and revocation for
  * machine clients (CLI, MCP connector).
  *
- * A token is an opaque bearer secret, `byov_<id>_<secret>`: the `<id>` is
+ * A token is an opaque Bearer [REDACTED], `byov_<id>_<secret>`: the `<id>` is
  * a public lookup key (used for listing and revocation), the `<secret>`
  * carries 192 bits of entropy. Only the SHA-256 hash of the full token
- * is stored on disk — the secret itself is shown once at issuance and
+ * is stored in Postgres — the secret itself is shown once at issuance and
  * never again. Crypto uses WebCrypto (same pattern as `lib/auth.ts`);
- * the file store is Node-only and must never be imported from
+ * the database store is Node-only and must never be imported from
  * `middleware.ts` (Edge) or client components.
  *
  * Provisioning: the very first token is issued without authentication
@@ -16,10 +16,8 @@
  * issuance requires a valid token or an admin session.
  */
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
-
-export const API_TOKENS_FILE_NAME = "api-tokens.json";
+import { query, queryOne } from "@/lib/db";
+import "@/db/migrations/0001_tokens_apps";
 
 /** `byov_` + 12-char id + 32-char secret. */
 export const TOKEN_PREFIX = "byov_";
@@ -58,27 +56,6 @@ export function tokenRecordToInfo(record: ApiTokenRecord): ApiTokenInfo {
     lastUsedAt: record.lastUsedAt,
     revokedAt: record.revokedAt,
   };
-}
-
-/**
- * Writable server data dir: BYOV_DATA_DIR wins, else the auth data dir
- * (AUTH_DATA_DIR) so single-dir deployments keep one location, else
- * `<cwd>/data` (gitignored).
- */
-export function getServerDataDir(): string {
-  const configured = (process.env.BYOV_DATA_DIR ?? "").trim();
-  if (configured) {
-    return configured;
-  }
-  const authDir = (process.env.AUTH_DATA_DIR ?? "").trim();
-  if (authDir) {
-    return authDir;
-  }
-  return join(process.cwd(), "data");
-}
-
-export function getApiTokensFilePath(): string {
-  return join(getServerDataDir(), API_TOKENS_FILE_NAME);
 }
 
 // ---------------------------------------------------------------------------
@@ -173,78 +150,69 @@ export function validateTokenName(name: unknown): string | null {
 }
 
 // ---------------------------------------------------------------------------
-// File store (Node-only)
+// Postgres store (Node-only)
 // ---------------------------------------------------------------------------
 
-function isRecord(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null && !Array.isArray(value);
+/** One `api_tokens` row. `pg` returns TIMESTAMPTZ columns as Dates. */
+interface ApiTokenRow {
+  id: string;
+  name: string;
+  tokenHash: string;
+  createdAt: Date | string;
+  lastUsedAt: Date | string | null;
+  revokedAt: Date | string | null;
 }
 
-function isIsoDate(value: unknown): value is string {
-  return typeof value === "string" && !Number.isNaN(Date.parse(value));
+const TOKEN_COLUMNS = `id, name, token_hash AS "tokenHash", created_at AS "createdAt", last_used_at AS "lastUsedAt", revoked_at AS "revokedAt"`;
+
+function toIsoString(value: Date | string): string {
+  return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
 }
 
-function parseRecord(entry: unknown): ApiTokenRecord | null {
-  if (!isRecord(entry)) {
-    return null;
-  }
-  const { id, name, tokenHash, createdAt, lastUsedAt, revokedAt } = entry;
-  if (
-    typeof id !== "string" ||
-    !isTokenId(id) ||
-    typeof name !== "string" ||
-    name.length === 0 ||
-    typeof tokenHash !== "string" ||
-    !/^[0-9a-f]{64}$/.test(tokenHash) ||
-    !isIsoDate(createdAt) ||
-    (lastUsedAt !== null && !isIsoDate(lastUsedAt)) ||
-    (revokedAt !== null && !isIsoDate(revokedAt))
-  ) {
-    return null;
-  }
-  return { id, name, tokenHash, createdAt, lastUsedAt, revokedAt };
+function optionalIsoString(value: Date | string | null): string | null {
+  return value === null ? null : toIsoString(value);
 }
 
-/** All stored records; corrupt entries are skipped, a missing file is []. */
-export function readTokenRecords(): ApiTokenRecord[] {
-  let parsed: unknown;
-  try {
-    parsed = JSON.parse(readFileSync(getApiTokensFilePath(), "utf8"));
-  } catch {
-    return [];
-  }
-  if (!Array.isArray(parsed)) {
-    return [];
-  }
-  const records: ApiTokenRecord[] = [];
-  for (const entry of parsed) {
-    const record = parseRecord(entry);
-    if (record) {
-      records.push(record);
-    }
-  }
-  return records;
+function rowToRecord(row: ApiTokenRow): ApiTokenRecord {
+  return {
+    id: row.id,
+    name: row.name,
+    tokenHash: row.tokenHash,
+    createdAt: toIsoString(row.createdAt),
+    lastUsedAt: optionalIsoString(row.lastUsedAt),
+    revokedAt: optionalIsoString(row.revokedAt),
+  };
 }
 
-function writeTokenRecords(records: ApiTokenRecord[]): void {
-  mkdirSync(getServerDataDir(), { recursive: true });
-  // Owner-only on creation, like a credentials file (same trust as .env).
-  writeFileSync(getApiTokensFilePath(), `${JSON.stringify(records)}\n`, {
-    mode: 0o600,
-  });
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "23505"
+  );
+}
+
+/** All stored records, oldest first. */
+export async function readTokenRecords(): Promise<ApiTokenRecord[]> {
+  const rows = await query<ApiTokenRow>(
+    `SELECT ${TOKEN_COLUMNS} FROM api_tokens ORDER BY created_at ASC, id ASC`,
+  );
+  return rows.map(rowToRecord);
 }
 
 /** True once any token record exists (closes the first-token bootstrap). */
-export function hasAnyTokens(): boolean {
-  return readTokenRecords().length > 0;
+export async function hasAnyTokens(): Promise<boolean> {
+  const row = await queryOne<{ one: number }>(
+    "SELECT 1 AS one FROM api_tokens LIMIT 1",
+  );
+  return row !== null;
 }
 
 /** Public metadata for every token, oldest first. */
-export function listTokenInfos(): ApiTokenInfo[] {
-  return readTokenRecords()
-    .slice()
-    .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
-    .map(tokenRecordToInfo);
+export async function listTokenInfos(): Promise<ApiTokenInfo[]> {
+  const records = await readTokenRecords();
+  return records.map(tokenRecordToInfo);
 }
 
 /**
@@ -255,19 +223,33 @@ export async function issueToken(name: string): Promise<{
   info: ApiTokenInfo;
   token: string;
 }> {
-  const records = readTokenRecords();
-  const { id, token } = mintToken();
-  const record: ApiTokenRecord = {
-    id,
-    name: name.trim(),
-    tokenHash: await hashToken(token),
-    createdAt: new Date().toISOString(),
-    lastUsedAt: null,
-    revokedAt: null,
-  };
-  records.push(record);
-  writeTokenRecords(records);
-  return { info: tokenRecordToInfo(record), token };
+  const trimmed = name.trim();
+  for (let attempt = 0; attempt < 3; attempt += 1) {
+    const { id, token } = mintToken();
+    const record: ApiTokenRecord = {
+      id,
+      name: trimmed,
+      tokenHash: await hashToken(token),
+      createdAt: new Date().toISOString(),
+      lastUsedAt: null,
+      revokedAt: null,
+    };
+    try {
+      await query(
+        "INSERT INTO api_tokens (id, name, token_hash, created_at) VALUES ($1, $2, $3, $4)",
+        [record.id, record.name, record.tokenHash, record.createdAt],
+      );
+    } catch (error) {
+      // A minted id colliding with an existing row is vanishingly rare;
+      // mint again rather than failing issuance.
+      if (isUniqueViolation(error) && attempt < 2) {
+        continue;
+      }
+      throw error;
+    }
+    return { info: tokenRecordToInfo(record), token };
+  }
+  throw new Error("[api-tokens] could not mint a unique token id");
 }
 
 /**
@@ -281,9 +263,15 @@ export async function verifyToken(
   if (!id) {
     return null;
   }
-  const records = readTokenRecords();
-  const record = records.find((entry) => entry.id === id);
-  if (!record || record.revokedAt) {
+  const row = await queryOne<ApiTokenRow>(
+    `SELECT ${TOKEN_COLUMNS} FROM api_tokens WHERE id = $1`,
+    [id],
+  );
+  if (!row) {
+    return null;
+  }
+  const record = rowToRecord(row);
+  if (record.revokedAt) {
     return null;
   }
   const presentedHash = await hashToken(presented);
@@ -292,7 +280,10 @@ export async function verifyToken(
   }
   record.lastUsedAt = new Date().toISOString();
   try {
-    writeTokenRecords(records);
+    await query("UPDATE api_tokens SET last_used_at = $1 WHERE id = $2", [
+      record.lastUsedAt,
+      id,
+    ]);
   } catch {
     // The token is valid; a failed use-stamp must not fail the call.
   }
@@ -304,15 +295,21 @@ export async function verifyToken(
  * list stays auditable. Returns the metadata, or null when unknown.
  * Revoking an already-revoked token is a no-op returning its metadata.
  */
-export function revokeToken(id: string): ApiTokenInfo | null {
-  const records = readTokenRecords();
-  const record = records.find((entry) => entry.id === id);
-  if (!record) {
+export async function revokeToken(id: string): Promise<ApiTokenInfo | null> {
+  const row = await queryOne<ApiTokenRow>(
+    `SELECT ${TOKEN_COLUMNS} FROM api_tokens WHERE id = $1`,
+    [id],
+  );
+  if (!row) {
     return null;
   }
+  const record = rowToRecord(row);
   if (!record.revokedAt) {
     record.revokedAt = new Date().toISOString();
-    writeTokenRecords(records);
+    await query("UPDATE api_tokens SET revoked_at = $1 WHERE id = $2", [
+      record.revokedAt,
+      id,
+    ]);
   }
   return tokenRecordToInfo(record);
 }

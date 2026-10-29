@@ -1,37 +1,101 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect } from "vitest";
+import { beforeEach, describe, expect, vi } from "vitest";
+
+vi.mock("@/lib/db", () => ({
+  query: vi.fn(),
+  queryOne: vi.fn(),
+  migrate: vi.fn(),
+  registerMigration: vi.fn(),
+  getMigrations: vi.fn(() => []),
+  getDatabaseUrl: vi.fn(() => "postgres://localhost/test"),
+  getPool: vi.fn(),
+  closePool: vi.fn(),
+}));
+
+import { query, queryOne } from "@/lib/db";
 import {
   addApiEnv,
   createApiApp,
   findApp,
   findAppEnv,
-  getApiAppsFilePath,
   listApiApps,
   readApiApps,
 } from "@/lib/api-apps";
+import type { App } from "@/lib/control-plane";
 
-const savedEnv = { ...process.env };
+const mockQuery = vi.mocked(query);
+const mockQueryOne = vi.mocked(queryOne);
+
+/** In-memory `api_apps` table backing the mocked `query`/`queryOne`. */
+const apps = new Map<string, { app: App; seq: number }>();
+let nextSeq = 0;
+
+function uniqueViolation(): Error {
+  return Object.assign(
+    new Error(
+      'duplicate key value violates unique constraint "api_apps_pkey"',
+    ),
+    { code: "23505" },
+  );
+}
+
+async function fakeQuery(
+  text: string,
+  params: unknown[],
+): Promise<unknown[]> {
+  if (text.includes("FROM api_apps") && text.startsWith("SELECT")) {
+    if (text.includes("WHERE slug = $1")) {
+      const entry = apps.get(String(params[0]));
+      // Mirror `pg`: the JSONB document arrives parsed.
+      return entry
+        ? [{ slug: entry.app.slug, data: JSON.parse(JSON.stringify(entry.app)) }]
+        : [];
+    }
+    return [...apps.values()]
+      .sort((a, b) => a.seq - b.seq || a.app.slug.localeCompare(b.app.slug))
+      .map((entry) => ({
+        slug: entry.app.slug,
+        data: JSON.parse(JSON.stringify(entry.app)),
+      }));
+  }
+  if (text.startsWith("INSERT INTO api_apps")) {
+    const [slug, json] = params as [string, string];
+    if (apps.has(slug)) {
+      throw uniqueViolation();
+    }
+    nextSeq += 1;
+    apps.set(slug, { app: JSON.parse(json) as App, seq: nextSeq });
+    return [];
+  }
+  if (text.startsWith("UPDATE api_apps SET data")) {
+    const [json, slug] = params as [string, string];
+    const entry = apps.get(slug);
+    if (entry) {
+      entry.app = JSON.parse(json) as App;
+    }
+    return [];
+  }
+  throw new Error(`unexpected SQL in fake: ${text}`);
+}
 
 beforeEach(() => {
-  process.env.BYOV_DATA_DIR = mkdtempSync(join(tmpdir(), "byov-apps-test-"));
-  delete process.env.AUTH_DATA_DIR;
-});
-
-afterEach(() => {
-  const dataDir = process.env.BYOV_DATA_DIR;
-  if (dataDir && dataDir.startsWith(tmpdir())) {
-    rmSync(dataDir, { recursive: true, force: true });
-  }
-  process.env = { ...savedEnv };
+  apps.clear();
+  nextSeq = 0;
+  mockQuery.mockReset();
+  mockQueryOne.mockReset();
+  mockQuery.mockImplementation(async (text: string, params?: unknown[]) => {
+    return fakeQuery(text, params ?? []);
+  });
+  mockQueryOne.mockImplementation(async (text: string, params?: unknown[]) => {
+    const rows = await fakeQuery(text, params ?? []);
+    return rows.length > 0 ? rows[0] : null;
+  });
 });
 
 const NODE = "coolify-frankfurt";
 
 describe("createApiApp", () => {
-  it("creates an app with a derived slug and a Sandbox env", () => {
-    const result = createApiApp({
+  it("creates an app with a derived slug and a Sandbox env", async () => {
+    const result = await createApiApp({
       name: "Rota Planner",
       slug: "",
       description: "Shift planning without the spreadsheet.",
@@ -46,9 +110,9 @@ describe("createApiApp", () => {
     expect(result.ok && result.app.checks).toHaveLength(5);
   });
 
-  it("persists across reads and finds by slug", () => {
-    expect(listApiApps()).toEqual([]);
-    const created = createApiApp({
+  it("persists across reads and finds by slug", async () => {
+    expect(await listApiApps()).toEqual([]);
+    const created = await createApiApp({
       name: "Rota Planner",
       slug: "rota",
       description: "",
@@ -56,13 +120,13 @@ describe("createApiApp", () => {
       node: NODE,
     });
     expect(created.ok).toBe(true);
-    expect(listApiApps().map((app) => app.slug)).toEqual(["rota"]);
-    expect(findApp("rota")?.name).toBe("Rota Planner");
-    expect(findApp("missing")).toBeUndefined();
+    expect((await listApiApps()).map((app) => app.slug)).toEqual(["rota"]);
+    expect((await findApp("rota"))?.name).toBe("Rota Planner");
+    expect(await findApp("missing")).toBeUndefined();
   });
 
-  it("rejects duplicates, bad slugs, unknown stacks and nodes", () => {
-    const first = createApiApp({
+  it("rejects duplicates, bad slugs, unknown stacks and nodes", async () => {
+    const first = await createApiApp({
       name: "Rota Planner",
       slug: "",
       description: "",
@@ -71,7 +135,7 @@ describe("createApiApp", () => {
     });
     expect(first.ok).toBe(true);
 
-    const duplicate = createApiApp({
+    const duplicate = await createApiApp({
       name: "Rota Planner",
       slug: "",
       description: "",
@@ -80,7 +144,7 @@ describe("createApiApp", () => {
     });
     expect(duplicate.ok).toBe(false);
 
-    const badSlug = createApiApp({
+    const badSlug = await createApiApp({
       name: "Other",
       slug: "Bad Slug!",
       description: "",
@@ -90,7 +154,7 @@ describe("createApiApp", () => {
     expect(badSlug.ok).toBe(false);
     expect(!badSlug.ok && badSlug.errors.slug).toContain("lowercase");
 
-    const badStack = createApiApp({
+    const badStack = await createApiApp({
       name: "Other",
       slug: "",
       description: "",
@@ -102,7 +166,7 @@ describe("createApiApp", () => {
       "known tech stacks",
     );
 
-    const badNode = createApiApp({
+    const badNode = await createApiApp({
       name: "Other",
       slug: "",
       description: "",
@@ -112,11 +176,29 @@ describe("createApiApp", () => {
     expect(badNode.ok).toBe(false);
     expect(!badNode.ok && badNode.errors.node).toContain("known nodes");
   });
+
+  it("reports a slug conflict when a concurrent create wins the race", async () => {
+    const base = mockQuery.getMockImplementation();
+    mockQuery.mockImplementation(async (text: string, params?: unknown[]) => {
+      if (text.startsWith("INSERT INTO api_apps")) {
+        throw uniqueViolation();
+      }
+      return base?.(text, params) as Promise<unknown[]>;
+    });
+    const result = await createApiApp({
+      name: "Rota Planner",
+      slug: "rota",
+      description: "",
+      stack: "",
+      node: NODE,
+    });
+    expect(result.ok).toBe(false);
+  });
 });
 
 describe("addApiEnv", () => {
-  it("adds a pending env with an optional URL override", () => {
-    const created = createApiApp({
+  it("adds a pending env with an optional URL override", async () => {
+    const created = await createApiApp({
       name: "Rota Planner",
       slug: "",
       description: "",
@@ -125,7 +207,7 @@ describe("addApiEnv", () => {
     });
     expect(created.ok).toBe(true);
 
-    const added = addApiEnv("rota-planner", {
+    const added = await addApiEnv("rota-planner", {
       name: "staging",
       node: NODE,
       url: "https://rota-staging.example.com",
@@ -137,49 +219,48 @@ describe("addApiEnv", () => {
       status: "pending",
       url: "https://rota-staging.example.com",
     });
-    expect(findApp("rota-planner")?.envs.map((env) => env.name)).toEqual([
-      "sandbox",
-      "staging",
-    ]);
+    expect(
+      (await findApp("rota-planner"))?.envs.map((env) => env.name),
+    ).toEqual(["sandbox", "staging"]);
   });
 
-  it("rejects duplicates, bad names, unknown nodes and bad URLs", () => {
-    createApiApp({
+  it("rejects duplicates, bad names, unknown nodes and bad URLs", async () => {
+    await createApiApp({
       name: "Rota Planner",
       slug: "",
       description: "",
       stack: "",
       node: NODE,
     });
-    const duplicate = addApiEnv("rota-planner", {
+    const duplicate = await addApiEnv("rota-planner", {
       name: "sandbox",
       node: NODE,
       url: "",
     });
     expect(duplicate.ok).toBe(false);
 
-    const badName = addApiEnv("rota-planner", {
+    const badName = await addApiEnv("rota-planner", {
       name: "Staging!",
       node: NODE,
       url: "",
     });
     expect(!badName.ok && badName.errors.name).toContain("lowercase");
 
-    const badNode = addApiEnv("rota-planner", {
+    const badNode = await addApiEnv("rota-planner", {
       name: "staging",
       node: "mars-1",
       url: "",
     });
     expect(!badNode.ok && badNode.errors.node).toContain("known nodes");
 
-    const badUrl = addApiEnv("rota-planner", {
+    const badUrl = await addApiEnv("rota-planner", {
       name: "staging",
       node: NODE,
       url: "gopher://example.com",
     });
     expect(!badUrl.ok && badUrl.errors.url).toContain("http(s)");
 
-    const missingApp = addApiEnv("nope", {
+    const missingApp = await addApiEnv("nope", {
       name: "staging",
       node: NODE,
       url: "",
@@ -189,26 +270,63 @@ describe("addApiEnv", () => {
 });
 
 describe("findAppEnv", () => {
-  it("finds envs and misses cleanly", () => {
-    createApiApp({
+  it("finds envs and misses cleanly", async () => {
+    await createApiApp({
       name: "Rota Planner",
       slug: "",
       description: "",
       stack: "",
       node: NODE,
     });
-    expect(findAppEnv("rota-planner", "sandbox")?.env.node).toBe(NODE);
-    expect(findAppEnv("rota-planner", "staging")).toBeNull();
-    expect(findAppEnv("missing", "sandbox")).toBeNull();
+    expect((await findAppEnv("rota-planner", "sandbox"))?.env.node).toBe(
+      NODE,
+    );
+    expect(await findAppEnv("rota-planner", "staging")).toBeNull();
+    expect(await findAppEnv("missing", "sandbox")).toBeNull();
   });
 });
 
 describe("app store robustness", () => {
-  it("reads a missing or corrupt file as empty", () => {
-    expect(readApiApps()).toEqual([]);
-    writeFileSync(getApiAppsFilePath(), "not json{");
-    expect(readApiApps()).toEqual([]);
-    writeFileSync(getApiAppsFilePath(), JSON.stringify({ apps: "nope" }));
-    expect(readApiApps()).toEqual([]);
+  it("reads an empty store as empty", async () => {
+    expect(await readApiApps()).toEqual([]);
+  });
+
+  it("skips corrupt rows and keeps the valid apps", async () => {
+    const created = await createApiApp({
+      name: "Rota Planner",
+      slug: "rota",
+      description: "",
+      stack: "",
+      node: NODE,
+    });
+    expect(created.ok).toBe(true);
+    const valid = created.ok ? created.app : null;
+    mockQuery.mockImplementationOnce(async () => [
+      { slug: "rota", data: valid },
+      { slug: "bogus", data: { bogus: true } },
+      { slug: "junk", data: "nope" },
+    ]);
+    expect(await readApiApps()).toEqual([valid]);
+  });
+
+  it("findApp misses when the stored row is corrupt", async () => {
+    mockQueryOne.mockImplementationOnce(async () => ({
+      slug: "rota",
+      data: { bogus: true },
+    }));
+    expect(await findApp("rota")).toBeUndefined();
+  });
+
+  it("propagates database failures to the caller", async () => {
+    mockQuery.mockRejectedValueOnce(new Error("db is down"));
+    await expect(
+      createApiApp({
+        name: "Rota Planner",
+        slug: "",
+        description: "",
+        stack: "",
+        node: NODE,
+      }),
+    ).rejects.toThrow("db is down");
   });
 });
