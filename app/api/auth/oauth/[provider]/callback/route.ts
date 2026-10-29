@@ -38,8 +38,8 @@ function asParam(value: string | null): string | null {
   return value && value.length > 0 ? value : null;
 }
 
-function clearOAuthCookies(response: NextResponse): void {
-  const secure = shouldUseSecureCookies();
+function clearOAuthCookies(response: NextResponse, request: Request): void {
+  const secure = shouldUseSecureCookies(request);
   for (const name of [
     OAUTH_STATE_COOKIE,
     OAUTH_VERIFIER_COOKIE,
@@ -76,7 +76,7 @@ async function handleCallback(request: Request, providerParam: string) {
       new URL("/login?error=oauth-failed", baseUrl),
       302,
     );
-    clearOAuthCookies(response);
+    clearOAuthCookies(response, request);
     return response;
   };
 
@@ -147,7 +147,7 @@ async function handleCallback(request: Request, providerParam: string) {
       new URL("/login?error=not-allowed", baseUrl),
       302,
     );
-    clearOAuthCookies(response);
+    clearOAuthCookies(response, request);
     return response;
   }
 
@@ -162,12 +162,12 @@ async function handleCallback(request: Request, providerParam: string) {
     new URL(resolveNext(nextCookie), baseUrl),
     302,
   );
-  clearOAuthCookies(response);
+  clearOAuthCookies(response, request);
   response.cookies.set(SESSION_COOKIE_NAME, sessionValue, {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    secure: shouldUseSecureCookies(),
+    secure: shouldUseSecureCookies(request),
     maxAge: SESSION_MAX_AGE_SECONDS,
   });
   return response;

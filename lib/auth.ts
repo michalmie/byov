@@ -352,13 +352,51 @@ export interface SessionCookieOptions {
   maxAge: number;
 }
 
+/**
+ * Whether auth cookies for this request must carry `Secure`. Follows the
+ * request scheme (forwarded proto wins behind a proxy) so plain-HTTP
+ * deployments such as previews stay log-in-able — a Secure cookie on
+ * HTTP is dropped by the browser. AUTH_COOKIE_SECURE pins the flag
+ * either way. Without a request, falls back to NODE_ENV.
+ */
+export function shouldUseSecureCookies(request?: Request): boolean {
+  const pinned = (process.env.AUTH_COOKIE_SECURE ?? "").trim().toLowerCase();
+  if (pinned === "true") {
+    return true;
+  }
+  if (pinned === "false") {
+    return false;
+  }
+  if (request) {
+    const forwarded = request.headers
+      .get("x-forwarded-proto")
+      ?.split(",")[0]
+      ?.trim()
+      .toLowerCase();
+    if (forwarded === "https") {
+      return true;
+    }
+    if (forwarded === "http") {
+      return false;
+    }
+    try {
+      return new URL(request.url).protocol === "https:";
+    } catch {
+      return process.env.NODE_ENV === "production";
+    }
+  }
+  return process.env.NODE_ENV === "production";
+}
+
 /** Cookie attributes for `byov_session`, per the shared contract. */
-export function sessionCookieOptions(): SessionCookieOptions {
+export function sessionCookieOptions(
+  request?: Request,
+): SessionCookieOptions {
   return {
     httpOnly: true,
     sameSite: "lax",
     path: "/",
-    secure: process.env.NODE_ENV === "production",
+    secure: shouldUseSecureCookies(request),
     maxAge: SESSION_MAX_AGE_SECONDS,
   };
 }

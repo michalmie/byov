@@ -1,10 +1,13 @@
+"use client";
+
 import Link from "next/link";
 import { HealthPill } from "@/components/data-ui";
 import { ControlPlaneShell } from "@/components/shell";
-import { appHealth, listApps } from "@/lib/control-plane";
+import { useManagedApps } from "@/lib/apps-store";
+import { appHealth } from "@/lib/control-plane";
 
 export default function Apps() {
-  const apps = listApps();
+  const { apps, isCustomApp } = useManagedApps();
 
   return (
     <ControlPlaneShell crumb="Apps">
@@ -20,6 +23,11 @@ export default function Apps() {
             Every vibe-coded app governed by this control plane. Open one to
             see its environments, deployments and checks.
           </p>
+          <div className="mt-4">
+            <Link href="/apps/new" className="btn-ghost px-3 py-1.5 text-[13px]">
+              New app
+            </Link>
+          </div>
         </div>
 
         <div className="overflow-x-auto">
@@ -49,11 +57,19 @@ export default function Apps() {
                         {app.name}
                       </Link>
                       <span
-                        className="block max-w-[45ch] text-sm"
+                        className="max-w-[45ch] text-sm line-clamp-2"
                         style={{ color: "var(--color-ink-2)" }}
                       >
                         {app.description}
                       </span>
+                      {isCustomApp(app.slug) && (
+                        <span
+                          className="mono block text-sm"
+                          style={{ color: "var(--color-muted)" }}
+                        >
+                          workspace
+                        </span>
+                      )}
                     </td>
                     <td>
                       <HealthPill health={appHealth(app)} />

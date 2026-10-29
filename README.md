@@ -70,6 +70,7 @@ Run it once and click through:
 |---|---|
 | `/` | 📊 **Dashboard** — fleet figures, app health table, nodes, activity feed |
 | `/apps` | 📦 **Apps** — every app with health, home node, and last deploy |
+| `/apps/new` | ➕ **New app** — register an app; it starts with a Sandbox and an owner guide |
 | `/apps/[slug]` | 🔍 **App detail** — environments, deployment history, required checks |
 | `/stacks` | 🧩 **Tech stacks** — starter stacks with gates and scaffold steps |
 | `/stacks/[slug]` | 🔍 **Stack detail** — tech stack, checks, scaffold, ship targets |
@@ -166,7 +167,7 @@ deploy/         # deployment & preview adapters
 
 - [x] Control Plane UI first slice (dashboard, apps, nodes) on sample data
 - [x] Tech stacks catalog (BYOV stack first)
-- [ ] Real API behind the Control Plane (incl. workspace stacks today kept in the browser)
+- [ ] Real API behind the Control Plane (incl. workspace stacks and apps today kept in the browser)
 - [ ] Coolify node adapter — deploy for real
 - [ ] Client for Muse / Codex / Claude
 - [x] More tech stacks beyond the BYOV stack (AI chatbot, React SPA, Python API as drafts + workspace-defined customs)

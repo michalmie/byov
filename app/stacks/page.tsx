@@ -35,7 +35,11 @@ export default function TechStacks() {
             with the required gates built in — starting with the stack BYOV
             itself is built on.
           </p>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link href="/apps/new" className="btn-ghost px-3 py-1.5 text-[13px]">
+              New app
+              <ArrowRightIcon className="h-3.5 w-3.5" />
+            </Link>
             <Link
               href="/settings/stacks"
               className="btn-ghost px-3 py-1.5 text-[13px]"

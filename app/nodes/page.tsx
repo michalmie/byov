@@ -4,12 +4,12 @@ import Link from "next/link";
 import { HealthPill, StatStrip } from "@/components/data-ui";
 import { ArrowRightIcon } from "@/components/icons";
 import { ControlPlaneShell } from "@/components/shell";
-import { listApps } from "@/lib/control-plane";
+import { useManagedApps } from "@/lib/apps-store";
 import { useManagedNodes } from "@/lib/settings-store";
 
 export default function Nodes() {
   const { nodes } = useManagedNodes();
-  const apps = listApps();
+  const { apps } = useManagedApps();
   const envCount = apps.reduce(
     (total, app) => total + app.envs.length,
     0,

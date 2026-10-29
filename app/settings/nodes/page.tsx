@@ -8,7 +8,7 @@ import { NodeCard } from "@/components/node-card";
 import { NodeForm } from "@/components/node-form";
 import { NodeSetupGuide } from "@/components/node-setup-guide";
 import { SettingsSubnav } from "@/components/settings-subnav";
-import { listApps } from "@/lib/control-plane";
+import { useManagedApps } from "@/lib/apps-store";
 import { useManagedNodes, useWorkspaceSettings } from "@/lib/settings-store";
 import { nodeUsage, type NodeDraft } from "@/lib/settings";
 
@@ -25,7 +25,7 @@ export default function SettingsNodes() {
   const { nodes, createNode, updateNode, deleteNode, resetNodes } =
     useManagedNodes();
   const { settings } = useWorkspaceSettings();
-  const apps = listApps();
+  const { apps } = useManagedApps();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
@@ -250,7 +250,7 @@ export default function SettingsNodes() {
                       setNextStepsFor(null);
                     }}
                     onConfirmRemove={() => {
-                      const reason = deleteNode(node.slug);
+                      const reason = deleteNode(node.slug, apps);
                       setConfirmingRemove(null);
                       if (reason) {
                         setNotice(reason);

@@ -9,9 +9,9 @@ import type { Health } from "@/lib/control-plane";
 import {
   appHealth,
   fleetSummaryFor,
-  listApps,
   recentActivity,
 } from "@/lib/control-plane";
+import { useManagedApps } from "@/lib/apps-store";
 import { useManagedNodes } from "@/lib/settings-store";
 
 const nodeDot: Record<Health, string> = {
@@ -23,7 +23,7 @@ const nodeDot: Record<Health, string> = {
 };
 
 export default function Dashboard() {
-  const apps = listApps();
+  const { apps } = useManagedApps();
   const { nodes } = useManagedNodes();
   const summary = fleetSummaryFor(apps, nodes);
   const activity = recentActivity();

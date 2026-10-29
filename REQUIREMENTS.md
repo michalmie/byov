@@ -68,6 +68,34 @@ The solution has three parts:
   in-content navigation on all sizes and the section navigation on
   small screens.
 
+### Control Plane UI (fifth slice)
+
+- New app flow (`/apps/new`): name, editable slug, multi-line
+  description (2000 chars), tech stack and Sandbox node; workspace
+  apps live in the browser until the API lands. Sample apps stay
+  read-only and the slug never changes after creation. A blank slug
+  derives from the name; an explicit one must be unique lowercase
+  labels joined by hyphens. Long descriptions clamp to two lines in
+  lists and keep line breaks on the app page.
+- Every new app starts with one `sandbox` environment on the chosen
+  node, Pending until the first deploy; the five governed checks ride
+  along green until the first run proves otherwise.
+- The app page guides the owner from scaffold to first Sandbox
+  deploy while no deployment exists: pick what to run (a coding
+  agent, own code, AI-generated code), then four steps — connect the
+  station (Sandbox URL, app, env and node facts; no client, MCP
+  endpoint or connect script exists yet), scaffold from the stack
+  starter (or the owner's own repo without a stack), start the agent
+  / run locally / review the output, keep the gates green and point
+  the Coolify FQDN at the Sandbox URL.
+- Workspace apps feed the apps list, dashboard, nodes page, sidebar
+  counts and the node removal guard; the detail page resolves customs
+  client-side and offers removal for workspace apps.
+- Creation entry points: the topbar New menu, the apps list, the stacks
+  catalog, and each stack detail page ("New app from this stack",
+  prefilling the stack via `?stack=`; unknown slugs fall back to the
+  first stack).
+
 ### Tech stacks (first slice)
 
 - Stack catalog (`stacks/`): one folder per stack with `manifest.json`,
@@ -214,7 +242,7 @@ Local bootstrap runbook:
   `/api/*` answers 401. The middleware verifies the session cookie and
   hands the email downstream as `x-byov-user-email`.
 - Sessions are stateless HMAC-signed cookies (`byov_session`, 12h,
-  HttpOnly, SameSite=Lax, Secure in production) carrying the user's
+  HttpOnly, SameSite=Lax, Secure on HTTPS) carrying the user's
   role (admin/member). The signing secret is `AUTH_SECRET`; an unset
   secret falls back to an insecure dev value with a warning.
 - Admins come from `AUTH_ADMIN_EMAILS`, plus a first-login bootstrap:
@@ -258,3 +286,78 @@ Local bootstrap runbook:
 - Settings → Users: workspace member list with invite by email, roles
   (admin/member) and last-admin removal/demotion guards, kept in the
   browser until the API lands.
+
+### Cell (product direction, decided — not built)
+
+- The "Cell" is BYOV's unit: hosting + live URL, BYOV-managed source
+  control, pipeline (push → gates → deploy), env vars/secrets, deploy
+  logs, per-change previews, rollback, and audit trail. It positions
+  BYOV as a governed app platform, not a hosting provider.
+- The vibe-coding loop: the user chats with their coding agent and
+  opens the Sandbox URL; nothing runs on their machine. Whether git
+  stays invisible (agent-operated) or shows as a guided git-lite flow
+  is the end user's own choice, offered by the connector.
+- Until the bundle lands, "Sandbox" keeps meaning the environment.
+  Build order: control-plane API + token auth → node adapter (Coolify
+  app/FQDN/auto-deploy/status/logs) → repo + webhook wiring per app →
+  MCP connector with one-snippet agent setup. No MCP endpoint, client,
+  or connect script exists yet.
+
+### Cell (slice 1: control-plane API + tokens, built)
+
+- Versioned machine API under `/api/v1/*` for future CLI and MCP
+  clients. Auth is `Authorization: Bearer <token>`; browser callers
+  may use their session cookie instead (member sessions can read and
+  write apps/envs; token management needs a token or an admin
+  session).
+- Tokens (`lib/api-tokens.ts`): opaque `byov_<id>_<secret>` bearers
+  (192-bit secret, WebCrypto-minted like the auth module), stored as
+  SHA-256 hashes in owner-only `data/api-tokens.json` — the secret is
+  shown once at issuance and never again. The first token on a fresh
+  install issues without credentials (bootstrap, same trust model as
+  the first-login admin claim); afterwards issuance needs a token or
+  an admin session. Revocation keeps the record with `revokedAt` set.
+- Apps and environments (`lib/api-apps.ts`): `GET/POST /api/v1/apps`,
+  `GET /api/v1/apps/[slug]`, `GET/POST /api/v1/apps/[slug]/envs`,
+  `GET /api/v1/apps/[slug]/envs/[env]`. Validation mirrors the
+  browser new-app flow (names, slugs, known stacks from the shipped
+  catalog, known nodes); every app starts with one Pending `sandbox`
+  env. State persists in owner-only `data/apps.json` under
+  `BYOV_DATA_DIR` (else `AUTH_DATA_DIR`, else `./data`). The API
+  serves only API-created apps — sample apps stay a UI concern.
+- Envelope: success is `{ ok: true, data }`; every error is
+  `{ ok: false, error }` with an optional per-field `errors` map
+  (401 unauthenticated, 403 member managing tokens, 404 unknown
+  app/env/token, 400 validation).
+- Verified end to end with curl against a production server (issue →
+  call → revoke → 401, plus restart persistence):
+
+```sh
+BASE=http://localhost:3210
+# Bootstrap the first token (fresh data dir only):
+curl -X POST $BASE/api/v1/tokens \
+  -H 'content-type: application/json' \
+  -d '{"name":"ops-laptop"}'
+# → {"ok":true,"data":{"id":"…","token":"byov_…",…}} (201; save the token)
+
+TOKEN=byov_<id>_<secret>
+curl $BASE/api/v1/apps -H "authorization: Bearer $TOKEN"
+# → {"ok":true,"data":[]} (200)
+
+curl -X POST $BASE/api/v1/apps -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' \
+  -d '{"name":"Rota Planner","stack":"byov-stack","node":"coolify-frankfurt"}'
+# → 201 with slug "rota-planner" and one pending "sandbox" env
+
+curl -X POST $BASE/api/v1/apps/rota-planner/envs \
+  -H "authorization: Bearer $TOKEN" -H 'content-type: application/json' \
+  -d '{"name":"staging","node":"coolify-frankfurt"}'
+# → 201 {"ok":true,"data":{"name":"staging",…,"status":"pending"}}
+
+curl -X DELETE $BASE/api/v1/tokens/<second-id> \
+  -H "authorization: Bearer $TOKEN"
+# → 200; calls with the revoked token answer 401 from then on
+```
+
+- Still open (later slices): node adapter and Coolify writes, repo
+  and webhook wiring, MCP server/CLI, scoped tokens, token UI pages.

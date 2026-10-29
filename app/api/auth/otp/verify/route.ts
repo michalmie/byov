@@ -67,6 +67,6 @@ export async function POST(request: Request) {
     ok: true,
     user: { email: normalized },
   });
-  response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions());
+  response.cookies.set(SESSION_COOKIE_NAME, token, sessionCookieOptions(request));
   return response;
 }

@@ -3,7 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { appHealth, listApps, type App } from "@/lib/control-plane";
+import { appHealth, type App } from "@/lib/control-plane";
+import { useManagedApps } from "@/lib/apps-store";
 import { useManagedNodes } from "@/lib/settings-store";
 import { useManagedStacks } from "@/lib/stack-store";
 import {
@@ -56,7 +57,7 @@ export function Sidebar({
   onClose: () => void;
 }) {
   const pathname = usePathname();
-  const apps = listApps();
+  const { apps } = useManagedApps();
   const { nodes } = useManagedNodes();
   const { stacks } = useManagedStacks();
   const [query, setQuery] = useState("");
