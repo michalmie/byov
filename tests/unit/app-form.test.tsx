@@ -1,0 +1,65 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { AppForm } from "@/components/app-form";
+import type { AppDraft, AppFieldErrors } from "@/lib/apps";
+import { listNodes } from "@/lib/control-plane";
+import { listStacks } from "@/lib/stacks";
+
+const stacks = listStacks();
+const nodes = listNodes();
+
+function renderForm(
+  preferredStack?: string,
+  onSubmit: (draft: AppDraft) => AppFieldErrors | null = () => null,
+) {
+  return render(
+    <AppForm
+      formId="new-app"
+      heading="Create app"
+      lede="Pick a stack."
+      initial={{ name: "", description: "", stack: "", node: "" }}
+      stacks={stacks}
+      nodes={nodes}
+      preferredNode=""
+      preferredStack={preferredStack}
+      submitLabel="Create app"
+      onSubmit={onSubmit}
+      onCancel={() => {}}
+    />,
+  );
+}
+
+describe("AppForm stack prefill", () => {
+  it("prefills a known stack slug", () => {
+    renderForm("ai-chatbot");
+    expect(screen.getByLabelText("Tech stack")).toHaveValue("ai-chatbot");
+  });
+
+  it("falls back to the first stack for an unknown slug", () => {
+    renderForm("no-such-stack");
+    expect(screen.getByLabelText("Tech stack")).toHaveValue(stacks[0].slug);
+  });
+
+  it("falls back to the first stack without a prefill", () => {
+    renderForm();
+    expect(screen.getByLabelText("Tech stack")).toHaveValue(stacks[0].slug);
+  });
+
+  it("submits the prefilled stack with an explicit choice winning", () => {
+    const seen: string[] = [];
+    renderForm("ai-chatbot", (draft) => {
+      seen.push(draft.stack);
+      return null;
+    });
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Rota Planner" },
+    });
+    fireEvent.change(screen.getByLabelText("Description"), {
+      target: { value: "Shifts." },
+    });
+    fireEvent.change(screen.getByLabelText("Tech stack"), {
+      target: { value: stacks[2].slug },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create app" }));
+    expect(seen).toEqual([stacks[2].slug]);
+  });
+});

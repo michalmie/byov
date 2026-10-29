@@ -87,7 +87,14 @@ export function StackDetailView({ slug }: { slug: string }) {
           >
             {stack.tagline}
           </p>
-          <div className="mt-4">
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link
+              href={`/apps/new?stack=${stack.slug}`}
+              className="btn-ghost px-3 py-1.5 text-[13px]"
+            >
+              New app from this stack
+              <ArrowRightIcon className="h-3.5 w-3.5" />
+            </Link>
             <Link
               href="/settings/stacks"
               className="btn-ghost px-3 py-1.5 text-[13px]"

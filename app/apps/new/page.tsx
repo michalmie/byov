@@ -1,7 +1,8 @@
 "use client";
 
+import { Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { ControlPlaneShell } from "@/components/shell";
 import { AppForm } from "@/components/app-form";
 import { ArrowLeftIcon } from "@/components/icons";
@@ -9,12 +10,39 @@ import { useManagedApps } from "@/lib/apps-store";
 import { useManagedStacks } from "@/lib/stack-store";
 import { useWorkspaceSettings } from "@/lib/settings-store";
 
-export default function NewApp() {
+function NewAppForm() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { createApp } = useManagedApps();
   const { stacks } = useManagedStacks();
   const { settings, nodes } = useWorkspaceSettings();
+  const preferredStack = searchParams.get("stack") ?? "";
 
+  return (
+    <AppForm
+      formId="new-app"
+      heading="Create app"
+      lede="Pick a stack and the node hosting the Sandbox. Checks and the Sandbox environment come along automatically."
+      initial={{ name: "", description: "", stack: "", node: "" }}
+      stacks={stacks}
+      nodes={nodes}
+      preferredNode={settings.defaultNode}
+      preferredStack={preferredStack}
+      submitLabel="Create app"
+      onSubmit={(draft) => {
+        const result = createApp(draft);
+        if (!result.ok) {
+          return result.errors;
+        }
+        router.push(`/apps/${result.slug}`);
+        return null;
+      }}
+      onCancel={() => router.push("/apps")}
+    />
+  );
+}
+
+export default function NewApp() {
   return (
     <ControlPlaneShell
       crumb={
@@ -49,25 +77,15 @@ export default function NewApp() {
           </p>
         </div>
 
-        <AppForm
-          formId="new-app"
-          heading="Create app"
-          lede="Pick a stack and the node hosting the Sandbox. Checks and the Sandbox environment come along automatically."
-          initial={{ name: "", description: "", stack: "", node: "" }}
-          stacks={stacks}
-          nodes={nodes}
-          preferredNode={settings.defaultNode}
-          submitLabel="Create app"
-          onSubmit={(draft) => {
-            const result = createApp(draft);
-            if (!result.ok) {
-              return result.errors;
-            }
-            router.push(`/apps/${result.slug}`);
-            return null;
-          }}
-          onCancel={() => router.push("/apps")}
-        />
+        <Suspense
+          fallback={
+            <p className="text-sm" style={{ color: "var(--color-muted)" }}>
+              Loading form…
+            </p>
+          }
+        >
+          <NewAppForm />
+        </Suspense>
       </div>
     </ControlPlaneShell>
   );

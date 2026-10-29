@@ -86,6 +86,10 @@ The solution has three parts:
 - Workspace apps feed the apps list, dashboard, nodes page, sidebar
   counts and the node removal guard; the detail page resolves customs
   client-side and offers removal for workspace apps.
+- Creation entry points: the topbar New menu, the apps list, the stacks
+  catalog, and each stack detail page ("New app from this stack",
+  prefilling the stack via `?stack=`; unknown slugs fall back to the
+  first stack).
 
 ### Tech stacks (first slice)
 

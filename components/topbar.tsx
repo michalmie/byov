@@ -143,6 +143,15 @@ export function Topbar({
             >
               <Link
                 role="menuitem"
+                href="/apps/new"
+                onClick={() => setMenuOpen(false)}
+                className="menu-link px-2 py-1.5 text-[13px]"
+              >
+                <PlusIcon className="h-4 w-4 shrink-0" />
+                New app
+              </Link>
+              <Link
+                role="menuitem"
                 href="/stacks"
                 onClick={() => setMenuOpen(false)}
                 className="menu-link px-2 py-1.5 text-[13px]"

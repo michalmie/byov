@@ -25,6 +25,7 @@ export function AppForm({
   stacks,
   nodes,
   preferredNode,
+  preferredStack,
   submitLabel,
   onSubmit,
   onCancel,
@@ -37,6 +38,8 @@ export function AppForm({
   nodes: Node[];
   /** Workspace default node slug, or "" for none. */
   preferredNode: string;
+  /** Prefilled stack slug (e.g. from ?stack=), or "" for none. */
+  preferredStack?: string;
   submitLabel: string;
   onSubmit: (draft: AppDraft) => AppFieldErrors | null;
   onCancel: () => void;
@@ -44,9 +47,14 @@ export function AppForm({
   const [draft, setDraft] = useState<AppDraft>(initial);
   const [errors, setErrors] = useState<AppFieldErrors>({});
 
-  // Empty selects fall back to the first option (the workspace default
-  // node for the Sandbox); explicit choices always win.
-  const stack = draft.stack || stacks[0]?.slug || "";
+  // Empty selects fall back to the preferred option when it names a known
+  // entry (the ?stack= prefill, the workspace default node for the
+  // Sandbox), else the first option; explicit choices always win.
+  const stack =
+    draft.stack ||
+    (preferredStack && stacks.some((entry) => entry.slug === preferredStack)
+      ? preferredStack
+      : (stacks[0]?.slug ?? ""));
   const node =
     draft.node ||
     (preferredNode && nodes.some((entry) => entry.slug === preferredNode)
