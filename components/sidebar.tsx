@@ -11,6 +11,7 @@ import {
   ArrowRightIcon,
   BoxIcon,
   CloseIcon,
+  DocIcon,
   GearIcon,
   GridIcon,
   LayersIcon,
@@ -38,6 +39,10 @@ const workspaceNav = [
 
 const configNav = [
   { href: "/settings", label: "Settings", icon: GearIcon, exact: false },
+];
+
+const resourceNav = [
+  { href: "/docs", label: "Docs", icon: DocIcon, exact: false },
 ];
 
 /** Case-insensitive substring match over app names (sidebar search). */
@@ -177,6 +182,11 @@ export function Sidebar({
       <nav aria-label="Configuration" className="grid gap-0.5">
         <p className="rail-label px-2 pb-1">Configuration</p>
         {configNav.map(renderNavItem)}
+      </nav>
+
+      <nav aria-label="Resources" className="grid gap-0.5">
+        <p className="rail-label px-2 pb-1">Resources</p>
+        {resourceNav.map(renderNavItem)}
       </nav>
 
       <nav aria-label="App shortcuts" className="grid gap-0.5">
