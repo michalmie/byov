@@ -286,3 +286,19 @@ Local bootstrap runbook:
 - Settings → Users: workspace member list with invite by email, roles
   (admin/member) and last-admin removal/demotion guards, kept in the
   browser until the API lands.
+
+### Cell (product direction, decided — not built)
+
+- The "Cell" is BYOV's unit: hosting + live URL, BYOV-managed source
+  control, pipeline (push → gates → deploy), env vars/secrets, deploy
+  logs, per-change previews, rollback, and audit trail. It positions
+  BYOV as a governed app platform, not a hosting provider.
+- The vibe-coding loop: the user chats with their coding agent and
+  opens the Sandbox URL; nothing runs on their machine. Whether git
+  stays invisible (agent-operated) or shows as a guided git-lite flow
+  is the end user's own choice, offered by the connector.
+- Until the bundle lands, "Sandbox" keeps meaning the environment.
+  Build order: control-plane API + token auth → node adapter (Coolify
+  app/FQDN/auto-deploy/status/logs) → repo + webhook wiring per app →
+  MCP connector with one-snippet agent setup. No MCP endpoint, client,
+  connect script, or API tokens exist yet.
