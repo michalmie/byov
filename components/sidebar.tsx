@@ -10,7 +10,6 @@ import { useManagedStacks } from "@/lib/stack-store";
 import {
   ArrowRightIcon,
   BoxIcon,
-  CloseIcon,
   DocIcon,
   GearIcon,
   GridIcon,
@@ -19,7 +18,7 @@ import {
   SearchIcon,
   StackIcon,
 } from "./icons";
-import { LogoMark } from "./logo";
+import { Logo } from "./logo";
 
 const healthDot: Record<string, string> = {
   healthy: "var(--color-ok)",
@@ -123,23 +122,14 @@ export function Sidebar({
       }`}
       style={{ borderColor: "var(--color-rail-line)" }}
     >
-      <div className="flex items-center justify-between gap-2 px-1">
+      <div className="px-1">
         <Link
           href="/"
           onClick={onClose}
-          className="inline-flex items-center gap-2 text-[15px] font-bold tracking-tight"
+          className="inline-flex w-full max-w-[140px]"
         >
-          <LogoMark className="h-8 w-8" />
-          BYOV
+          <Logo className="h-auto w-full rounded-[10px]" />
         </Link>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label="Close navigation"
-          className="icon-btn h-8 w-8 lg:hidden"
-        >
-          <CloseIcon className="h-4 w-4" />
-        </button>
       </div>
 
       <div

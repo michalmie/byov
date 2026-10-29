@@ -78,6 +78,45 @@ describe("SandboxSetupGuide", () => {
     ).toBeInTheDocument();
   });
 
+  it("proposes a copyable AGENTS.md starter in agent mode", () => {
+    renderGuide();
+    expect(
+      screen.getByText(/Save the AGENTS\.md starter/),
+    ).toBeInTheDocument();
+    const prompt = screen.getByText(/agent instructions/);
+    expect(prompt.textContent).toContain(app.slug);
+    expect(prompt.textContent).toContain(
+      "npm run test:unit && npm run lint && npm run build",
+    );
+    expect(
+      screen.getByRole("button", { name: "Copy AGENTS.md" }),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps step numbers sequential in agent mode", () => {
+    renderGuide();
+    const numbers = screen
+      .getAllByText(/^(01|02|03|04|05)$/)
+      .map((node) => node.textContent);
+    expect(numbers).toEqual(["01", "02", "03", "04", "05"]);
+  });
+
+  it("hides the AGENTS.md starter outside agent mode", () => {
+    renderGuide();
+    fireEvent.click(screen.getByRole("button", { name: /Run My Code/ }));
+    expect(
+      screen.queryByText(/Save the AGENTS\.md starter/),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/agent instructions/)).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: /Run AI-Generated Code/ }),
+    );
+    expect(
+      screen.queryByText(/Save the AGENTS\.md starter/),
+    ).not.toBeInTheDocument();
+    expect(screen.queryByText(/agent instructions/)).not.toBeInTheDocument();
+  });
+
   it("shows the station connection facts with a copyable URL", () => {
     renderGuide();
     expect(
@@ -93,7 +132,9 @@ describe("SandboxSetupGuide", () => {
   it("guides stack-less apps without a starter", () => {
     render(<SandboxSetupGuide app={stacklessApp} />);
     expect(screen.getByText(/Start from your own code/)).toBeInTheDocument();
-    expect(screen.getByText(/no stack commands/)).toBeInTheDocument();
+    // Both the ship-step copy and the embedded AGENTS.md starter degrade
+    // gracefully when the app has no stack commands.
+    expect(screen.getAllByText(/no stack commands/)).toHaveLength(2);
   });
 
   it("uses node-neutral FQDN copy for every node kind", () => {
