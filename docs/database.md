@@ -68,6 +68,17 @@ Rules:
 - Disjoint ownership: each migration file has exactly one owning
   change; parallel work must not edit the same migration.
 
+## Current migrations
+
+- `0001_tokens_apps` — `api_tokens` (id, name, token_hash, created_at,
+  last_used_at, revoked_at) and `api_apps` (slug, JSONB `data`).
+- `0002_auth_mail` — `auth_bootstrap` and `mail_account` (single-row),
+  `auth_otps` (email, code, expires_at, attempts) and
+  `auth_rate_limits` (rate_key, hit_at, indexed).
+- `0003_workspace` — `workspace_nodes`, `workspace_apps`,
+  `workspace_stacks`, `workspace_users` (JSONB documents) and
+  `workspace_kv` (settings, auth settings).
+
 ## Testing
 
 - Unit tests never need a live database: `vi.mock("@/lib/db")` the
