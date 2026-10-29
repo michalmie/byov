@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import { findAppEnv } from "@/lib/api-apps";
-import { requireApiAuth } from "@/lib/api-auth";
+import { apiDbError, requireApiAuth } from "@/lib/api-auth";
 import { apiError, apiOk } from "@/lib/api-response";
 
 /** One environment of one API-created app. */
@@ -13,7 +13,12 @@ export async function GET(
     return auth;
   }
   const { slug, env } = await context.params;
-  const found = findAppEnv(slug, env);
+  let found;
+  try {
+    found = await findAppEnv(slug, env);
+  } catch {
+    return apiDbError();
+  }
   if (!found) {
     return apiError(
       404,

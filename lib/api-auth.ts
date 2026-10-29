@@ -7,7 +7,7 @@
  * Token management additionally requires admin power: a token (all
  * slice-1 tokens are full-access) or an admin session.
  *
- * Node-only (token verification reads the data dir): never import from
+ * Node-only (token verification reads the database): never import from
  * `middleware.ts` (Edge) or client components.
  */
 
@@ -29,6 +29,14 @@ export interface ApiRequest extends CookieRequest {
   headers: { get(name: string): string | null };
 }
 
+/**
+ * Generic 500 body for database failures: the caller learns nothing
+ * about the internals.
+ */
+export function apiDbError(): NextResponse {
+  return apiError(500, "Something went wrong. Try again later.");
+}
+
 function bearerToken(request: ApiRequest): string | null {
   const header = request.headers.get("authorization");
   if (!header) {
@@ -39,8 +47,9 @@ function bearerToken(request: ApiRequest): string | null {
 }
 
 /**
- * Authenticate a `/api/v1/*` request: Bearer token first, then the
- * session cookie. Returns null when neither verifies.
+ * Authenticate a `/api/v1/*` request: Bearer [REDACTED] first, then the
+ * session cookie. Returns null when neither verifies. Throws when the
+ * token lookup itself fails (database down) — callers map that to a 500.
  */
 export async function authenticateApiRequest(
   request: ApiRequest,
@@ -56,22 +65,33 @@ export async function authenticateApiRequest(
     : null;
 }
 
-/** Authenticated caller, or a 401 response. */
+/** Authenticated caller, a 401 response, or a 500 when the DB is down. */
 export async function requireApiAuth(
   request: ApiRequest,
 ): Promise<ApiAuth | NextResponse> {
-  const auth = await authenticateApiRequest(request);
+  let auth: ApiAuth | null;
+  try {
+    auth = await authenticateApiRequest(request);
+  } catch {
+    return apiDbError();
+  }
   return auth ?? apiUnauthorized();
 }
 
 /**
  * Token-management power: any valid token, or an admin session.
- * Answers 401 when signed out, 403 for a non-admin session.
+ * Answers 401 when signed out, 403 for a non-admin session, 500 when
+ * the DB is down.
  */
 export async function requireTokenManager(
   request: ApiRequest,
 ): Promise<ApiAuth | NextResponse> {
-  const auth = await authenticateApiRequest(request);
+  let auth: ApiAuth | null;
+  try {
+    auth = await authenticateApiRequest(request);
+  } catch {
+    return apiDbError();
+  }
   if (!auth) {
     return apiUnauthorized();
   }
