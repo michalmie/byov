@@ -122,11 +122,12 @@ export function Sidebar({
       }`}
       style={{ borderColor: "var(--color-rail-line)" }}
     >
-      <div className="px-1">
+      <div className="flex justify-center px-1">
         <Link
           href="/"
           onClick={onClose}
-          className="inline-flex w-full max-w-[140px]"
+          aria-label="BYOV home"
+          className="inline-flex w-full max-w-[96px] justify-center"
         >
           <Logo className="h-auto w-full rounded-[10px]" />
         </Link>
