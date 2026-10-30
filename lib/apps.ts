@@ -221,7 +221,7 @@ function parseEnvs(value: unknown): AppEnvironment[] | undefined {
     if (!isRecord(entry)) {
       return undefined;
     }
-    const { name, node, status, url } = entry;
+    const { name, node, status, url, providerId } = entry;
     if (
       typeof name !== "string" ||
       !name ||
@@ -237,6 +237,9 @@ function parseEnvs(value: unknown): AppEnvironment[] | undefined {
       node,
       status: status as Health,
       ...(typeof url === "string" && url ? { url } : {}),
+      ...(typeof providerId === "string" && providerId
+        ? { providerId }
+        : {}),
     });
   }
   return envs;

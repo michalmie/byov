@@ -19,6 +19,8 @@ export interface AppEnvironment {
   status: Health;
   /** Explicit URL; when blank the dev-URL contract generates one. */
   url?: string;
+  /** Provider-side application id (Coolify uuid) once provisioned. */
+  providerId?: string;
 }
 
 export interface Deployment {

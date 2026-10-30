@@ -506,10 +506,11 @@ export function SandboxSetupGuide({ app }: { app: App }) {
               className="max-w-[70ch] text-sm"
               style={{ color: "var(--color-ink-2)" }}
             >
-              Keep the gates green, then point the app at its Sandbox URL.
-              Set the app&apos;s FQDN on its node to the URL below — the node
-              provisions TLS from there. The Sandbox is yours to break:
-              iterate here, then promote to staging or production.
+              Keep the gates green, then deploy from the environment card
+              below — BYOV provisions the app on its node and points its
+              FQDN at the Sandbox URL (the node provisions TLS from there).
+              The Sandbox is yours to break: iterate here, then promote to
+              staging or production.
             </p>
             {gates ? (
               <div className="max-w-2xl">

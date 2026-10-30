@@ -24,6 +24,7 @@ export function EnvironmentCard({
   lastDeploy,
   checksPassing,
   checksTotal,
+  actions,
 }: {
   env: AppEnvironment;
   urlNote?: string;
@@ -32,6 +33,7 @@ export function EnvironmentCard({
   lastDeploy?: Deployment;
   checksPassing: number;
   checksTotal: number;
+  actions?: React.ReactNode;
 }) {
   const checksOk = checksPassing === checksTotal;
   return (
@@ -48,6 +50,7 @@ export function EnvironmentCard({
             label={deployLabel[lastDeploy.status]}
           />
         )}
+        {actions && <span className="ml-auto">{actions}</span>}
       </div>
       <p className="mono text-xs" style={{ color: "var(--color-muted)" }}>
         {env.node}

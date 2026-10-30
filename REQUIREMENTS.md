@@ -389,8 +389,9 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
 # → 200; calls with the revoked token answer 401 from then on
 ```
 
-- Still open (later slices): node adapter and Coolify writes, repo
-  and webhook wiring, MCP server/CLI, scoped tokens, token UI pages.
+- Still open (later slices): repo and webhook wiring, MCP
+  server/CLI, scoped tokens, token UI pages. (Node adapter and
+  Coolify writes landed — see Cell slice 2 below.)
 
 ### Unified app store (Cell enabler, built)
 
@@ -410,6 +411,32 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
 - Migration `0004_unify_apps` backfills any `api_apps`-only rows
   into `workspace_apps` (`ON CONFLICT DO NOTHING` — workspace rows
   win). `api_apps` is retained for rollback but no longer written.
+
+### Cell (slice 2: Coolify node adapter + deploy, built)
+
+- Adapter (`lib/coolify-adapter.ts`): create application, set FQDN,
+  deploy, read status, read logs against a Coolify node's endpoint.
+  Fetch is injectable for offline unit tests. Tokens come from the
+  server environment only (`COOLIFY_API_TOKEN`, per-node
+  `COOLIFY_TOKEN_<SLUG>` override) and never enter Postgres or the
+  browser. Provider statuses map onto BYOV health
+  (`coolifyStatusToHealth`).
+- Orchestration (`lib/deploy.ts`): resolves the env URL via
+  `lib/dev-urls`, provisions or reuses the Coolify application
+  (uuid persisted as `AppEnvironment.providerId`), points its FQDN
+  at that URL, triggers the deploy, and records a `Deployment` row
+  plus `deploying` env status on the unified store. First success
+  flips a Pending workspace node to healthy
+  (`touchWorkspaceNode`). Vercel nodes, missing endpoints and
+  missing tokens fail with actionable errors.
+- API: `POST /api/v1/apps/[slug]/envs/[env]/deploy` (202),
+  `GET .../status`, `GET .../logs` — token or session auth via
+  `requireApiAuth`; the actor lands on the deployment row.
+- UI: every environment card carries a Deploy button; the Sandbox
+  guide ship step now describes deploy-from-card instead of manual
+  FQDN wiring. Live verification against a real Coolify instance
+  (create → deploy → Sandbox URL serves the app) remains the
+  acceptance spike — sandbox tests use a fake provider.
 
 ### Database (first slice)
 
