@@ -59,6 +59,7 @@ import {
   type User,
   type UserRole,
 } from "@/lib/users";
+import { recordEvent } from "@/lib/events";
 
 interface DocRow {
   data: unknown;
@@ -315,6 +316,11 @@ export async function createWorkspaceApp(
     }
     throw error;
   }
+  await recordEvent({
+    actor: "BYOV",
+    text: `registered ${app.name} with a Sandbox environment`,
+    appSlug: app.slug,
+  });
   return { ok: true, app };
 }
 

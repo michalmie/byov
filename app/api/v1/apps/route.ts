@@ -38,6 +38,8 @@ export async function POST(request: NextRequest) {
     description?: unknown;
     stack?: unknown;
     node?: unknown;
+    repoUrl?: unknown;
+    branch?: unknown;
   };
   let result;
   try {
@@ -47,6 +49,8 @@ export async function POST(request: NextRequest) {
       description: input.description,
       stack: input.stack,
       node: input.node,
+      repoUrl: input.repoUrl,
+      branch: input.branch,
     });
   } catch {
     return apiDbError();
