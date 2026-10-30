@@ -15,7 +15,10 @@ describe("Sidebar header", () => {
     const { container } = render(<Sidebar open={true} onClose={() => {}} />);
     const headerLink = container.querySelector('a[href="/"]');
     expect(headerLink).not.toBeNull();
-    expect(headerLink?.getAttribute("class")).toContain("max-w-[140px]");
+    expect(headerLink?.getAttribute("class")).toContain("max-w-[96px]");
+    expect(headerLink?.parentElement?.getAttribute("class")).toContain(
+      "justify-center",
+    );
     const img = headerLink?.querySelector("img");
     expect(img).not.toBeNull();
     expect(img?.getAttribute("alt")).toBe("BYOV");
