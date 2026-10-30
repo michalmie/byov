@@ -157,6 +157,16 @@ export function NodeCard({
           </dd>
         </div>
         <div>
+          <dt className="text-[13px] font-medium">API token</dt>
+          <dd className="text-sm" style={{ color: "var(--color-ink-2)" }}>
+            {node.kind === "Coolify"
+              ? node.hasApiToken
+                ? "Saved"
+                : "Missing — Manage to add"
+              : "Managed by provider"}
+          </dd>
+        </div>
+        <div>
           <dt className="text-[13px] font-medium">Environments</dt>
           <dd
             className="text-sm"

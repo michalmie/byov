@@ -268,6 +268,11 @@ export function useManagedNodes() {
         name: draft.name.trim(),
         kind: draft.kind,
         location: draft.location.trim(),
+        hasApiToken: (draft.apiToken ?? "").trim()
+          ? true
+          : draft.clearApiToken
+            ? false
+            : target.hasApiToken,
       };
       if (endpoint) {
         updated.endpoint = endpoint;

@@ -18,6 +18,8 @@ const blankDraft: NodeDraft = {
   endpoint: "",
   domainZone: "",
   tailnetHost: "",
+  apiToken: "",
+  clearApiToken: false,
 };
 
 export default function SettingsNodes() {
@@ -144,6 +146,10 @@ export default function SettingsNodes() {
                 contacts it — no passing test is needed to save.
               </li>
               <li>
+                Paste its Coolify API token (Manage the node → Coolify API
+                token) and run Test token — deploys need it.
+              </li>
+              <li>
                 Set its zone (Manage the node) and add the wildcard DNS
                 record in DNS setup below.
               </li>
@@ -168,7 +174,11 @@ export default function SettingsNodes() {
               endpoint: editingNode.endpoint ?? "",
               domainZone: editingNode.domainZone ?? "",
               tailnetHost: editingNode.tailnetHost ?? "",
+              apiToken: "",
+              clearApiToken: false,
             }}
+            savedToken={Boolean(editingNode.hasApiToken)}
+            nodeSlug={editingNode.slug}
             submitLabel="Save node"
             onSubmit={(draft) => {
               const errors = updateNode(editingNode.slug, draft);

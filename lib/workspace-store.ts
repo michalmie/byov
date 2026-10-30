@@ -60,6 +60,11 @@ import {
   type UserRole,
 } from "@/lib/users";
 import { recordEvent } from "@/lib/events";
+import {
+  deleteNodeToken,
+  listTokenSlugs,
+  saveNodeToken,
+} from "@/lib/node-credentials";
 
 interface DocRow {
   data: unknown;
@@ -67,12 +72,27 @@ interface DocRow {
 
 // --- Managed nodes -------------------------------------------------------
 
+/** Attach server-side `hasApiToken` flags (tokens never serialize). */
+async function withTokenFlags(nodes: Node[]): Promise<Node[]> {
+  if (nodes.length === 0) {
+    return nodes;
+  }
+  const slugs = await listTokenSlugs();
+  if (slugs.size === 0) {
+    return nodes;
+  }
+  return nodes.map((node) =>
+    slugs.has(node.slug) ? { ...node, hasApiToken: true } : node,
+  );
+}
+
 /** Every workspace node, ordered by slug. Empty until nodes are created. */
 export async function listWorkspaceNodes(): Promise<Node[]> {
   const rows = await query<DocRow>(
     "SELECT data FROM workspace_nodes ORDER BY slug ASC",
   );
-  return parseStoredNodes(rows.map((row) => row.data)) ?? [];
+  const nodes = parseStoredNodes(rows.map((row) => row.data)) ?? [];
+  return withTokenFlags(nodes);
 }
 
 export type NodeWriteResult =
@@ -102,7 +122,12 @@ export async function createWorkspaceNode(
     node.slug,
     JSON.stringify(node),
   ]);
-  return { ok: true, node };
+  const apiToken = (draft.apiToken ?? "").trim();
+  if (apiToken) {
+    await saveNodeToken(node.slug, apiToken);
+  }
+  const [enriched] = await withTokenFlags([node]);
+  return { ok: true, node: enriched ?? node };
 }
 
 /** Validate and replace by slug; the slug never changes. */
@@ -143,11 +168,19 @@ export async function updateWorkspaceNode(
   } else {
     delete updated.tailnetHost;
   }
+  delete updated.hasApiToken;
   await query(
     "UPDATE workspace_nodes SET data = $1, updated_at = now() WHERE slug = $2",
     [JSON.stringify(updated), slug],
   );
-  return { ok: true, node: updated };
+  const apiToken = (draft.apiToken ?? "").trim();
+  if (apiToken) {
+    await saveNodeToken(slug, apiToken);
+  } else if (draft.clearApiToken) {
+    await deleteNodeToken(slug).catch(() => undefined);
+  }
+  const [enriched] = await withTokenFlags([updated]);
+  return { ok: true, node: enriched ?? updated };
 }
 
 /** Mark a workspace node healthy after first adapter contact. */
@@ -177,6 +210,7 @@ export async function deleteWorkspaceNode(
     return { ok: false, error: result.reason, usage: result.usage };
   }
   await query("DELETE FROM workspace_nodes WHERE slug = $1", [slug]);
+  await deleteNodeToken(slug).catch(() => undefined);
   return { ok: true };
 }
 

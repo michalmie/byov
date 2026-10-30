@@ -210,6 +210,51 @@ export async function getApplicationLogs(
   return JSON.stringify(res.body ?? "");
 }
 
+export interface CoolifyVerifyResult {
+  ok: boolean;
+  status: number;
+  detail: string;
+}
+
+/**
+ * Verify endpoint + token with one authenticated read. 2xx means the
+ * token works; 401/403 means Coolify rejected it; anything else is
+ * reported plainly without leaking the token.
+ */
+export async function verifyCoolifyConnection(
+  endpoint: string,
+  token: string,
+  deps: CoolifyDeps = liveDeps,
+): Promise<CoolifyVerifyResult> {
+  try {
+    const res = await deps.fetchJson(`${baseUrl(endpoint)}/api/v1/applications`, {
+      method: "GET",
+      token,
+    });
+    if (res.status >= 200 && res.status < 300) {
+      return { ok: true, status: res.status, detail: "Coolify accepted the API token." };
+    }
+    if (res.status === 401 || res.status === 403) {
+      return {
+        ok: false,
+        status: res.status,
+        detail: "Coolify rejected the API token — create a new token in Coolify and paste it again.",
+      };
+    }
+    return {
+      ok: false,
+      status: res.status,
+      detail: `Coolify answered HTTP ${res.status} — check the endpoint URL.`,
+    };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      detail: error instanceof Error ? error.message : "Could not reach Coolify.",
+    };
+  }
+}
+
 /** Map a Coolify application status onto BYOV health. */
 export function coolifyStatusToHealth(status: string | undefined): Health {
   const s = (status ?? "").toLowerCase();

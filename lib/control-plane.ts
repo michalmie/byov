@@ -70,6 +70,8 @@ export interface Node {
   domainZone?: string;
   /** Machine name as known on the tailnet; blank until configured. */
   tailnetHost?: string;
+  /** True when a provider API token is saved server-side (never the token). */
+  hasApiToken?: boolean;
 }
 
 export interface ActivityItem {
