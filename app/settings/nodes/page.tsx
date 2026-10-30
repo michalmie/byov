@@ -23,14 +23,12 @@ const blankDraft: NodeDraft = {
 };
 
 export default function SettingsNodes() {
-  const { nodes, createNode, updateNode, deleteNode, resetNodes } =
-    useManagedNodes();
+  const { nodes, createNode, updateNode, deleteNode } = useManagedNodes();
   const { settings } = useWorkspaceSettings();
   const { apps } = useManagedApps();
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [confirmingRemove, setConfirmingRemove] = useState<string | null>(null);
-  const [confirmReset, setConfirmReset] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [nextStepsFor, setNextStepsFor] = useState<string | null>(null);
 
@@ -62,40 +60,6 @@ export default function SettingsNodes() {
             until the control plane contacts them; a node with pinned
             environments cannot be removed.
           </p>
-          <div className="mt-4 flex flex-wrap gap-3">
-            {confirmReset ? (
-              <>
-                <button
-                  type="button"
-                  className="btn-danger px-3 py-1.5 text-[13px]"
-                  onClick={() => {
-                    resetNodes();
-                    closePanels();
-                    setConfirmReset(false);
-                    setNotice("Nodes are back to sample data.");
-                    setNextStepsFor(null);
-                  }}
-                >
-                  Confirm reset
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost px-3 py-1.5 text-[13px]"
-                  onClick={() => setConfirmReset(false)}
-                >
-                  Keep
-                </button>
-              </>
-            ) : (
-              <button
-                type="button"
-                className="btn-ghost px-3 py-1.5 text-[13px]"
-                onClick={() => setConfirmReset(true)}
-              >
-                Reset to sample data
-              </button>
-            )}
-          </div>
         </div>
 
         {notice && (
