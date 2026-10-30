@@ -252,10 +252,12 @@ export function SandboxSetupGuide({ app }: { app: App }) {
             >
               Point your station at the Sandbox URL below: it is where your
               code runs — the node FQDN, your API base, and your webhook
-              target all use it. There is no BYOV client, MCP endpoint, or
-              connect script yet — one-command setup from your coding tool
-              is on the roadmap. Until then the loop is manual: build
-              locally, keep the gates green, deploy to the node.
+              target all use it. Connect once from your coding tool: create
+              a scoped token in Settings → API tokens, then point your
+              agent at the BYOV MCP server (<span className="mono">mcp/byov-mcp.mjs</span>)
+              or use the <span className="mono">byov</span> CLI with
+              BYOV_URL + BYOV_TOKEN set. From there the loop is: prompt,
+              push through the gates, deploy, open the Sandbox URL.
             </p>
             <dl
               className="mono grid max-w-2xl gap-1 text-[13px]"
