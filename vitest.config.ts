@@ -12,6 +12,7 @@ export default defineConfig({
     globals: true,
     setupFiles: ["./vitest.setup.ts"],
     // Agent worktrees hold stale checkouts of this same suite; never run those copies.
-    exclude: [...defaultExclude, ".ai/**"],
+    // The standalone build copies the project (tests included) into .next; never run those copies either.
+    exclude: [...defaultExclude, ".ai/**", ".next/**"],
   },
 });

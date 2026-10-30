@@ -72,16 +72,15 @@ export default function NewApp() {
             Apps
           </Link>
           <h1 className="mt-2 text-xl font-semibold tracking-tight">
-            New app
+            Create an app
           </h1>
           <p
             className="mt-2 max-w-[65ch] text-sm"
             style={{ color: "var(--color-muted)" }}
           >
-            Register a vibe-coded app with the control plane. Pick a stack
-            and the node hosting the Sandbox — checks and the Sandbox
-            environment come along automatically, and the app page then
-            guides you from scaffold to first deploy.
+            How do you want to start? Pick a way in, fill the essentials —
+            the Sandbox, governed checks and repo come along automatically,
+            and the app page guides you from scaffold to first deploy.
           </p>
         </div>
 
