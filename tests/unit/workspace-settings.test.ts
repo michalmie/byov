@@ -164,7 +164,7 @@ async function sessionRequest(
   const session = await createSession({
     email: "ada@example.com",
     provider: "passwordless",
-    role: "member",
+    role: "admin",
   });
   return new NextRequest(url, {
     method: init.method ?? "GET",
@@ -185,7 +185,7 @@ describe("workspace settings API", () => {
     });
   });
 
-  it("reads and writes settings for any session", async () => {
+  it("reads and writes settings for admins", async () => {
     const before = await settingsGet(
       await sessionRequest("http://localhost/api/workspace/settings"),
     );

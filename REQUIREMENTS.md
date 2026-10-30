@@ -301,8 +301,8 @@ Local bootstrap runbook:
   (falls back to env, then console).
 - OTP codes and rate limits live in Postgres (`auth_otps`,
   `auth_rate_limits`, atomic attempt counting); `id_token`
-  signatures are not yet verified against provider JWKS (TLS +
-  PKCE-bound exchange for now).
+  signatures are verified against provider JWKS (RS256, cached
+  key sets) in `resolveOAuthIdentity` — see Enterprise hardening.
 - Standalone public `/login` page (no shell): one email request sends
   the combined code + link email, the code is entered here with resend
   cooldown, OAuth links for enabled providers, `?next=` deep-link
@@ -494,6 +494,28 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
 - Rollback: `POST .../envs/[env]/rollback {deploymentId?}`
   redeploys the provider app, records the rollback in the audit
   trail, and refuses unprovisioned envs or unknown deployments.
+
+### Enterprise hardening (built)
+
+- RBAC enforcement: workspace writes for nodes, stacks and
+  settings now require an admin session (`requireWorkspaceAdmin`);
+  reads stay session-level, and app creation stays open to members
+  (citizen developers). Users and auth settings were already
+  admin-only. Members get 403 with an actionable message.
+- Audit + SIEM: persisted events (slice 3) are exportable via
+  `GET /api/v1/audit` (token managers / admin sessions, newest
+  200) and stream to `BYOV_SIEM_WEBHOOK_URL` when set — every
+  recorded event POSTs as JSON (`{source:"byov", …}`); delivery is
+  best-effort and the Postgres row remains the record.
+- OIDC hardening: `lib/jwks.ts` verifies `id_token` RS256
+  signatures against the issuer JWKS (Google/Apple/Entra URLs,
+  `kid` selection, hourly cache, fail-closed). `resolveOAuthIdentity`
+  requires claims + signature before minting a session; GitHub
+  keeps its verified-email API flow.
+- Still open for a full enterprise launch: SCIM/group sync,
+  promotion approvals (Sandbox → production), preview SSO,
+  vault-grade secret encryption, and an isolated server-side
+  check runner. These are tracked decisions, not silent gaps.
 
 ### Database (first slice)
 

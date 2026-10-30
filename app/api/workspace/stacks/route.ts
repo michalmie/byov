@@ -8,6 +8,7 @@ import type { StackDraft, StackLayer } from "@/lib/stacks";
 import {
   isAuthFailure,
   readJsonBody,
+  requireWorkspaceAdmin,
   requireWorkspaceSession,
 } from "../_lib";
 
@@ -46,7 +47,7 @@ export async function GET(request: NextRequest) {
 
 /** Define a workspace stack; checks keep the five governed gates. */
 export async function POST(request: NextRequest) {
-  const auth = await requireWorkspaceSession(request);
+  const auth = await requireWorkspaceAdmin(request);
   if (isAuthFailure(auth)) {
     return auth;
   }
