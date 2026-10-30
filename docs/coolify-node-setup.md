@@ -54,7 +54,9 @@ for the exact endpoint and token you entered:
 1. Press **Test** and confirm DNS, TLS, and HTTP all answer.
 2. Press **Test token** and confirm **Token OK**. This makes one
    authenticated read from the BYOV server, so it proves the
-   token works from where deploys will run.
+   token works from where deploys will run. For an existing node,
+   a passing test is first contact: **Pending flips to healthy
+   right away**, no deploy needed.
 3. Press **Add node**. Changing the endpoint or token after a
    passing test means testing again.
 
@@ -76,8 +78,8 @@ Sandbox URLs look like `https://{app}-sandbox.{zone}`:
 1. Register an app in **Apps → New app** and pin its Sandbox to
    this node.
 2. Open the app and press **Deploy** on the Sandbox card.
-3. The node flips from **Pending** to healthy on first successful
-   contact, and the Sandbox URL opens the app.
+3. The Sandbox URL opens the app (the node is already healthy
+   from its passing token test, or flips on this deploy).
 
 ## If the test fails
 
