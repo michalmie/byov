@@ -354,11 +354,10 @@ function emailIsVerified(value: unknown): boolean {
  * Verify an `id_token`'s audience/issuer/expiry/nonce claims and extract the
  * verified identity.
  *
- * The signature itself is NOT verified against the provider JWKS here: the
- * token arrives over TLS directly from the token endpoint in exchange for a
- * PKCE-bound authorization code, which already authenticates it to this
- * client. FOLLOW-UP: verify id_token signatures against the provider JWKS
- * (with key rotation + caching) as a hardening slice.
+ * Signature verification lives in `resolveOAuthIdentity`, which
+ * additionally requires `verifyIdTokenSignature` (lib/jwks.ts) to
+ * pass against the issuer's published keys before any identity is
+ * trusted. This function alone checks claims only.
  */
 export function verifyIdToken(
   id: Exclude<OAuthProviderId, "github">,
@@ -492,7 +491,14 @@ export async function resolveOAuthIdentity(
     return verifyGitHubIdentity(tokens.accessToken);
   }
   if (!tokens.idToken) return null;
-  return verifyIdToken(id, tokens.idToken, opts);
+  const identity = verifyIdToken(id, tokens.idToken, opts);
+  if (!identity) return null;
+  // Hardening: the issuer's signature must verify against its JWKS.
+  // Claims arrived over TLS from the token endpoint, but a stolen
+  // code must not mint a session with a forged token.
+  const { verifyIdTokenSignature } = await import("./jwks");
+  if (!(await verifyIdTokenSignature(tokens.idToken))) return null;
+  return identity;
 }
 
 /* ------------------------------------------------------------------ */

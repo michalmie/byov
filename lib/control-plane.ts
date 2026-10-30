@@ -19,6 +19,10 @@ export interface AppEnvironment {
   status: Health;
   /** Explicit URL; when blank the dev-URL contract generates one. */
   url?: string;
+  /** Provider-side application id (Coolify uuid) once provisioned. */
+  providerId?: string;
+  /** Per-env variables/secrets, pushed to the provider on deploy. */
+  envVars?: Record<string, string>;
 }
 
 export interface Deployment {
@@ -37,6 +41,10 @@ export interface App {
   checks: Check[];
   envs: AppEnvironment[];
   deployments: Deployment[];
+  /** Linked source repository (https or git URL); blank until linked. */
+  repoUrl?: string;
+  /** Branch the pipeline watches; defaults to the provider default. */
+  branch?: string;
 }
 
 /** How a node serves environment URLs. */
@@ -306,6 +314,7 @@ export interface AppSection {
 /** Anchor sections of the app detail page (level-2 navigation). */
 export const appSections: AppSection[] = [
   { id: "overview", label: "Overview" },
+  { id: "agent-prompt", label: "Agent instructions" },
   { id: "environments", label: "Environments" },
   { id: "deployments", label: "Deployments" },
   { id: "checks", label: "Checks" },

@@ -226,7 +226,7 @@ export default function SettingsDns() {
                   challenge).
                 </>,
                 <>
-                  Set each app&apos;s Coolify FQDN to the URL the control
+                  Set each app&apos;s FQDN on its node to the URL the control
                   plane shows, then Test from the Nodes rows.
                 </>,
               ]}

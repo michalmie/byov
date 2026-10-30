@@ -3,6 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { notFound, useRouter } from "next/navigation";
+import { AgentsPromptCard } from "@/components/agents-prompt-card";
 import { AppSubnav } from "@/components/app-subnav";
 import { AppScenarioControl } from "@/components/app-scenario-control";
 import { HealthPill, SectionHead, StatStrip, StatusPill } from "@/components/data-ui";
@@ -103,6 +104,9 @@ export function AppDetailView({ slug }: { slug: string }) {
           >
             {app.description}
           </p>
+          <p className="mono mt-2 text-[13px]" style={{ color: "var(--color-muted)" }}>
+            Repo: {app.repoUrl ? `${app.repoUrl}${app.branch ? ` (${app.branch})` : ""}` : "not linked — POST /api/v1/apps/" + app.slug + "/repo"}
+          </p>
         </div>
 
         <PageTabs sections={appSections} />
@@ -128,6 +132,8 @@ export function AppDetailView({ slug }: { slug: string }) {
         </div>
 
         {needsSandboxSetup(app) && <SandboxSetupGuide app={app} />}
+
+        <AgentsPromptCard app={app} />
 
         <section
           id="environments"

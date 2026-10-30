@@ -8,6 +8,7 @@ import { useManagedApps } from "@/lib/apps-store";
 import { resolveEnvUrl } from "@/lib/dev-urls";
 import { useWorkspaceSettings } from "@/lib/settings-store";
 import { useManagedStacks } from "@/lib/stack-store";
+import { buildAgentsPrompt } from "@/lib/agents-prompt";
 
 type GuideMode = "agent" | "mycode" | "aicode";
 
@@ -64,10 +65,12 @@ function CommandBlock({
   title,
   command,
   extra,
+  scroll,
 }: {
   title: string;
   command: string;
   extra?: React.ReactNode;
+  scroll?: boolean;
 }) {
   return (
     <div
@@ -86,7 +89,13 @@ function CommandBlock({
           <CopyButton text={command} label={title} />
         </span>
       </div>
-      <pre className="mono overflow-x-auto px-3 py-2.5 text-[13px]">
+      <pre
+        className={
+          scroll
+            ? "mono max-h-96 overflow-auto px-3 py-2.5 text-[13px]"
+            : "mono overflow-x-auto px-3 py-2.5 text-[13px]"
+        }
+      >
         {command}
       </pre>
     </div>
@@ -138,6 +147,12 @@ export function SandboxSetupGuide({ app }: { app: App }) {
     AGENTS.find((entry) => entry.id === agent)?.command ?? "claude";
   const hasStarter = Boolean(stack || app.stack);
   const repoWords = hasStarter ? "the scaffolded repo" : "your repo";
+  const agentsPrompt = buildAgentsPrompt({
+    app,
+    stack,
+    nodeName,
+    sandboxUrl: resolved.url,
+  });
 
   return (
     <section
@@ -236,11 +251,13 @@ export function SandboxSetupGuide({ app }: { app: App }) {
               style={{ color: "var(--color-ink-2)" }}
             >
               Point your station at the Sandbox URL below: it is where your
-              code runs — the Coolify FQDN, your API base, and your webhook
-              target all use it. There is no BYOV client, MCP endpoint, or
-              connect script yet — one-command setup from your coding tool
-              is on the roadmap. Until then the loop is manual: build
-              locally, keep the gates green, deploy to the node.
+              code runs — the node FQDN, your API base, and your webhook
+              target all use it. Connect once from your coding tool: create
+              a scoped token in Settings → API tokens, then point your
+              agent at the BYOV MCP server (<span className="mono">mcp/byov-mcp.mjs</span>)
+              or use the <span className="mono">byov</span> CLI with
+              BYOV_URL + BYOV_TOKEN set. From there the loop is: prompt,
+              push through the gates, deploy, open the Sandbox URL.
             </p>
             <dl
               className="mono grid max-w-2xl gap-1 text-[13px]"
@@ -337,6 +354,35 @@ export function SandboxSetupGuide({ app }: { app: App }) {
                   style={{ color: "var(--color-ink-2)" }}
                 >
                   03
+                </span>
+                Save the AGENTS.md starter
+              </p>
+              <p
+                className="max-w-[70ch] text-sm"
+                style={{ color: "var(--color-ink-2)" }}
+              >
+                Save this file as <span className="mono">AGENTS.md</span> in
+                the repo root before starting the agent — it teaches the agent
+                your app, the BYOV harness, the gates, and the house rules.
+              </p>
+              <div className="max-w-2xl">
+                <CommandBlock
+                  title="AGENTS.md"
+                  command={agentsPrompt}
+                  scroll
+                />
+              </div>
+            </li>
+          )}
+
+          {mode === "agent" && (
+            <li className="grid gap-2">
+              <p className="font-semibold">
+                <span
+                  className="mono mr-2 text-sm"
+                  style={{ color: "var(--color-ink-2)" }}
+                >
+                  04
                 </span>
                 Start the Coding Agent
               </p>
@@ -454,7 +500,7 @@ export function SandboxSetupGuide({ app }: { app: App }) {
                 className="mono mr-2 text-sm"
                 style={{ color: "var(--color-ink-2)" }}
               >
-                04
+                {mode === "agent" ? "05" : "04"}
               </span>
               Ship to the Sandbox
             </p>
@@ -462,10 +508,11 @@ export function SandboxSetupGuide({ app }: { app: App }) {
               className="max-w-[70ch] text-sm"
               style={{ color: "var(--color-ink-2)" }}
             >
-              Keep the gates green, then point the app at its Sandbox URL.
-              Set the app&apos;s Coolify FQDN to the URL below — Coolify
-              provisions TLS from there. The Sandbox is yours to break:
-              iterate here, then promote to staging or production.
+              Keep the gates green, then deploy from the environment card
+              below — BYOV provisions the app on its node and points its
+              FQDN at the Sandbox URL (the node provisions TLS from there).
+              The Sandbox is yours to break: iterate here, then promote to
+              staging or production.
             </p>
             {gates ? (
               <div className="max-w-2xl">

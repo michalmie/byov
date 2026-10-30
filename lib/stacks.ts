@@ -116,7 +116,7 @@ export const STACK_STORAGE_KEY = "byov:stacks:v1";
 export const LEGACY_TEMPLATE_STORAGE_KEY = "byov:templates:v1";
 
 /** Node kinds a stack may target; ids match the manifest contract. */
-export const SUPPORTED_STACK_NODE_KINDS = ["coolify"] as const;
+export const SUPPORTED_STACK_NODE_KINDS = ["coolify", "vercel"] as const;
 
 export const STACK_STATUSES: readonly StackStatus[] = [
   "draft",

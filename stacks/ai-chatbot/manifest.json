@@ -37,7 +37,7 @@
     { "name": "DLP scan", "command": "BYOV gate", "cadence": "Every change" },
     { "name": "Dependency audit", "command": "BYOV gate", "cadence": "Nightly" }
   ],
-  "nodes": ["coolify"],
+  "nodes": ["coolify", "vercel"],
   "scaffold": [
     {
       "title": "Create the app from the blueprint",

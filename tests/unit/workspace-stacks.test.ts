@@ -166,6 +166,26 @@ describe("workspace stacks store", () => {
     expect(result.stack.starter.ref).toBe("custom:htmx-service");
   });
 
+  it("creates a stack targeting vercel nodes", async () => {
+    const result = await createWorkspaceStack(draft({ nodes: ["vercel"] }));
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.stack.nodes).toEqual(["vercel"]);
+  });
+
+  it("rejects unknown node kinds and lists the supported ones", async () => {
+    const result = await createWorkspaceStack(
+      draft({ nodes: ["kubernetes"] }),
+    );
+    expect(result.ok).toBe(false);
+    if (result.ok) {
+      return;
+    }
+    expect(result.errors.nodes).toBe("Supported node kinds: coolify, vercel.");
+  });
+
   it("never updates or deletes shipped stacks", async () => {
     await expect(
       updateWorkspaceStack(SHIPPED_SLUG, draft()),
@@ -196,7 +216,7 @@ async function sessionRequest(
   const session = await createSession({
     email: "ada@example.com",
     provider: "passwordless",
-    role: "member",
+    role: "admin",
   });
   return new NextRequest(url, {
     method: init.method ?? "GET",
@@ -217,7 +237,7 @@ describe("workspace stacks API", () => {
     expect(response.status).toBe(401);
   });
 
-  it("creates, updates and deletes customs for any session", async () => {
+  it("creates, updates and deletes customs for admins", async () => {
     const created = await stacksPost(
       await sessionRequest("http://localhost/api/workspace/stacks", {
         method: "POST",

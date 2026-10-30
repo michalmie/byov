@@ -4,6 +4,7 @@ import type { Deployment, AppEnvironment } from "@/lib/control-plane";
 import { useManagedApps } from "@/lib/apps-store";
 import { isDomainZone, isTestablePort, resolveEnvUrl } from "@/lib/dev-urls";
 import { useWorkspaceSettings } from "@/lib/settings-store";
+import { DeployButton } from "./deploy-button";
 import { EnvironmentCard } from "./environment-card";
 
 /** Test target for a resolved URL, or undefined when untestable. */
@@ -65,6 +66,8 @@ export function ManagedEnvironmentCard({
       lastDeploy={lastDeploy}
       checksPassing={checksPassing}
       checksTotal={checksTotal}
+      actions={<DeployButton appSlug={appSlug} envName={env.name} />}
+      varKeys={Object.keys(env.envVars ?? {}).sort()}
     />
   );
 }

@@ -110,7 +110,13 @@ async function fakeQuery(
     }
     return [];
   }
-  if (text.includes("FROM api_apps") && text.startsWith("SELECT")) {
+  if (
+    text.includes("FROM workspace_nodes") ||
+    text.includes("FROM workspace_stacks")
+  ) {
+    return [];
+  }
+  if (text.includes("FROM workspace_apps") && text.startsWith("SELECT")) {
     if (text.includes("WHERE slug = $1")) {
       const entry = apps.get(String(params[0]));
       // Mirror `pg`: the JSONB document arrives parsed.
@@ -124,19 +130,19 @@ async function fakeQuery(
         : [];
     }
     return [...apps.values()]
-      .sort((a, b) => a.seq - b.seq || a.app.slug.localeCompare(b.app.slug))
+      .sort((a, b) => a.app.slug.localeCompare(b.app.slug))
       .map((entry) => ({
         slug: entry.app.slug,
         data: JSON.parse(JSON.stringify(entry.app)),
       }));
   }
-  if (text.startsWith("INSERT INTO api_apps")) {
+  if (text.startsWith("INSERT INTO workspace_apps")) {
     const [slug, json] = params as [string, string];
     nextSeq += 1;
     apps.set(slug, { app: JSON.parse(json) as App, seq: nextSeq });
     return [];
   }
-  if (text.startsWith("UPDATE api_apps SET data")) {
+  if (text.startsWith("UPDATE workspace_apps SET data")) {
     const [json, slug] = params as [string, string];
     const entry = apps.get(slug);
     if (entry) {

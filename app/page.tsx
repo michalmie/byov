@@ -6,13 +6,10 @@ import { HealthPill, SectionHead, StatStrip } from "@/components/data-ui";
 import { ArrowRightIcon } from "@/components/icons";
 import { ControlPlaneShell } from "@/components/shell";
 import type { Health } from "@/lib/control-plane";
-import {
-  appHealth,
-  fleetSummaryFor,
-  recentActivity,
-} from "@/lib/control-plane";
+import { appHealth, fleetSummaryFor } from "@/lib/control-plane";
 import { useManagedApps } from "@/lib/apps-store";
 import { useManagedNodes } from "@/lib/settings-store";
+import { useActivity } from "@/lib/use-activity";
 
 const nodeDot: Record<Health, string> = {
   healthy: "var(--color-ok)",
@@ -26,7 +23,7 @@ export default function Dashboard() {
   const { apps } = useManagedApps();
   const { nodes } = useManagedNodes();
   const summary = fleetSummaryFor(apps, nodes);
-  const activity = recentActivity();
+  const activity = useActivity();
 
   return (
     <ControlPlaneShell crumb="Dashboard">
@@ -157,7 +154,7 @@ export default function Dashboard() {
             <div id="nodes-heading">
               <SectionHead
                 title="Nodes"
-                lede="Where apps land. The first fleet is self-hosted Coolify."
+                lede="Where apps land. The first fleet is self-hosted Coolify and Vercel cloud projects."
               />
             </div>
             <ul className="grid">

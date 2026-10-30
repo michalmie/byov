@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="public/byov-octopus.jpg" alt="BYOV mascot — a pink DJ octopus in sunglasses and headphones" width="180" />
+<img src="public/brand/byov-logo-stacked-1536x1024.png" alt="BYOV" width="420" />
 
 # BYOV — Bring Your Own Vibe
 
@@ -50,7 +50,7 @@ Employees keep their flow. Admins keep control. Everybody wins.
 | | What | Why it matters |
 |---|---|---|
 | 🎛️ | **Control Plane** — one UI for apps, environments, deployments | Every vibe-coded app, visible and manageable |
-| 🖥️ | **Nodes** — admin-approved deployment targets (self-hosted Coolify first) | Apps land only where they're allowed to |
+| 🖥️ | **Nodes** — admin-approved deployment targets (self-hosted Coolify or Vercel cloud) | Apps land only where they're allowed to |
 | 🔌 | **Client** — connect straight from Muse, Codex, Claude & co. | Zero-friction path from prompt to production |
 | 🧩 | **Tech stacks** — paved-road starters with gates built in | Start compliant on the BYOV stack; more stacks later |
 | ✅ | **Required checks** — unit tests, lint, builds, DLP scan, dependency audit | Nothing ships without passing the gates |
@@ -92,7 +92,7 @@ flowchart LR
     Client["🔌 BYOV Client"]
     CP["🎛️ Control Plane<br/>apps · envs · deploys<br/>security · DLP · SIEM · audit · RBAC"]
     NodeA["🖥️ Node: frankfurt-01<br/>(Coolify)"]
-    NodeB["🖥️ Node: qa-lab-01<br/>(Coolify)"]
+    NodeB["🖥️ Node: cloud-01<br/>(Vercel)"]
 
     Dev -->|build & connect| Client
     Client -->|ship through gates ✅| CP
@@ -101,7 +101,7 @@ flowchart LR
 ```
 
 - **Control Plane** — the central UI: create apps, manage environments, deploy, enforce security, DLP, SIEM, audit trails, and RBAC.
-- **Nodes** — deployment targets. Admins decide where apps go and in which environments. First supported type: **self-hosted Coolify**.
+- **Nodes** — deployment targets. Admins decide where apps go and in which environments. Supported types: **self-hosted Coolify** and **Vercel** (cloud).
 - **Client** — how an employee connects an app directly from their coding tool.
 
 Health rolls up honestly: an env that's `down` sinks the app; a failed check or `degraded` env flags attention; `deploying` shows motion. See [`appHealth()`](lib/control-plane.ts) — pinned by unit tests.
@@ -150,7 +150,7 @@ npm run build       # production build
 | Language | [TypeScript 5](https://www.typescriptlang.org/) (strict) |
 | Database | [Postgres](https://www.postgresql.org/) (required, via `DATABASE_URL`) |
 | Tests | [Vitest 4](https://vitest.dev/) + Testing Library |
-| First node type | [Coolify](https://coolify.io/) (self-hosted) |
+| Node types | [Coolify](https://coolify.io/) (self-hosted), [Vercel](https://vercel.com/) (cloud) |
 
 Project layout:
 
@@ -176,6 +176,7 @@ deploy/         # deployment & preview adapters
 - [ ] Preview URLs per branch with SSO protection
 - [ ] Auth, RBAC, and audit trails
 - [ ] DLP + SIEM integrations
+- [x] Vercel as a node type alongside Coolify
 - [ ] More node types (Kubernetes, …?)
 
 Have an opinion on what lands next? [Open an issue](https://github.com/michalmie/byov/issues) — we'd love to hear it.

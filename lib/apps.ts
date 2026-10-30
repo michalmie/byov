@@ -36,9 +36,20 @@ export interface AppDraft {
   stack: string;
   /** Node slug the Sandbox environment pins to. */
   node: string;
+  /** Optional source repository to link at creation. */
+  repoUrl?: string;
+  /** Optional watched branch for the linked repo. */
+  branch?: string;
 }
 
-export type AppField = "name" | "slug" | "description" | "stack" | "node";
+export type AppField =
+  | "name"
+  | "slug"
+  | "description"
+  | "stack"
+  | "node"
+  | "repoUrl"
+  | "branch";
 export type AppFieldErrors = Partial<Record<AppField, string>>;
 
 export function slugifyAppName(name: string): string {
@@ -121,7 +132,28 @@ export function validateAppDraft(
     errors.node = "Choose one of the known nodes.";
   }
 
+  const repoUrl = (draft.repoUrl ?? "").trim();
+  if (repoUrl && !isRepoUrl(repoUrl)) {
+    errors.repoUrl = "Enter an https or git repository URL.";
+  }
+  const branch = (draft.branch ?? "").trim();
+  if (branch && !/^[A-Za-z0-9._/-]+$/.test(branch)) {
+    errors.branch = "Enter a branch name, e.g. main.";
+  }
+
   return errors;
+}
+
+/** True for an https/git repository URL the pipeline can watch. */
+export function isRepoUrl(value: string): boolean {
+  const v = value.trim();
+  if (/^git@[^:]+:.+/.test(v)) return true;
+  try {
+    const url = new URL(v);
+    return url.protocol === "https:" || url.protocol === "http:" || url.protocol === "git:";
+  } catch {
+    return false;
+  }
 }
 
 /** The five governed gates, green until the first run proves otherwise. */
@@ -143,6 +175,8 @@ export function sandboxEnv(nodeSlug: string): AppEnvironment {
 /** Build a validated draft into a workspace app. */
 export function buildApp(draft: AppDraft, existing: readonly App[]): App {
   const explicitSlug = draft.slug.trim();
+  const repoUrl = (draft.repoUrl ?? "").trim();
+  const branch = (draft.branch ?? "").trim();
   return {
     slug: explicitSlug
       ? explicitSlug
@@ -156,6 +190,8 @@ export function buildApp(draft: AppDraft, existing: readonly App[]): App {
     checks: standardNewAppChecks(),
     envs: [sandboxEnv(draft.node)],
     deployments: [],
+    ...(repoUrl ? { repoUrl } : {}),
+    ...(branch ? { branch } : {}),
   };
 }
 
@@ -221,7 +257,7 @@ function parseEnvs(value: unknown): AppEnvironment[] | undefined {
     if (!isRecord(entry)) {
       return undefined;
     }
-    const { name, node, status, url } = entry;
+    const { name, node, status, url, providerId, envVars } = entry;
     if (
       typeof name !== "string" ||
       !name ||
@@ -232,11 +268,21 @@ function parseEnvs(value: unknown): AppEnvironment[] | undefined {
     ) {
       return undefined;
     }
+    const parsedVars: Record<string, string> = {};
+    if (isRecord(envVars)) {
+      for (const [k, v] of Object.entries(envVars)) {
+        if (typeof v === "string") parsedVars[k] = v;
+      }
+    }
     envs.push({
       name,
       node,
       status: status as Health,
       ...(typeof url === "string" && url ? { url } : {}),
+      ...(typeof providerId === "string" && providerId
+        ? { providerId }
+        : {}),
+      ...(Object.keys(parsedVars).length > 0 ? { envVars: parsedVars } : {}),
     });
   }
   return envs;
@@ -285,7 +331,7 @@ export function parseStoredApps(value: unknown): App[] | undefined {
     if (!isRecord(entry)) {
       continue;
     }
-    const { slug, name, stack, description, checks, envs, deployments } = entry;
+    const { slug, name, stack, description, checks, envs, deployments, repoUrl, branch } = entry;
     if (
       typeof slug !== "string" ||
       !slug ||
@@ -310,6 +356,8 @@ export function parseStoredApps(value: unknown): App[] | undefined {
       checks: parsedChecks,
       envs: parsedEnvs,
       deployments: parsedDeployments,
+      ...(typeof repoUrl === "string" && repoUrl ? { repoUrl } : {}),
+      ...(typeof branch === "string" && branch ? { branch } : {}),
     });
   }
   return apps;

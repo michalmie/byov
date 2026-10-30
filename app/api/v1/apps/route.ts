@@ -1,11 +1,11 @@
 import type { NextRequest } from "next/server";
 import { createApiApp, listApiApps } from "@/lib/api-apps";
-import { apiDbError, requireApiAuth } from "@/lib/api-auth";
+import { apiDbError, requireScope } from "@/lib/api-auth";
 import { apiBadJson, apiError, apiOk } from "@/lib/api-response";
 
 /** Every app created over the API, oldest first. */
 export async function GET(request: NextRequest) {
-  const auth = await requireApiAuth(request);
+  const auth = await requireScope(request, "apps:read");
   if (auth instanceof Response) {
     return auth;
   }
@@ -22,7 +22,7 @@ export async function GET(request: NextRequest) {
  * environment on the chosen node.
  */
 export async function POST(request: NextRequest) {
-  const auth = await requireApiAuth(request);
+  const auth = await requireScope(request, "apps:write");
   if (auth instanceof Response) {
     return auth;
   }
@@ -38,6 +38,8 @@ export async function POST(request: NextRequest) {
     description?: unknown;
     stack?: unknown;
     node?: unknown;
+    repoUrl?: unknown;
+    branch?: unknown;
   };
   let result;
   try {
@@ -47,6 +49,8 @@ export async function POST(request: NextRequest) {
       description: input.description,
       stack: input.stack,
       node: input.node,
+      repoUrl: input.repoUrl,
+      branch: input.branch,
     });
   } catch {
     return apiDbError();

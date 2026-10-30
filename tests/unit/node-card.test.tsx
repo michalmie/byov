@@ -45,6 +45,33 @@ describe("NodeCard", () => {
     expect(screen.queryByText("Default")).not.toBeInTheDocument();
   });
 
+  it("renders the Vercel blurb for Vercel nodes", () => {
+    const vercelNode: Node = {
+      slug: "vercel-main",
+      name: "vercel-main",
+      kind: "Vercel",
+      location: "Acme team",
+      status: "pending",
+      endpoint: "https://vercel.com/team/project",
+    };
+    render(
+      <NodeCard
+        node={vercelNode}
+        isDefault={false}
+        usage={[]}
+        removeState="ready"
+        {...callbacks()}
+      />,
+    );
+    expect(screen.getByText("Vercel")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Provision and deploy applications through Vercel cloud projects.",
+      ),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Pending")).toBeInTheDocument();
+  });
+
   it("marks the default node", () => {
     render(
       <NodeCard

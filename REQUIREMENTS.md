@@ -237,6 +237,31 @@ Local bootstrap runbook:
   adapter lands. The adapter roadmap item stays open: verification is
   not deploying.
 
+### Nodes (third slice): Vercel
+
+- Vercel is a second node kind alongside Coolify: the stack kind id is
+  `vercel` (lowercase, in `SUPPORTED_STACK_NODE_KINDS` and the
+  per-manifest `nodes` arrays) and the node kind display is `Vercel`.
+- Add node is a guided Vercel onboarding flow (see
+  `docs/vercel-node.md`): Vercel account and team, project imported
+  from the app repo, production URL noted, custom domain via the node
+  zone, then register in Settings → Nodes with the same optional
+  fields as Coolify (endpoint, domain zone, tailnet machine name —
+  left empty, since tailnet URLs need a machine on your tailnet).
+- Pending-until-contact semantics match Coolify: new Vercel nodes
+  start Pending, probes are advisory-only and never block saving, and
+  Pending tracks adapter contact, not reachability.
+- The Type picker leads the Add/Edit node form and a per-kind setup
+  checklist renders directly beneath it, so the instructions always
+  match the selected kind (Coolify keeps its server checklist).
+- Stack targeting: `byov-stack`, `ai-chatbot` and `vite-spa` target
+  both `coolify` and `vercel` (Next.js and static builds fit Vercel);
+  `fastapi-service` stays on `coolify` only — a long-running Python
+  service does not fit Vercel serverless.
+- URL resolution is unchanged: envs on a Vercel node resolve to
+  `https://{app}-{env}.{node-zone}` under the serving node's zone,
+  with the custom domain added on the Vercel project.
+
 ### Auth (first slice)
 
 - Every route requires a session except `/login`, `/auth/*`,
@@ -276,8 +301,8 @@ Local bootstrap runbook:
   (falls back to env, then console).
 - OTP codes and rate limits live in Postgres (`auth_otps`,
   `auth_rate_limits`, atomic attempt counting); `id_token`
-  signatures are not yet verified against provider JWKS (TLS +
-  PKCE-bound exchange for now).
+  signatures are verified against provider JWKS (RS256, cached
+  key sets) in `resolveOAuthIdentity` — see Enterprise hardening.
 - Standalone public `/login` page (no shell): one email request sends
   the combined code + link email, the code is entered here with resend
   cooldown, OAuth links for enabled providers, `?next=` deep-link
@@ -324,10 +349,12 @@ Local bootstrap runbook:
 - Apps and environments (`lib/api-apps.ts`): `GET/POST /api/v1/apps`,
   `GET /api/v1/apps/[slug]`, `GET/POST /api/v1/apps/[slug]/envs`,
   `GET /api/v1/apps/[slug]/envs/[env]`. Validation mirrors the
-  browser new-app flow (names, slugs, known stacks from the shipped
-  catalog, known nodes); every app starts with one Pending `sandbox`
-  env. State persists as JSONB documents in Postgres (`api_apps`).
-  The API serves only API-created apps — sample apps stay a UI concern.
+  browser new-app flow (names, slugs, known stacks and nodes from
+  the shipped catalog plus workspace definitions); every app starts
+  with one Pending `sandbox` env. State persists as JSONB documents
+  in Postgres (`workspace_apps`, the unified store — see below).
+  The API serves persisted apps from either creation surface —
+  sample apps stay a UI concern.
 - Envelope: success is `{ ok: true, data }`; every error is
   `{ ok: false, error }` with an optional per-field `errors` map
   (401 unauthenticated, 403 member managing tokens, 404 unknown
@@ -362,14 +389,140 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
 # → 200; calls with the revoked token answer 401 from then on
 ```
 
-- Still open (later slices): node adapter and Coolify writes, repo
-  and webhook wiring, MCP server/CLI, scoped tokens, token UI pages.
+- Still open (later slices): repo and webhook wiring, MCP
+  server/CLI, scoped tokens, token UI pages. (Node adapter and
+  Coolify writes landed — see Cell slice 2 below.)
+
+### Unified app store (Cell enabler, built)
+
+- `workspace_apps` is the single source of truth for persisted apps.
+  Browser creates (`/api/workspace/apps`) and machine-API creates
+  (`/api/v1/apps`) read and write the same rows, so an app appears
+  on both surfaces immediately; env mutations via `/api/v1` are
+  visible in the UI and vice versa. Sample apps remain UI fixtures
+  and are never persisted or served by any API.
+- Validation is unified in `lib/workspace-store.ts`
+  (`createWorkspaceApp`): names/slugs clash against samples plus
+  persisted apps, and Sandbox nodes/stacks may be shipped or
+  workspace-defined. `lib/api-apps.ts` is a thin `/api/v1` facade
+  over that store (same field errors, env rules, Pending Sandbox).
+  Concurrent-create slug races return the validation error instead
+  of throwing, on both surfaces.
+- Migration `0004_unify_apps` backfills any `api_apps`-only rows
+  into `workspace_apps` (`ON CONFLICT DO NOTHING` — workspace rows
+  win). `api_apps` is retained for rollback but no longer written.
+
+### Cell (slice 2: Coolify node adapter + deploy, built)
+
+- Adapter (`lib/coolify-adapter.ts`): create application, set FQDN,
+  deploy, read status, read logs against a Coolify node's endpoint.
+  Fetch is injectable for offline unit tests. Tokens come from the
+  server environment only (`COOLIFY_API_TOKEN`, per-node
+  `COOLIFY_TOKEN_<SLUG>` override) and never enter Postgres or the
+  browser. Provider statuses map onto BYOV health
+  (`coolifyStatusToHealth`).
+- Orchestration (`lib/deploy.ts`): resolves the env URL via
+  `lib/dev-urls`, provisions or reuses the Coolify application
+  (uuid persisted as `AppEnvironment.providerId`), points its FQDN
+  at that URL, triggers the deploy, and records a `Deployment` row
+  plus `deploying` env status on the unified store. First success
+  flips a Pending workspace node to healthy
+  (`touchWorkspaceNode`). Vercel nodes, missing endpoints and
+  missing tokens fail with actionable errors.
+- API: `POST /api/v1/apps/[slug]/envs/[env]/deploy` (202),
+  `GET .../status`, `GET .../logs` — token or session auth via
+  `requireApiAuth`; the actor lands on the deployment row.
+- UI: every environment card carries a Deploy button; the Sandbox
+  guide ship step now describes deploy-from-card instead of manual
+  FQDN wiring. Live verification against a real Coolify instance
+  (create → deploy → Sandbox URL serves the app) remains the
+  acceptance spike — sandbox tests use a fake provider.
+
+### Cell (slice 3: repo + webhook pipeline + audit events, built)
+
+- Repo linkage: apps carry optional `repoUrl`/`branch` (create via
+  either API surface, or `POST /api/v1/apps/[slug]/repo`). The app
+  page shows the link state. Validation accepts https/git URLs.
+- Gates (`lib/gates.ts`): DLP scan runs server-side over pushed
+  file contents (private keys, cloud/GitHub tokens, secret
+  assignments, committed `.env` files) and never echoes values.
+  Unit tests / Lint / Production build / Dependency audit are
+  attested per check name by the reporter (connector/CI); missing
+  or failed attestation fails closed. Fresh results persist on the
+  app — checks are no longer static green labels.
+- Pipeline (`lib/pipeline.ts` + `POST /api/v1/apps/[slug]/webhook`,
+  token/session or `x-byov-webhook-secret`): evaluates gates,
+  persists them, deploys the target env (default `sandbox`) only
+  on full pass via the slice-2 adapter.
+- Audit/activity: migration `0005_events` + `lib/events.ts`.
+  App registration, gate pass/block and deploys record persisted
+  events; `GET /api/workspace/activity` serves them and the
+  dashboard + `/activity` prefer them over the sample feed once
+  any exist. Isolated server-side check runner (checkout + exec)
+  remains a follow-up — reporters attest command gates today.
+
+### Cell (slice 4: CLI + MCP connector + scoped tokens, built)
+
+- Scoped tokens (migration `0006_token_scopes`): tokens carry
+  `apps:read` / `apps:write` / `tokens:manage`; `/api/v1` app reads
+  need `apps:read`, writes/deploys/webhooks need `apps:write`, and
+  token management needs `tokens:manage` (or an admin session).
+  Pre-scope tokens (no scopes stored) keep full access so existing
+  connectors keep working. Settings → API tokens lists, creates
+  (secret shown once) and revokes tokens.
+- Connector core (`lib/cli-core.ts`, `lib/mcp-tools.ts`): typed
+  `/api/v1` client plus CLI commands (apps, create, link, deploy,
+  status, logs) and five MCP tools (list/create/deploy/status/
+  logs), all unit-tested with a fake fetch.
+- Entries with no new dependencies: `cli/byov.mjs` (BYOV_URL +
+  BYOV_TOKEN) and `mcp/byov-mcp.mjs` (stdio JSON-RPC; one-snippet
+  agent config in its header). The Sandbox guide connect step now
+  describes this one-time setup instead of a manual loop.
+
+### Cell (slice 5: vars, previews, rollback, built)
+
+- Per-env vars/secrets (`AppEnvironment.envVars`, `lib/cell.ts`):
+  `GET .../envs/[env]/vars` returns keys with masked values only;
+  `PUT` replaces the set (validated names). Deploys push vars to
+  the provider (`setApplicationEnvVars`) before triggering. Env
+  cards list var keys, never values. Values persist in the app
+  document — vault/KMS encryption remains a hardening follow-up.
+- Previews: `POST /api/v1/apps/[slug]/previews {branch}` creates
+  (or redeploys) a `preview-<branch>` env on the Sandbox node and
+  deploys it; URLs resolve through the same dev-URL contract.
+  Preview SSO protection rides the enterprise-hardening slice.
+- Rollback: `POST .../envs/[env]/rollback {deploymentId?}`
+  redeploys the provider app, records the rollback in the audit
+  trail, and refuses unprovisioned envs or unknown deployments.
+
+### Enterprise hardening (built)
+
+- RBAC enforcement: workspace writes for nodes, stacks and
+  settings now require an admin session (`requireWorkspaceAdmin`);
+  reads stay session-level, and app creation stays open to members
+  (citizen developers). Users and auth settings were already
+  admin-only. Members get 403 with an actionable message.
+- Audit + SIEM: persisted events (slice 3) are exportable via
+  `GET /api/v1/audit` (token managers / admin sessions, newest
+  200) and stream to `BYOV_SIEM_WEBHOOK_URL` when set — every
+  recorded event POSTs as JSON (`{source:"byov", …}`); delivery is
+  best-effort and the Postgres row remains the record.
+- OIDC hardening: `lib/jwks.ts` verifies `id_token` RS256
+  signatures against the issuer JWKS (Google/Apple/Entra URLs,
+  `kid` selection, hourly cache, fail-closed). `resolveOAuthIdentity`
+  requires claims + signature before minting a session; GitHub
+  keeps its verified-email API flow.
+- Still open for a full enterprise launch: SCIM/group sync,
+  promotion approvals (Sandbox → production), preview SSO,
+  vault-grade secret encryption, and an isolated server-side
+  check runner. These are tracked decisions, not silent gaps.
 
 ### Database (first slice)
 
 - All Control Plane server state lives in Postgres: API tokens
-  (`api_tokens`), machine-API apps (`api_apps`, one JSONB document per
-  app), the auth bootstrap claim (`auth_bootstrap`, single row), the
+  (`api_tokens`), persisted apps (`workspace_apps`, one JSONB
+  document per app; `api_apps` is the pre-unification table kept
+  for rollback), the auth bootstrap claim (`auth_bootstrap`, single row), the
   saved mail account (`mail_account`, single row), OTP codes
   (`auth_otps`) and rate-limit hits (`auth_rate_limits`), plus
   workspace state (nodes, apps, stacks, users as JSONB documents;

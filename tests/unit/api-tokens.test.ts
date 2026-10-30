@@ -288,7 +288,7 @@ describe("token store robustness", () => {
     expect(JSON.stringify(listed)).not.toContain("tokenHash");
     for (const info of listed) {
       expect(Object.keys(info).sort()).toEqual(
-        ["createdAt", "id", "lastUsedAt", "name", "revokedAt"].sort(),
+        ["createdAt", "id", "lastUsedAt", "name", "revokedAt", "scopes"].sort(),
       );
     }
   });

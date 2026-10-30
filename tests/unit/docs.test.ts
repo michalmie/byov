@@ -5,6 +5,7 @@ import {
   getAdjacentGuides,
   getGuideBySlug,
   isOAuthProvider,
+  loadGuide,
   parseFrontmatter,
   renderInline,
   renderMarkdown,
@@ -23,6 +24,7 @@ describe("docs registry", () => {
       "/docs/oauth/github",
       "/docs/oauth/google",
       "/docs/oauth/apple",
+      "/docs/agents-prompt",
     ]);
   });
 
@@ -36,12 +38,16 @@ describe("docs registry", () => {
       "docs/oauth/github.md",
       "docs/oauth/google.md",
       "docs/oauth/apple.md",
+      "docs/agents-prompt.md",
     ]);
   });
 
   it("resolves guides by slug and rejects unknown slugs", () => {
     expect(getGuideBySlug(["oauth", "github"])?.href).toBe(
       "/docs/oauth/github",
+    );
+    expect(getGuideBySlug(["agents-prompt"])?.href).toBe(
+      "/docs/agents-prompt",
     );
     expect(getGuideBySlug(["oauth", "okta"])).toBeNull();
   });
@@ -56,7 +62,21 @@ describe("docs registry", () => {
     expect(prev?.href).toBe("/docs/oauth/entra");
     expect(next?.href).toBe("/docs/oauth/google");
     expect(getAdjacentGuides("/docs/oauth").prev).toBeNull();
-    expect(getAdjacentGuides("/docs/oauth/apple").next).toBeNull();
+    expect(getAdjacentGuides("/docs/oauth/apple").next?.href).toBe(
+      "/docs/agents-prompt",
+    );
+    expect(getAdjacentGuides("/docs/agents-prompt").prev?.href).toBe(
+      "/docs/oauth/apple",
+    );
+    expect(getAdjacentGuides("/docs/agents-prompt").next).toBeNull();
+  });
+
+  it("loads the agents-prompt guide from disk", () => {
+    const meta = getGuideBySlug(["agents-prompt"])!;
+    const doc = loadGuide(meta);
+    expect(doc.missing).toBe(false);
+    expect(doc.title).toBe("Per-app AGENTS.md prompt");
+    expect(doc.html).toContain('<h2 id="what-it-is">What it is</h2>');
   });
 });
 

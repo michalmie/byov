@@ -8,6 +8,7 @@ import type { WorkspaceSettings } from "@/lib/settings";
 import {
   isAuthFailure,
   readJsonBody,
+  requireWorkspaceAdmin,
   requireWorkspaceSession,
 } from "../_lib";
 
@@ -41,7 +42,7 @@ export async function GET(request: NextRequest) {
 
 /** Replace the workspace settings. */
 export async function PUT(request: NextRequest) {
-  const auth = await requireWorkspaceSession(request);
+  const auth = await requireWorkspaceAdmin(request);
   if (isAuthFailure(auth)) {
     return auth;
   }

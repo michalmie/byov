@@ -18,6 +18,7 @@
 
 import { query, queryOne } from "@/lib/db";
 import "@/db/migrations/0001_tokens_apps";
+import "@/db/migrations/0006_token_scopes";
 
 /** `byov_` + 12-char id + 32-char secret. */
 export const TOKEN_PREFIX = "byov_";
@@ -26,6 +27,10 @@ const TOKEN_SECRET_BYTES = 24;
 const ID_ALPHABET = "abcdefghijklmnopqrstuvwxyz0123456789";
 
 export const MAX_TOKEN_NAME = 60;
+
+/** Every scope a token can carry. */
+export const TOKEN_SCOPES = ["apps:read", "apps:write", "tokens:manage"] as const;
+export type TokenScope = (typeof TOKEN_SCOPES)[number];
 
 /** A stored token record. `tokenHash` is SHA-256 hex of the full token. */
 export interface ApiTokenRecord {
@@ -37,6 +42,8 @@ export interface ApiTokenRecord {
   lastUsedAt: string | null;
   /** ISO timestamp once revoked; null while active. */
   revokedAt: string | null;
+  /** Granted scopes; empty means a legacy full-access token. */
+  scopes: TokenScope[];
 }
 
 /** Token metadata safe to expose over the API (no hash, no secret). */
@@ -46,6 +53,7 @@ export interface ApiTokenInfo {
   createdAt: string;
   lastUsedAt: string | null;
   revokedAt: string | null;
+  scopes: TokenScope[];
 }
 
 export function tokenRecordToInfo(record: ApiTokenRecord): ApiTokenInfo {
@@ -55,7 +63,35 @@ export function tokenRecordToInfo(record: ApiTokenRecord): ApiTokenInfo {
     createdAt: record.createdAt,
     lastUsedAt: record.lastUsedAt,
     revokedAt: record.revokedAt,
+    scopes: record.scopes,
   };
+}
+
+/** True when the token may use `scope` (legacy tokens allow all). */
+export function tokenHasScope(info: ApiTokenInfo, scope: TokenScope): boolean {
+  return info.scopes.length === 0 || info.scopes.includes(scope);
+}
+
+/** Normalize requested scopes; null input means full access. */
+export function validateScopes(
+  value: unknown,
+): { ok: true; scopes: TokenScope[] } | { ok: false; error: string } {
+  if (value === undefined || value === null) {
+    return { ok: true, scopes: [...TOKEN_SCOPES] };
+  }
+  if (!Array.isArray(value) || value.length === 0) {
+    return { ok: false, error: "Choose at least one token scope." };
+  }
+  const scopes: TokenScope[] = [];
+  for (const entry of value) {
+    if (typeof entry !== "string" || !(TOKEN_SCOPES as readonly string[]).includes(entry)) {
+      return { ok: false, error: `Unknown token scope "${String(entry)}".` };
+    }
+    if (!scopes.includes(entry as TokenScope)) {
+      scopes.push(entry as TokenScope);
+    }
+  }
+  return { ok: true, scopes };
 }
 
 // ---------------------------------------------------------------------------
@@ -161,9 +197,10 @@ interface ApiTokenRow {
   createdAt: Date | string;
   lastUsedAt: Date | string | null;
   revokedAt: Date | string | null;
+  scopes?: string | null;
 }
 
-const TOKEN_COLUMNS = `id, name, token_hash AS "tokenHash", created_at AS "createdAt", last_used_at AS "lastUsedAt", revoked_at AS "revokedAt"`;
+const TOKEN_COLUMNS = `id, name, token_hash AS "tokenHash", created_at AS "createdAt", last_used_at AS "lastUsedAt", revoked_at AS "revokedAt", scopes`;
 
 function toIsoString(value: Date | string): string {
   return value instanceof Date ? value.toISOString() : new Date(value).toISOString();
@@ -171,6 +208,19 @@ function toIsoString(value: Date | string): string {
 
 function optionalIsoString(value: Date | string | null): string | null {
   return value === null ? null : toIsoString(value);
+}
+
+function parseScopes(raw: string | null | undefined): TokenScope[] {
+  if (!raw) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((s): s is TokenScope =>
+      typeof s === "string" && (TOKEN_SCOPES as readonly string[]).includes(s),
+    );
+  } catch {
+    return [];
+  }
 }
 
 function rowToRecord(row: ApiTokenRow): ApiTokenRecord {
@@ -181,6 +231,7 @@ function rowToRecord(row: ApiTokenRow): ApiTokenRecord {
     createdAt: toIsoString(row.createdAt),
     lastUsedAt: optionalIsoString(row.lastUsedAt),
     revokedAt: optionalIsoString(row.revokedAt),
+    scopes: parseScopes(row.scopes),
   };
 }
 
@@ -219,7 +270,10 @@ export async function listTokenInfos(): Promise<ApiTokenInfo[]> {
  * Issue a token: mint, store its hash, and return the metadata plus the
  * full secret. The secret is shown only here — it cannot be recovered.
  */
-export async function issueToken(name: string): Promise<{
+export async function issueToken(
+  name: string,
+  scopes: TokenScope[] = [...TOKEN_SCOPES],
+): Promise<{
   info: ApiTokenInfo;
   token: string;
 }> {
@@ -233,11 +287,12 @@ export async function issueToken(name: string): Promise<{
       createdAt: new Date().toISOString(),
       lastUsedAt: null,
       revokedAt: null,
+      scopes,
     };
     try {
       await query(
-        "INSERT INTO api_tokens (id, name, token_hash, created_at) VALUES ($1, $2, $3, $4)",
-        [record.id, record.name, record.tokenHash, record.createdAt],
+        "INSERT INTO api_tokens (id, name, token_hash, created_at, scopes) VALUES ($1, $2, $3, $4, $5)",
+        [record.id, record.name, record.tokenHash, record.createdAt, JSON.stringify(scopes)],
       );
     } catch (error) {
       // A minted id colliding with an existing row is vanishingly rare;

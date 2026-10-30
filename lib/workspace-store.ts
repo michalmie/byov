@@ -9,6 +9,7 @@
 // data stays UI-side (consulted only for referential checks).
 
 import "@/db/migrations/0003_workspace";
+import "@/db/migrations/0004_unify_apps";
 import { query, queryOne } from "@/lib/db";
 import type { App, Node } from "@/lib/control-plane";
 import { listApps, listNodes } from "@/lib/control-plane";
@@ -58,6 +59,7 @@ import {
   type User,
   type UserRole,
 } from "@/lib/users";
+import { recordEvent } from "@/lib/events";
 
 interface DocRow {
   data: unknown;
@@ -148,6 +150,19 @@ export async function updateWorkspaceNode(
   return { ok: true, node: updated };
 }
 
+/** Mark a workspace node healthy after first adapter contact. */
+export async function touchWorkspaceNode(slug: string): Promise<void> {
+  const nodes = await listWorkspaceNodes();
+  const target = nodes.find((node) => node.slug === slug);
+  if (!target || target.status !== "pending") {
+    return;
+  }
+  await query(
+    "UPDATE workspace_nodes SET data = $1, updated_at = now() WHERE slug = $2",
+    [JSON.stringify({ ...target, status: "healthy" }), slug],
+  );
+}
+
 /** Remove unless environments are pinned to the node. */
 export async function deleteWorkspaceNode(
   slug: string,
@@ -207,14 +222,50 @@ export async function saveWorkspaceSettings(
   return { ok: true, settings: next };
 }
 
-// --- Workspace apps ------------------------------------------------------
+// --- Workspace apps (single source of truth for every app) ---------------
+// `workspace_apps` is the canonical store: browser-created apps
+// (`/api/workspace/apps`) and machine-API apps (`/api/v1/apps`) read
+// and write the same rows, so an app is visible from both surfaces
+// the moment it is created. Sample apps stay UI-side fixtures and are
+// never persisted. Migration 0004 backfilled any `api_apps`-only rows.
 
-/** Every workspace app, ordered by slug. Samples stay UI-side. */
+/** Every persisted app, ordered by slug. Samples stay UI-side. */
 export async function listWorkspaceApps(): Promise<App[]> {
   const rows = await query<DocRow>(
     "SELECT data FROM workspace_apps ORDER BY slug ASC",
   );
   return parseStoredApps(rows.map((row) => row.data)) ?? [];
+}
+
+/** One persisted app by slug, or undefined. Corrupt rows miss cleanly. */
+export async function findWorkspaceApp(
+  slug: string,
+): Promise<App | undefined> {
+  const row = await queryOne<DocRow>(
+    "SELECT data FROM workspace_apps WHERE slug = $1",
+    [slug],
+  );
+  if (!row) {
+    return undefined;
+  }
+  return parseStoredApps([row.data])?.[0];
+}
+
+/** Replace the stored document for an existing app (env mutations). */
+export async function saveWorkspaceApp(app: App): Promise<void> {
+  await query(
+    "UPDATE workspace_apps SET data = $1, updated_at = now() WHERE slug = $2",
+    [JSON.stringify(app), app.slug],
+  );
+}
+
+function isUniqueViolation(error: unknown): boolean {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "code" in error &&
+    (error as { code?: unknown }).code === "23505"
+  );
 }
 
 export type AppWriteResult =
@@ -244,10 +295,32 @@ export async function createWorkspaceApp(
     return { ok: false, errors };
   }
   const app = buildApp(draft, existing);
-  await query("INSERT INTO workspace_apps (slug, data) VALUES ($1, $2)", [
-    app.slug,
-    JSON.stringify(app),
-  ]);
+  try {
+    await query("INSERT INTO workspace_apps (slug, data) VALUES ($1, $2)", [
+      app.slug,
+      JSON.stringify(app),
+    ]);
+  } catch (error) {
+    // Lost a race with a concurrent create for the same slug: report
+    // the conflict the same way validation does.
+    if (isUniqueViolation(error)) {
+      const raced = [...listApps(), ...(await listWorkspaceApps())];
+      const racedErrors = validateAppDraft(draft, raced, nodes, stacks.map((s) => s.slug));
+      return {
+        ok: false,
+        errors:
+          Object.keys(racedErrors).length > 0
+            ? racedErrors
+            : { slug: "An app with this slug already exists." },
+      };
+    }
+    throw error;
+  }
+  await recordEvent({
+    actor: "BYOV",
+    text: `registered ${app.name} with a Sandbox environment`,
+    appSlug: app.slug,
+  });
   return { ok: true, app };
 }
 

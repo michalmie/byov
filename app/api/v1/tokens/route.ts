@@ -5,6 +5,7 @@ import {
   hasAnyTokens,
   issueToken,
   listTokenInfos,
+  validateScopes,
   validateTokenName,
 } from "@/lib/api-tokens";
 
@@ -51,8 +52,12 @@ export async function POST(request: NextRequest) {
   if (nameError) {
     return apiError(400, nameError, { errors: { name: nameError } });
   }
+  const scopes = validateScopes((body as { scopes?: unknown } | null)?.scopes);
+  if (!scopes.ok) {
+    return apiError(400, scopes.error, { errors: { scopes: scopes.error } });
+  }
   try {
-    const { info, token } = await issueToken(name as string);
+    const { info, token } = await issueToken(name as string, scopes.scopes);
     return apiOk({ ...info, token }, 201);
   } catch {
     return apiDbError();

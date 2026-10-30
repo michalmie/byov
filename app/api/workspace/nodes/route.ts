@@ -8,6 +8,7 @@ import type { NodeDraft } from "@/lib/settings";
 import {
   isAuthFailure,
   readJsonBody,
+  requireWorkspaceAdmin,
   requireWorkspaceSession,
 } from "../_lib";
 
@@ -35,7 +36,7 @@ export async function GET(request: NextRequest) {
 
 /** Create a node: `{ name, kind, location, endpoint?, domainZone?, tailnetHost? }`. */
 export async function POST(request: NextRequest) {
-  const auth = await requireWorkspaceSession(request);
+  const auth = await requireWorkspaceAdmin(request);
   if (isAuthFailure(auth)) {
     return auth;
   }

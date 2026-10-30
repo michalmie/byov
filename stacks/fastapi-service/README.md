@@ -35,6 +35,7 @@ pytest && ruff check . && docker build .
 1. Register the app in the BYOV Control Plane.
 2. Connect from your coding tool (Muse, Codex, Claude).
 3. Deploy the container to an admin-approved node
-   (self-hosted Coolify first).
+   (self-hosted Coolify — a long-running service stays on Coolify,
+   not Vercel serverless).
 
 Keep the repo public-safe: no secrets, env values, logs or real data.

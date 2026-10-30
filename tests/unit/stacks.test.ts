@@ -13,6 +13,7 @@ import {
   replaceStack,
   slugifyStackName,
   standardStackChecks,
+  SUPPORTED_STACK_NODE_KINDS,
   uniqueStackSlug,
   validateStackDraft,
   type StackDraft,
@@ -366,6 +367,41 @@ describe("validateStackDraft", () => {
       validateStackDraft({ ...validDraft(), nodes: ["kubernetes"] }, existing)
         .nodes,
     ).toContain("coolify");
+  });
+
+  it("supports coolify and vercel node kinds", () => {
+    expect([...SUPPORTED_STACK_NODE_KINDS]).toEqual(["coolify", "vercel"]);
+  });
+
+  it("keeps the default draft on coolify", () => {
+    expect(defaultStackDraft().nodes).toEqual(["coolify"]);
+  });
+
+  it("accepts vercel node targets", () => {
+    expect(
+      validateStackDraft({ ...validDraft(), nodes: ["vercel"] }, existing)
+        .nodes,
+    ).toBeUndefined();
+    expect(
+      validateStackDraft(
+        { ...validDraft(), nodes: ["coolify", "vercel"] },
+        existing,
+      ).nodes,
+    ).toBeUndefined();
+  });
+
+  it("lists every supported node kind in the error", () => {
+    expect(
+      validateStackDraft({ ...validDraft(), nodes: ["kubernetes"] }, existing)
+        .nodes,
+    ).toBe("Supported node kinds: coolify, vercel.");
+  });
+
+  it("targets vercel from the Next.js and static stacks, coolify-only for Python", () => {
+    expect(getStack("byov-stack")!.nodes).toEqual(["coolify", "vercel"]);
+    expect(getStack("ai-chatbot")!.nodes).toEqual(["coolify", "vercel"]);
+    expect(getStack("vite-spa")!.nodes).toEqual(["coolify", "vercel"]);
+    expect(getStack("fastapi-service")!.nodes).toEqual(["coolify"]);
   });
 
   it("requires test, lint and build commands", () => {

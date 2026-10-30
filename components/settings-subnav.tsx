@@ -18,6 +18,7 @@ const sections = [
   { href: "/settings/dns", label: "DNS", icon: GlobeIcon },
   { href: "/settings/stacks", label: "Tech stacks", icon: LayersIcon },
   { href: "/settings/auth", label: "Auth", icon: ShieldCheckIcon },
+  { href: "/settings/tokens", label: "API tokens", icon: ShieldCheckIcon },
   { href: "/settings/users", label: "Users", icon: GridIcon },
   { href: "/settings/email", label: "Email", icon: BellIcon },
 ];
