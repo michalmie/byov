@@ -179,6 +179,18 @@ export function DocIcon({ className }: IconProps) {
   );
 }
 
+export function GitBranchIcon({ className }: IconProps) {
+  return (
+    <Base className={className}>
+      <circle cx="6" cy="6" r="2.2" />
+      <circle cx="6" cy="18" r="2.2" />
+      <circle cx="18" cy="8" r="2.2" />
+      <path d="M6 8.2v7.6" />
+      <path d="M18 10.2c0 3.5-4.5 3.3-7.5 4.8" />
+    </Base>
+  );
+}
+
 export function GlobeIcon({ className }: IconProps) {
   return (
     <Base className={className}>

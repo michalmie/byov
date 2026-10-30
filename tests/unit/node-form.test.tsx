@@ -74,6 +74,55 @@ describe("NodeForm", () => {
     ).toBeInTheDocument();
   });
 
+  it("gates creation on a passing token test for the exact endpoint + token", async () => {
+    const fetchMock = vi.fn(async () => ({
+      ok: true,
+      status: 200,
+      json: async () => ({
+        ok: true,
+        data: { ok: true, detail: "Coolify accepted the API token." },
+      }),
+    }));
+    vi.stubGlobal("fetch", fetchMock);
+    const onSubmit = vi.fn(() => null);
+    render(
+      <NodeForm
+        formId="gated-node"
+        heading="Add node"
+        lede="Register a deployment target."
+        initial={{
+          ...COOLIFY_DRAFT,
+          name: "Contabo",
+          location: "Munchen",
+          endpoint: "https://panel.example.com",
+          apiToken: "token-123",
+        }}
+        requireConnectionTest
+        submitLabel="Add node"
+        onSubmit={onSubmit}
+        onCancel={vi.fn()}
+      />,
+    );
+    const submit = screen.getByRole("button", { name: "Add node" });
+    expect(submit).toBeDisabled();
+    fireEvent.submit(submit.closest("form")!);
+    expect(onSubmit).not.toHaveBeenCalled();
+    expect(screen.getByText(/Test the connection first/)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Test token" }));
+    expect(await screen.findByText("Token OK")).toBeInTheDocument();
+    expect(submit).not.toBeDisabled();
+    fireEvent.click(submit);
+    expect(onSubmit).toHaveBeenCalledOnce();
+
+    // Editing the token after a pass revokes the verification.
+    fireEvent.change(screen.getByLabelText(/Coolify API token/), {
+      target: { value: "other-token" },
+    });
+    expect(submit).toBeDisabled();
+    vi.unstubAllGlobals();
+  });
+
   it("submits the draft and surfaces returned errors", () => {
     const onSubmit = vi.fn(() => ({ name: "Give the node a name." }));
     render(

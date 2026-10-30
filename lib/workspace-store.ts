@@ -59,6 +59,14 @@ import {
   type User,
   type UserRole,
 } from "@/lib/users";
+import {
+  defaultSourceControlSettings,
+  normalizeSourceControlSettings,
+  parseStoredSourceControlSettings,
+  validateSourceControlSettings,
+  type SourceControlFieldErrors,
+  type SourceControlSettings,
+} from "@/lib/source-control";
 import { recordEvent } from "@/lib/events";
 import {
   deleteNodeToken,
@@ -558,6 +566,43 @@ export async function getWorkspaceAuthSettings(): Promise<AuthSettings> {
 export type AuthSettingsWriteResult =
   | { ok: true; settings: AuthSettings }
   | { ok: false; errors: AuthSettingsFieldErrors };
+
+export type SourceControlWriteResult =
+  | { ok: true; settings: SourceControlSettings }
+  | { ok: false; errors: SourceControlFieldErrors };
+
+// --- Source control (singleton) ------------------------------------------
+
+const SOURCE_CONTROL_KEY = "source_control";
+
+/** Stored source-control settings, or the defaults when nothing is saved yet. */
+export async function getWorkspaceSourceControlSettings(): Promise<SourceControlSettings> {
+  const row = await queryOne<DocRow>(
+    "SELECT data FROM workspace_kv WHERE key = $1",
+    [SOURCE_CONTROL_KEY],
+  );
+  if (!row) {
+    return defaultSourceControlSettings();
+  }
+  return parseStoredSourceControlSettings(row.data);
+}
+
+/** Validate, normalize, and save the GitHub connection + repo taxonomy. */
+export async function saveWorkspaceSourceControlSettings(
+  draft: SourceControlSettings,
+): Promise<SourceControlWriteResult> {
+  const errors = validateSourceControlSettings(draft);
+  if (Object.keys(errors).length > 0) {
+    return { ok: false, errors };
+  }
+  const next = normalizeSourceControlSettings(draft);
+  await query(
+    `INSERT INTO workspace_kv (key, data) VALUES ($1, $2)
+     ON CONFLICT (key) DO UPDATE SET data = EXCLUDED.data, updated_at = now()`,
+    [SOURCE_CONTROL_KEY, JSON.stringify(next)],
+  );
+  return { ok: true, settings: next };
+}
 
 /** Validate, normalize the comma lists, and save. */
 export async function saveWorkspaceAuthSettings(

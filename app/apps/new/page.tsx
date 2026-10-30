@@ -9,6 +9,7 @@ import { ArrowLeftIcon } from "@/components/icons";
 import { useManagedApps } from "@/lib/apps-store";
 import { useManagedStacks } from "@/lib/stack-store";
 import { useWorkspaceSettings } from "@/lib/settings-store";
+import { useSourceControlSettings } from "@/lib/source-control-store";
 
 function NewAppForm() {
   const router = useRouter();
@@ -16,6 +17,7 @@ function NewAppForm() {
   const { createApp } = useManagedApps();
   const { stacks } = useManagedStacks();
   const { settings, nodes } = useWorkspaceSettings();
+  const { settings: sourceControl } = useSourceControlSettings();
   const preferredStack = searchParams.get("stack") ?? "";
 
   return (
@@ -26,6 +28,7 @@ function NewAppForm() {
       nodes={nodes}
       preferredNode={settings.defaultNode}
       preferredStack={preferredStack}
+      sourceControl={sourceControl}
       submitLabel="Create app"
       onSubmit={(draft) => {
         const result = createApp(draft);

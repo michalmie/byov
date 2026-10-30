@@ -76,10 +76,17 @@ function Stage({
 }
 
 /**
- * Test a node endpoint via the server probe endpoint. Advisory only:
- * it never blocks saving — the node stays Pending until first contact.
+ * Test a node endpoint via the server probe endpoint. In the create
+ * flow a passing (Reachable) result is required; edits stay advisory.
  */
-export function NodeTestButton({ endpoint }: { endpoint: string }) {
+export function NodeTestButton({
+  endpoint,
+  onResult,
+}: {
+  endpoint: string;
+  /** Reports (passed, tested endpoint) for the create-gate. */
+  onResult?: (result: { ok: boolean; endpoint: string }) => void;
+}) {
   const hintId = useId();
   const [state, setState] = useState<State>({ status: "idle" });
   const trimmed = endpoint.trim();
@@ -98,6 +105,7 @@ export function NodeTestButton({ endpoint }: { endpoint: string }) {
       });
       if (response.status === 404) {
         setState({ status: "unavailable" });
+        onResult?.({ ok: false, endpoint: tested });
         return;
       }
       let body: unknown;
@@ -115,6 +123,7 @@ export function NodeTestButton({ endpoint }: { endpoint: string }) {
             ? (body as { error: string }).error
             : `Request failed with HTTP ${response.status}.`;
         setState({ status: "failed", message });
+        onResult?.({ ok: false, endpoint: tested });
         return;
       }
       if (!isNodesTestResult(body)) {
@@ -122,13 +131,16 @@ export function NodeTestButton({ endpoint }: { endpoint: string }) {
           status: "failed",
           message: "Unexpected verification response — try again.",
         });
+        onResult?.({ ok: false, endpoint: tested });
         return;
       }
       setState({ status: "done", result: body, tested });
+      onResult?.({ ok: body.reachable, endpoint: tested });
     } catch {
       // The backend ships separately: a network failure means the probe
       // is not there yet, not that the endpoint is wrong.
       setState({ status: "unavailable" });
+      onResult?.({ ok: false, endpoint: trimmed });
     }
   }
 
@@ -153,8 +165,8 @@ export function NodeTestButton({ endpoint }: { endpoint: string }) {
       <div aria-live="polite" className="grid gap-1">
         {state.status === "unavailable" && (
           <p className="hint">
-            Verification is unavailable right now — you can still save; the
-            node stays Pending until first contact.
+            Verification is unavailable right now — check the endpoint
+            and test again.
           </p>
         )}
         {state.status === "failed" && (
@@ -199,7 +211,7 @@ export function NodeTestButton({ endpoint }: { endpoint: string }) {
             <p className="text-xs" style={{ color: "var(--color-ink-2)" }}>
               {state.result.reachable
                 ? `Reachable at ${state.result.host}:${state.result.port}.`
-                : `Not reachable at ${state.result.host}:${state.result.port} — you can still save; the node stays Pending.`}
+                : `Not reachable at ${state.result.host}:${state.result.port} — fix the endpoint or test again.`}
             </p>
             {state.result.guidance && (
               <p className="hint">{state.result.guidance}</p>

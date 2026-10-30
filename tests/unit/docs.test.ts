@@ -24,6 +24,7 @@ describe("docs registry", () => {
       "/docs/oauth/github",
       "/docs/oauth/google",
       "/docs/oauth/apple",
+      "/docs/coolify-node",
       "/docs/agents-prompt",
     ]);
   });
@@ -38,6 +39,7 @@ describe("docs registry", () => {
       "docs/oauth/github.md",
       "docs/oauth/google.md",
       "docs/oauth/apple.md",
+      "docs/coolify-node-setup.md",
       "docs/agents-prompt.md",
     ]);
   });
@@ -49,6 +51,7 @@ describe("docs registry", () => {
     expect(getGuideBySlug(["agents-prompt"])?.href).toBe(
       "/docs/agents-prompt",
     );
+    expect(getGuideBySlug(["coolify-node"])?.href).toBe("/docs/coolify-node");
     expect(getGuideBySlug(["oauth", "okta"])).toBeNull();
   });
 
@@ -63,12 +66,26 @@ describe("docs registry", () => {
     expect(next?.href).toBe("/docs/oauth/google");
     expect(getAdjacentGuides("/docs/oauth").prev).toBeNull();
     expect(getAdjacentGuides("/docs/oauth/apple").next?.href).toBe(
+      "/docs/coolify-node",
+    );
+    expect(getAdjacentGuides("/docs/coolify-node").prev?.href).toBe(
+      "/docs/oauth/apple",
+    );
+    expect(getAdjacentGuides("/docs/coolify-node").next?.href).toBe(
       "/docs/agents-prompt",
     );
     expect(getAdjacentGuides("/docs/agents-prompt").prev?.href).toBe(
-      "/docs/oauth/apple",
+      "/docs/coolify-node",
     );
     expect(getAdjacentGuides("/docs/agents-prompt").next).toBeNull();
+  });
+
+  it("loads the coolify-node guide from disk", () => {
+    const meta = getGuideBySlug(["coolify-node"])!;
+    const doc = loadGuide(meta);
+    expect(doc.missing).toBe(false);
+    expect(doc.title).toBe("Set up a Coolify node");
+    expect(doc.html).toContain("API token");
   });
 
   it("loads the agents-prompt guide from disk", () => {

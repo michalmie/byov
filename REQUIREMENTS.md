@@ -495,6 +495,30 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
   redeploys the provider app, records the rollback in the audit
   trail, and refuses unprovisioned envs or unknown deployments.
 
+### Source control (first slice, built)
+
+- Workspace source control (`Settings → Source control`, admins only):
+  link one GitHub App installation for the whole workspace — personal
+  (User) or Organization account — persisted via the workspace API
+  (`/api/workspace/source-control`, `workspace_kv` key `source_control`).
+  The document holds the owner login, account type and optional
+  installation id; no token is stored in Postgres or the browser.
+- Repo creation rules: new repos are **private by default**; choosing
+  public as the default requires explicitly allowing public repos.
+  Defaults also cover the watched branch (`main`) and comma-separated
+  GitHub topics added to every new repo.
+- Naming taxonomy: every repo is `{prefix}{app-slug}{suffix}` — `byov-`
+  prefix by default (e.g. `acme-labs/byov-rota-planner`) — resolved by
+  the pure `lib/source-control.ts` (`resolveRepoName` /
+  `resolveRepoFullName` / `resolveRepoUrl`, 100-char GitHub limit,
+  sanitized slugs). Settings shows a live preview per app slug.
+- Auto-create: when linked and enabled, the New app form previews the
+  repo that will be created and links it on create (`repoUrl` +
+  `branch` on the app). The app page shows the would-be repo for
+  unlinked apps. Actual GitHub API creation rides the installation
+  token server-side (same env-only secret rule as node adapters);
+  until that adapter lands the linked URL is the governed record.
+
 ### Enterprise hardening (built)
 
 - RBAC enforcement: workspace writes for nodes, stacks and
@@ -534,6 +558,13 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
   removes it, node delete removes it. Deploys resolve saved token
   → `COOLIFY_TOKEN_<SLUG>` → `COOLIFY_API_TOKEN` (`resolveNodeToken`)
   and the missing-token error now points at Settings → Nodes.
+- Docs + gate: the in-app guide **Set up a Coolify node**
+  (`/docs/coolify-node`, `docs/coolify-node-setup.md`) is linked
+  from the node-form setup checklist. Creating a node requires a
+  passing connection test for the exact values entered — Test
+  token for Coolify, endpoint Reachable for Vercel — enforced in
+  `NodeForm` (`requireConnectionTest` on the Add form; edits stay
+  ungated). Changing endpoint or token revokes the pass.
 
 ### Database (first slice)
 
