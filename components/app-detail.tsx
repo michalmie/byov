@@ -117,7 +117,7 @@ export function AppDetailView({ slug }: { slug: string }) {
               ? `${app.repoUrl}${app.branch ? ` (${app.branch})` : ""}`
               : canCreateRepos(sourceControl)
                 ? `not linked — would be ${resolveRepoFullName(sourceControl, app.slug)} (${resolveRepoUrl(sourceControl, app.slug)}) · link via POST /api/v1/apps/${app.slug}/repo`
-                : `not linked — POST /api/v1/apps/${app.slug}/repo · link GitHub in Settings → Source control`}
+                : `not linked — POST /api/v1/apps/${app.slug}/repo · link GitHub in Settings → Code repositories`}
           </p>
         </div>
 

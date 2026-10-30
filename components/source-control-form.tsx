@@ -1,13 +1,18 @@
 "use client";
 
 import {
+  APP_SLUG_TOKEN,
+  DEFAULT_REPO_PATTERN,
   GITHUB_ACCOUNT_TYPES,
   GITHUB_ACCOUNT_TYPE_META,
+  REPO_PROVIDER_META,
+  REPO_PROVIDERS,
   REPO_VISIBILITIES,
   canCreateRepos,
   resolveRepoFullName,
   resolveRepoName,
   type GitHubAccountType,
+  type RepoProvider,
   type RepoVisibility,
   type SourceControlFieldErrors,
   type SourceControlSettings,
@@ -16,8 +21,6 @@ import {
 interface SourceControlFormProps {
   draft: SourceControlSettings;
   errors: SourceControlFieldErrors;
-  previewSlug: string;
-  onPreviewSlugChange: (value: string) => void;
   onToggle: (
     field:
       | "connected"
@@ -25,14 +28,14 @@ interface SourceControlFormProps {
       | "autoCreateRepo",
     value: boolean,
   ) => void;
+  onProvider: (value: RepoProvider) => void;
   onAccountType: (value: GitHubAccountType) => void;
   onVisibility: (value: RepoVisibility) => void;
   onText: (
     field:
       | "accountLogin"
       | "installationId"
-      | "repoPrefix"
-      | "repoSuffix"
+      | "repoPattern"
       | "defaultBranch"
       | "topics",
     value: string,
@@ -48,18 +51,20 @@ function FieldError({ id, message }: { id: string; message?: string }) {
   );
 }
 
+const PREVIEW_SLUG = "rota-planner";
+const FUTURE_PROVIDERS = ["GitLab", "Bitbucket", "Gitea"] as const;
+
 export function SourceControlForm({
   draft,
   errors,
-  previewSlug,
-  onPreviewSlugChange,
   onToggle,
+  onProvider,
   onAccountType,
   onVisibility,
   onText,
 }: SourceControlFormProps) {
-  const repoName = resolveRepoName(draft, previewSlug || "rota-planner");
-  const fullName = resolveRepoFullName(draft, previewSlug || "rota-planner");
+  const repoName = resolveRepoName(draft, PREVIEW_SLUG);
+  const fullName = resolveRepoFullName(draft, PREVIEW_SLUG);
   const ready = canCreateRepos(draft);
 
   return (
@@ -85,6 +90,49 @@ export function SourceControlForm({
             through that installation, never with a personal token pasted
             into the browser.
           </p>
+        </div>
+
+        <div className="field">
+          <span className="field-label" id="sc-provider-label">
+            Provider
+          </span>
+          <div
+            role="radiogroup"
+            aria-labelledby="sc-provider-label"
+            className="grid gap-2"
+          >
+            {REPO_PROVIDERS.map((provider) => (
+              <label key={provider} className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="sc-provider"
+                  value={provider}
+                  checked={draft.provider === provider}
+                  onChange={() => onProvider(provider)}
+                  className="mt-1"
+                />
+                <span>
+                  <span className="block font-medium">
+                    {REPO_PROVIDER_META[provider].label}{" "}
+                    <span className="hint">(default)</span>
+                  </span>
+                  <span className="hint">{REPO_PROVIDER_META[provider].blurb}</span>
+                </span>
+              </label>
+            ))}
+            {FUTURE_PROVIDERS.map((label) => (
+              <label key={label} className="flex items-start gap-2 text-sm" aria-disabled="true">
+                <input type="radio" name="sc-provider" disabled className="mt-1" />
+                <span>
+                  <span className="block font-medium">
+                    {label} <span className="hint">(soon)</span>
+                  </span>
+                  <span className="hint">Coming later — GitHub connects today.</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <FieldError id="sc-provider-error" message={errors.provider} />
         </div>
 
         <label className="flex items-start gap-2 text-sm" htmlFor="sc-connected">
@@ -382,81 +430,44 @@ export function SourceControlForm({
             className="mt-1 text-sm"
             style={{ color: "var(--color-ink-2)" }}
           >
-            Every repo follows the same shape so the org stays scannable:{" "}
-            <span className="mono">{"{prefix}{app-slug}{suffix}"}</span>.
-            The <span className="mono">byov-</span> prefix marks
-            vibe-coded apps governed here.
+            Every repo follows one pattern so the org stays scannable.
+            Edit the pattern to match your taxonomy — keep{" "}
+            <span className="mono">{APP_SLUG_TOKEN}</span> where the app
+            slug goes.
           </p>
         </div>
 
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="field">
-            <label className="field-label" htmlFor="sc-repo-prefix">
-              Prefix
-            </label>
-            <input
-              id="sc-repo-prefix"
-              className="input mono"
-              type="text"
-              autoComplete="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              placeholder="byov-"
-              value={draft.repoPrefix}
-              aria-invalid={Boolean(errors.repoPrefix)}
-              aria-describedby={
-                errors.repoPrefix ? "sc-repo-prefix-error" : "sc-repo-prefix-hint"
-              }
-              onChange={(event) => onText("repoPrefix", event.target.value)}
-            />
-            <p id="sc-repo-prefix-hint" className="hint">
-              Lowercase letters, numbers, dots, underscores or hyphens.
-              Leave blank for no prefix.
-            </p>
-            <FieldError id="sc-repo-prefix-error" message={errors.repoPrefix} />
-          </div>
-
-          <div className="field">
-            <label className="field-label" htmlFor="sc-repo-suffix">
-              Suffix <span className="hint">(optional)</span>
-            </label>
-            <input
-              id="sc-repo-suffix"
-              className="input mono"
-              type="text"
-              autoComplete="off"
-              autoCapitalize="off"
-              spellCheck={false}
-              placeholder=""
-              value={draft.repoSuffix}
-              aria-invalid={Boolean(errors.repoSuffix)}
-              aria-describedby={
-                errors.repoSuffix ? "sc-repo-suffix-error" : "sc-repo-suffix-hint"
-              }
-              onChange={(event) => onText("repoSuffix", event.target.value)}
-            />
-            <p id="sc-repo-suffix-hint" className="hint">
-              Appended after the slug, e.g. <span className="mono">-app</span>.
-            </p>
-            <FieldError id="sc-repo-suffix-error" message={errors.repoSuffix} />
-          </div>
-        </div>
-
-        <div className="field max-w-md">
-          <label className="field-label" htmlFor="sc-preview-slug">
-            Preview with app slug
+        <div className="field max-w-xl">
+          <label className="field-label" htmlFor="sc-repo-pattern">
+            Repo name pattern
           </label>
           <input
-            id="sc-preview-slug"
+            id="sc-repo-pattern"
             className="input mono"
             type="text"
             autoComplete="off"
             autoCapitalize="off"
             spellCheck={false}
-            value={previewSlug}
-            onChange={(event) => onPreviewSlugChange(event.target.value)}
+            placeholder={DEFAULT_REPO_PATTERN}
+            value={draft.repoPattern}
+            aria-invalid={Boolean(errors.repoPattern)}
+            aria-describedby={
+              errors.repoPattern ? "sc-repo-pattern-error" : "sc-repo-pattern-hint"
+            }
+            onChange={(event) => onText("repoPattern", event.target.value)}
           />
-          <p className="hint">Try one of your app slugs to see its repo.</p>
+          <p id="sc-repo-pattern-hint" className="hint">
+            Prefilled with the proposed taxonomy{" "}
+            <span className="mono">{DEFAULT_REPO_PATTERN}</span> (the{" "}
+            <span className="mono">byov-</span> prefix marks vibe-coded
+            apps governed here). Change it freely, e.g.{" "}
+            <span className="mono">apps-{"{app-slug}"}</span> or just{" "}
+            <span className="mono">{"{app-slug}"}</span>. Lowercase
+            letters, numbers, dots, underscores or hyphens around the
+            token. Preview below uses{" "}
+            <span className="mono">{PREVIEW_SLUG}</span>.
+          </p>
+          <FieldError id="sc-repo-pattern-error" message={errors.repoPattern} />
         </div>
 
         <div

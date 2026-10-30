@@ -6,8 +6,10 @@ import {
 import { apiBadJson, apiError, apiOk } from "@/lib/api-response";
 import {
   GITHUB_ACCOUNT_TYPES,
+  REPO_PROVIDERS,
   REPO_VISIBILITIES,
   type GitHubAccountType,
+  type RepoProvider,
   type RepoVisibility,
   type SourceControlSettings,
 } from "@/lib/source-control";
@@ -32,12 +34,16 @@ function asDraft(body: Record<string, unknown>): SourceControlSettings {
     ? (body.defaultVisibility as RepoVisibility)
     : "private";
   return {
+    provider: REPO_PROVIDERS.includes(body.provider as RepoProvider)
+      ? (body.provider as RepoProvider)
+      : "github",
     connected: flag(body.connected),
     accountType,
     accountLogin: text(body.accountLogin),
     installationId: text(body.installationId),
     defaultVisibility,
     allowPublicRepos: flag(body.allowPublicRepos),
+    repoPattern: text(body.repoPattern),
     repoPrefix: text(body.repoPrefix),
     repoSuffix: text(body.repoSuffix),
     defaultBranch: text(body.defaultBranch) || "main",
@@ -46,7 +52,7 @@ function asDraft(body: Record<string, unknown>): SourceControlSettings {
   };
 }
 
-/** Current source-control settings (defaults when nothing is saved yet). Admins only. */
+/** Current code-repository settings (defaults when nothing is saved yet). Admins only. */
 export async function GET(request: NextRequest) {
   const auth = await requireWorkspaceAdmin(request);
   if (isAuthFailure(auth)) {
@@ -55,7 +61,7 @@ export async function GET(request: NextRequest) {
   return apiOk(await getWorkspaceSourceControlSettings());
 }
 
-/** Replace the source-control settings. Admins only. */
+/** Replace the code-repository settings. Admins only. */
 export async function PUT(request: NextRequest) {
   const auth = await requireWorkspaceAdmin(request);
   if (isAuthFailure(auth)) {
@@ -67,7 +73,7 @@ export async function PUT(request: NextRequest) {
   }
   const result = await saveWorkspaceSourceControlSettings(asDraft(body));
   if (!result.ok) {
-    return apiError(400, "The source control settings could not be saved.", {
+    return apiError(400, "The code repository settings could not be saved.", {
       errors: result.errors,
     });
   }
