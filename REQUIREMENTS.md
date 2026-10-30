@@ -558,6 +558,13 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
   removes it, node delete removes it. Deploys resolve saved token
   → `COOLIFY_TOKEN_<SLUG>` → `COOLIFY_API_TOKEN` (`resolveNodeToken`)
   and the missing-token error now points at Settings → Nodes.
+- Docs + gate: the in-app guide **Set up a Coolify node**
+  (`/docs/coolify-node`, `docs/coolify-node-setup.md`) is linked
+  from the node-form setup checklist. Creating a node requires a
+  passing connection test for the exact values entered — Test
+  token for Coolify, endpoint Reachable for Vercel — enforced in
+  `NodeForm` (`requireConnectionTest` on the Add form; edits stay
+  ungated). Changing endpoint or token revokes the pass.
 
 ### Database (first slice)
 

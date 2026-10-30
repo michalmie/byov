@@ -11,10 +11,13 @@ export function NodeTokenTestButton({
   endpoint,
   apiToken,
   slug,
+  onResult,
 }: {
   endpoint: string;
   apiToken: string;
   slug?: string;
+  /** Reports (passed, tested endpoint+token) for the create-gate. */
+  onResult?: (result: { ok: boolean; endpoint: string; apiToken: string }) => void;
 }) {
   const [state, setState] = useState<
     | { status: "idle" }
@@ -43,12 +46,18 @@ export function NodeTokenTestButton({
         throw new Error(body.error ?? `Request failed (HTTP ${res.status}).`);
       }
       setState({ status: "done", ok: body.data.ok, detail: body.data.detail });
+      onResult?.({
+        ok: body.data.ok,
+        endpoint: endpoint.trim(),
+        apiToken: apiToken.trim(),
+      });
     } catch (error) {
       setState({
         status: "done",
         ok: false,
         detail: error instanceof Error ? error.message : "Test failed.",
       });
+      onResult?.({ ok: false, endpoint: endpoint.trim(), apiToken: apiToken.trim() });
     }
   }
 

@@ -32,7 +32,7 @@ const COOLIFY_GUIDE: KindGuide = {
     </>,
     "Log in to Coolify and set its FQDN (the same hostname as the A record).",
     "In Coolify, create an API token for BYOV with permission to manage applications (under Keys & Tokens / API tokens in the Coolify panel).",
-    "Paste the Coolify URL as the endpoint below, paste the API token into Coolify API token, and press Test token — it must pass before the first deploy.",
+    "Paste the Coolify URL as the endpoint below, paste the API token into Coolify API token, and press Test token — a new node cannot be created until the test passes for the exact endpoint and token.",
     "Set a zone (or tailnet host) in Serve URLs and add the wildcard DNS record so Sandbox URLs resolve.",
   ],
 };
@@ -71,6 +71,15 @@ export function NodeKindInstructions({ kind }: { kind: string }) {
     <div aria-live="polite">
       <h3 className="text-sm font-semibold">{guide.heading}</h3>
       <p className="hint mt-1">{guide.intro}</p>
+      {kind !== "Vercel" && (
+        <p className="mt-1 text-sm">
+          <a href="/docs/coolify-node" className="underline">
+            Read the full guide: Set up a Coolify node
+          </a>{" "}
+          — token creation, the required connection test, DNS zone, and
+          first deploy.
+        </p>
+      )}
       <ol className="mt-2 grid max-w-2xl gap-1.5 text-sm">
         {guide.steps.map((step, index) => (
           <li key={index} className="flex gap-2">

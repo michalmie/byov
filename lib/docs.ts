@@ -112,6 +112,22 @@ export const DOCS_SECTIONS: DocsSection[] = [
     ],
   },
   {
+    id: "nodes",
+    title: "Nodes",
+    description:
+      "Connect deployment targets so apps have somewhere governed to run.",
+    guides: [
+      {
+        slug: ["coolify-node"],
+        href: "/docs/coolify-node",
+        file: "docs/coolify-node-setup.md",
+        label: "Set up a Coolify node",
+        description:
+          "From a running Coolify instance to a verified BYOV node: endpoint, API token, connection test, zone, and first deploy.",
+      },
+    ],
+  },
+  {
     id: "apps",
     title: "Apps",
     description:

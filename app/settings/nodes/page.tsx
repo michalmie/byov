@@ -112,6 +112,7 @@ export default function SettingsNodes() {
             heading="Add node"
             lede="Register a deployment target. It stays Pending until first contact."
             initial={blankDraft}
+            requireConnectionTest
             submitLabel="Add node"
             onSubmit={(draft) => {
               const errors = createNode(draft);

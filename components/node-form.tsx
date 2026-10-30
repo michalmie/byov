@@ -42,6 +42,7 @@ export function NodeForm({
   onCancel,
   savedToken = false,
   nodeSlug,
+  requireConnectionTest = false,
 }: {
   formId: string;
   heading: string;
@@ -54,10 +55,33 @@ export function NodeForm({
   savedToken?: boolean;
   /** Node slug so Test token can fall back to the saved token. */
   nodeSlug?: string;
+  /** Create flows: block submit until the connection test passes. */
+  requireConnectionTest?: boolean;
 }) {
   const [draft, setDraft] = useState<NodeDraft>(initial);
   const [errors, setErrors] = useState<NodeFieldErrors>({});
+  const [endpointTest, setEndpointTest] = useState<{
+    endpoint: string;
+    ok: boolean;
+  } | null>(null);
+  const [tokenTest, setTokenTest] = useState<{
+    endpoint: string;
+    apiToken: string;
+    ok: boolean;
+  } | null>(null);
+  const [gateError, setGateError] = useState("");
   const isVercel = draft.kind === "Vercel";
+
+  const endpointValue = draft.endpoint.trim();
+  const tokenValue = (draft.apiToken ?? "").trim();
+  const connectionVerified =
+    !requireConnectionTest ||
+    (isVercel
+      ? endpointTest?.ok === true && endpointTest.endpoint === endpointValue
+      : tokenTest?.ok === true &&
+        tokenTest.endpoint === endpointValue &&
+        tokenTest.apiToken === tokenValue &&
+        tokenValue.length > 0);
 
   function set(field: NodeField, value: string) {
     setDraft((prev) => ({ ...prev, [field]: value }));
@@ -68,6 +92,15 @@ export function NodeForm({
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
+    if (requireConnectionTest && !connectionVerified) {
+      setGateError(
+        isVercel
+          ? "Test the connection first — a new node needs a passing endpoint test for the URL above."
+          : "Test the connection first — a new node needs a passing Test token for the endpoint and API token above.",
+      );
+      return;
+    }
+    setGateError("");
     const result = onSubmit(draft);
     if (result) {
       setErrors(result);
@@ -196,9 +229,13 @@ export function NodeForm({
             Connect
           </legend>
           <p className="hint mt-1">
-            {isVercel
-              ? "Where BYOV finds your Vercel project — paste its dashboard URL. Test the endpoint — a failing test never blocks saving."
-              : "Where BYOV reaches Coolify. Test the endpoint — a failing test never blocks saving."}
+            {requireConnectionTest
+              ? isVercel
+                ? "Where BYOV finds your Vercel project — paste its dashboard URL. A passing connection test is required to create the node."
+                : "Where BYOV reaches Coolify. A passing Test token is required to create the node."
+              : isVercel
+                ? "Where BYOV finds your Vercel project — paste its dashboard URL."
+                : "Where BYOV reaches Coolify."}
           </p>
         <div className="field">
           <label className="field-label" htmlFor={`${formId}-endpoint`}>
@@ -229,7 +266,10 @@ export function NodeForm({
             id={`${formId}-endpoint-error`}
             message={errors.endpoint}
           />
-          <NodeTestButton endpoint={draft.endpoint} />
+          <NodeTestButton
+            endpoint={draft.endpoint}
+            onResult={(result) => setEndpointTest(result)}
+          />
         </div>
 
         {!isVercel && (
@@ -267,6 +307,7 @@ export function NodeForm({
               endpoint={draft.endpoint}
               apiToken={draft.apiToken ?? ""}
               slug={nodeSlug}
+              onResult={(result) => setTokenTest(result)}
             />
             {savedToken && (
               <label className="flex items-center gap-2 text-sm">
@@ -354,8 +395,23 @@ export function NodeForm({
         </div>
         </fieldset>
 
-        <div className="flex flex-wrap gap-3">
-          <button type="submit" className="btn-primary px-3 py-1.5 text-[13px]">
+        <div className="grid gap-2">
+          {gateError && (
+            <p className="form-error" role="alert">{gateError}</p>
+          )}
+          {requireConnectionTest && !connectionVerified && (
+            <p className="hint">
+              {isVercel
+                ? "Run Test above and get Reachable to enable creation."
+                : "Run Test token above and get Token OK to enable creation."}
+            </p>
+          )}
+          <div className="flex flex-wrap gap-3">
+          <button
+            type="submit"
+            className="btn-primary px-3 py-1.5 text-[13px]"
+            disabled={requireConnectionTest && !connectionVerified}
+          >
             {submitLabel}
           </button>
           <button
@@ -365,6 +421,7 @@ export function NodeForm({
           >
             Cancel
           </button>
+          </div>
         </div>
       </form>
     </section>
