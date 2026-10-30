@@ -4,6 +4,7 @@ import type { Deployment, AppEnvironment } from "@/lib/control-plane";
 import { useManagedApps } from "@/lib/apps-store";
 import { isDomainZone, isTestablePort, resolveEnvUrl } from "@/lib/dev-urls";
 import { useWorkspaceSettings } from "@/lib/settings-store";
+import { effectiveAccessPolicy } from "@/lib/access-policy";
 import { DeployButton } from "./deploy-button";
 import { EnvironmentCard } from "./environment-card";
 
@@ -46,6 +47,7 @@ export function ManagedEnvironmentCard({
 }) {
   const { settings, nodes } = useWorkspaceSettings();
   const { apps } = useManagedApps();
+  const app = apps.find((entry) => entry.slug === appSlug);
   const node = nodes.find((entry) => entry.slug === env.node);
   const nodeName = node?.name ?? env.node;
   const resolved = resolveEnvUrl(appSlug, env, {
@@ -68,6 +70,7 @@ export function ManagedEnvironmentCard({
       checksTotal={checksTotal}
       actions={<DeployButton appSlug={appSlug} envName={env.name} />}
       varKeys={Object.keys(env.envVars ?? {}).sort()}
+      accessPolicy={app ? effectiveAccessPolicy(app, env) : undefined}
     />
   );
 }

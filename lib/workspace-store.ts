@@ -421,7 +421,9 @@ export async function createWorkspaceApp(
   }
   await recordEvent({
     actor: "BYOV",
-    text: `registered ${app.name} with a Sandbox environment`,
+    text: app.owner
+      ? `registered ${app.name} with a Sandbox environment · owner ${app.owner}`
+      : `registered ${app.name} with a Sandbox environment`,
     appSlug: app.slug,
   });
   return { ok: true, app };

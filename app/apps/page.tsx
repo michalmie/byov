@@ -1,8 +1,10 @@
 "use client";
 
 import Link from "next/link";
+import { AccessPolicyBadge } from "@/components/access-policy-badge";
 import { HealthPill } from "@/components/data-ui";
 import { ControlPlaneShell } from "@/components/shell";
+import { effectiveAccessPolicy } from "@/lib/access-policy";
 import { useManagedApps } from "@/lib/apps-store";
 import { appHealth } from "@/lib/control-plane";
 
@@ -36,6 +38,7 @@ export default function Apps() {
               <tr>
                 <th scope="col">App</th>
                 <th scope="col">Health</th>
+                <th scope="col">Access</th>
                 <th scope="col">Environments</th>
                 <th scope="col">Checks</th>
                 <th scope="col">Last deploy</th>
@@ -62,6 +65,15 @@ export default function Apps() {
                       >
                         {app.description}
                       </span>
+                      {app.owner && (
+                        <span
+                          className="block text-sm"
+                          style={{ color: "var(--color-muted)" }}
+                        >
+                          Owner: {app.owner}
+                          {app.ownerGithub ? ` (@${app.ownerGithub})` : ""}
+                        </span>
+                      )}
                       {isCustomApp(app.slug) && (
                         <span
                           className="mono block text-sm"
@@ -73,6 +85,9 @@ export default function Apps() {
                     </td>
                     <td>
                       <HealthPill health={appHealth(app)} />
+                    </td>
+                    <td>
+                      <AccessPolicyBadge policy={effectiveAccessPolicy(app)} />
                     </td>
                     <td>
                       <span className="mono text-sm">

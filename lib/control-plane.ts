@@ -13,6 +13,43 @@ export interface Check {
   status: CheckStatus;
 }
 
+/** Who may use a deployed app: preset scope plus optional rules. */
+export const ACCESS_SCOPES = ["public", "workspace", "restricted"] as const;
+export type AccessScope = (typeof ACCESS_SCOPES)[number];
+
+export type AccessRuleEffect = "allow" | "deny";
+
+export const ACCESS_RULE_TYPES = [
+  "ip",
+  "cidr",
+  "network",
+  "email",
+  "emailDomain",
+  "group",
+  "authenticated",
+  "apiKey",
+  "clientCert",
+  "signedLink",
+  "country",
+  "schedule",
+] as const;
+export type AccessRuleType = (typeof ACCESS_RULE_TYPES)[number];
+
+export interface AccessRule {
+  id: string;
+  effect: AccessRuleEffect;
+  type: AccessRuleType;
+  /** Type-specific value: CIDR, email, domain, group, country code, … */
+  value: string;
+}
+
+export interface AccessPolicy {
+  scope: AccessScope;
+  /** When true, visitors must sign in before any allow rule is checked. */
+  requireAuth?: boolean;
+  rules: AccessRule[];
+}
+
 export interface AppEnvironment {
   name: string;
   node: string;
@@ -23,6 +60,8 @@ export interface AppEnvironment {
   providerId?: string;
   /** Per-env variables/secrets, pushed to the provider on deploy. */
   envVars?: Record<string, string>;
+  /** Per-env access override; blank inherits the app policy. */
+  accessPolicy?: AccessPolicy;
 }
 
 export interface Deployment {
@@ -45,6 +84,15 @@ export interface App {
   repoUrl?: string;
   /** Branch the pipeline watches; defaults to the provider default. */
   branch?: string;
+  /** App owner email (workspace identity); blank until assigned. */
+  owner?: string;
+  /**
+   * App owner GitHub login. When set, the owner is granted push access
+   * as a contributor on the app repo (see `resolveOwnerRepoGrant`).
+   */
+  ownerGithub?: string;
+  /** Who may use the deployed app; blank means the workspace default. */
+  accessPolicy?: AccessPolicy;
 }
 
 /** How a node serves environment URLs. */
@@ -97,6 +145,7 @@ function withCheck(name: string, status: CheckStatus): Check[] {
 const apps: App[] = [
   {
     slug: "shopfloor-tickets",
+    accessPolicy: { scope: "workspace", rules: [] },
     name: "Shopfloor Tickets",
     stack: "Next.js App",
     description:
@@ -151,6 +200,10 @@ const apps: App[] = [
   },
   {
     slug: "invoice-triage",
+    accessPolicy: {
+      scope: "restricted",
+      rules: [{ id: "rule-1", effect: "allow", type: "group", value: "finance" }],
+    },
     name: "Invoice Triage",
     stack: "Next.js App",
     description: "Finance inbox helper that sorts supplier invoices.",
@@ -173,6 +226,7 @@ const apps: App[] = [
   },
   {
     slug: "lab-inventory",
+    accessPolicy: { scope: "public", rules: [] },
     name: "Lab Inventory",
     stack: "Next.js App",
     description: "Reagent and sample tracking for the QA lab.",

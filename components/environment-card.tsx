@@ -1,4 +1,5 @@
-import type { AppEnvironment, Deployment } from "@/lib/control-plane";
+import type { AccessPolicy, AppEnvironment, Deployment } from "@/lib/control-plane";
+import { AccessPolicyBadge } from "./access-policy-badge";
 import { HealthPill, StatusPill } from "./data-ui";
 import { DnsTestButton } from "./dns-test-button";
 
@@ -26,8 +27,10 @@ export function EnvironmentCard({
   checksTotal,
   actions,
   varKeys,
+  accessPolicy,
 }: {
   env: AppEnvironment;
+  accessPolicy?: AccessPolicy;
   urlNote?: string;
   testTarget?: { host: string; port: number };
   nodeName: string;
@@ -94,6 +97,11 @@ export function EnvironmentCard({
             "—"
           )}
         </Fact>
+        {accessPolicy && (
+          <Fact label="Access">
+            <AccessPolicyBadge policy={accessPolicy} />
+          </Fact>
+        )}
         <Fact label="Variables">
           <span className="mono text-[13px]">
             {varKeys && varKeys.length > 0 ? varKeys.join(", ") : "none set"}

@@ -4,10 +4,12 @@ import {
   canCreateRepos,
   defaultSourceControlSettings,
   isGitHubLogin,
+  isRepoAccountOwner,
   isValidRepoAffix,
   normalizeSourceControlSettings,
   normalizeTopics,
   parseStoredSourceControlSettings,
+  resolveOwnerRepoGrant,
   resolveRepoFullName,
   resolveRepoName,
   resolveRepoUrl,
@@ -213,6 +215,43 @@ describe("repo taxonomy resolver", () => {
     expect(canCreateRepos(linked)).toBe(true);
     expect(canCreateRepos(defaultSourceControlSettings())).toBe(false);
     expect(canCreateRepos({ ...linked, accountLogin: "-bad" })).toBe(false);
+  });
+});
+
+describe("resolveOwnerRepoGrant", () => {
+  it("grants the owner push access as a contributor on the app repo", () => {
+    expect(resolveOwnerRepoGrant(linked, "rota-planner", "ada-dev")).toEqual({
+      username: "ada-dev",
+      permission: "push",
+      repoFullName: "acme-labs/byov-rota-planner",
+      repoUrl: "https://github.com/acme-labs/byov-rota-planner",
+      status: "invited",
+    });
+  });
+
+  it("needs no invite when the owner owns the linked account", () => {
+    expect(isRepoAccountOwner(linked, "Acme-Labs")).toBe(true);
+    expect(isRepoAccountOwner(linked, "ada-dev")).toBe(false);
+    expect(
+      resolveOwnerRepoGrant(linked, "rota-planner", "ACME-LABS")?.status,
+    ).toBe("already-owner");
+  });
+
+  it("returns no grant without a valid owner login or a linked account", () => {
+    expect(resolveOwnerRepoGrant(linked, "rota-planner", "")).toBeNull();
+    expect(resolveOwnerRepoGrant(linked, "rota-planner", undefined)).toBeNull();
+    expect(resolveOwnerRepoGrant(linked, "rota-planner", "ada_dev")).toBeNull();
+    expect(
+      resolveOwnerRepoGrant(defaultSourceControlSettings(), "rota-planner", "ada-dev"),
+    ).toBeNull();
+    expect(
+      resolveOwnerRepoGrant({ ...linked, connected: false }, "rota-planner", "ada-dev"),
+    ).toBeNull();
+  });
+
+  it("protects unenumerated login variants: unicode and spaces never grant", () => {
+    expect(resolveOwnerRepoGrant(linked, "rota-planner", "ada dev")).toBeNull();
+    expect(resolveOwnerRepoGrant(linked, "rota-planner", "ádà-dev")).toBeNull();
   });
 });
 

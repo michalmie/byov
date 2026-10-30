@@ -61,6 +61,9 @@ export interface CreateApiAppInput {
   node: unknown;
   repoUrl?: unknown;
   branch?: unknown;
+  owner?: unknown;
+  ownerGithub?: unknown;
+  accessPolicy?: unknown;
 }
 
 function asDraft(input: CreateApiAppInput): AppDraft {
@@ -73,6 +76,13 @@ function asDraft(input: CreateApiAppInput): AppDraft {
     node: typeof input.node === "string" ? input.node : "",
     repoUrl: typeof input.repoUrl === "string" ? input.repoUrl : "",
     branch: typeof input.branch === "string" ? input.branch : "",
+    owner: typeof input.owner === "string" ? input.owner : "",
+    ownerGithub:
+      typeof input.ownerGithub === "string" ? input.ownerGithub : "",
+    accessPolicy:
+      typeof input.accessPolicy === "object" && input.accessPolicy !== null
+        ? (input.accessPolicy as AppDraft["accessPolicy"])
+        : undefined,
   };
 }
 
