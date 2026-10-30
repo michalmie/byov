@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import {
   BellIcon,
   DocIcon,
+  GitBranchIcon,
   GlobeIcon,
   GridIcon,
   LayersIcon,
@@ -14,6 +15,7 @@ import {
 
 const sections = [
   { href: "/settings/general", label: "General", icon: DocIcon },
+  { href: "/settings/source-control", label: "Source control", icon: GitBranchIcon },
   { href: "/settings/nodes", label: "Nodes", icon: StackIcon },
   { href: "/settings/dns", label: "DNS", icon: GlobeIcon },
   { href: "/settings/stacks", label: "Tech stacks", icon: LayersIcon },

@@ -16,6 +16,12 @@ import { needsSandboxSetup } from "@/lib/apps";
 import { useManagedApps } from "@/lib/apps-store";
 import { appHealth, appSections } from "@/lib/control-plane";
 import { useManagedStacks } from "@/lib/stack-store";
+import { useSourceControlSettings } from "@/lib/source-control-store";
+import {
+  canCreateRepos,
+  resolveRepoFullName,
+  resolveRepoUrl,
+} from "@/lib/source-control";
 
 const checkTone = { pass: "ok", fail: "bad", running: "info" } as const;
 const checkLabel = { pass: "Pass", fail: "Fail", running: "Running" } as const;
@@ -25,6 +31,7 @@ const deployLabel = { live: "Live", failed: "Failed", running: "Running" } as co
 export function AppDetailView({ slug }: { slug: string }) {
   const { getManagedApp, isCustomApp, deleteApp, hydrated } = useManagedApps();
   const { getManagedStack } = useManagedStacks();
+  const { settings: sourceControl } = useSourceControlSettings();
   const router = useRouter();
   const [confirmingRemove, setConfirmingRemove] = useState(false);
 
@@ -105,7 +112,12 @@ export function AppDetailView({ slug }: { slug: string }) {
             {app.description}
           </p>
           <p className="mono mt-2 text-[13px]" style={{ color: "var(--color-muted)" }}>
-            Repo: {app.repoUrl ? `${app.repoUrl}${app.branch ? ` (${app.branch})` : ""}` : "not linked — POST /api/v1/apps/" + app.slug + "/repo"}
+            Repo:{" "}
+            {app.repoUrl
+              ? `${app.repoUrl}${app.branch ? ` (${app.branch})` : ""}`
+              : canCreateRepos(sourceControl)
+                ? `not linked — would be ${resolveRepoFullName(sourceControl, app.slug)} (${resolveRepoUrl(sourceControl, app.slug)}) · link via POST /api/v1/apps/${app.slug}/repo`
+                : `not linked — POST /api/v1/apps/${app.slug}/repo · link GitHub in Settings → Source control`}
           </p>
         </div>
 
