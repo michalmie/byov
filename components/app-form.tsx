@@ -162,6 +162,28 @@ export function AppForm({
     (entry) => entry.email.toLowerCase() === owner.trim().toLowerCase(),
   );
 
+  // Launchpad start mode: how the creator wants to begin. "own" and
+  // "blank" both mean no stack scaffold (the draft stack stays empty);
+  // the mode only changes the guidance shown next to the stack picker.
+  const [intent, setIntent] = useState<"stack" | "own" | "blank">("stack");
+
+  function chooseIntent(next: "stack" | "own" | "blank") {
+    setIntent(next);
+    if (next !== "stack") {
+      setStackTouched(true);
+      set("stack", "");
+    }
+  }
+
+  const selectedStack = stacks.find((entry) => entry.slug === stack);
+  const selectedNode = nodes.find((entry) => entry.slug === node);
+  const accessLabel =
+    accessPolicy.scope === "public"
+      ? "Public"
+      : accessPolicy.scope === "restricted"
+        ? "Restricted"
+        : "Workspace";
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
     const result = onSubmit({
@@ -187,7 +209,7 @@ export function AppForm({
     <section
       aria-labelledby={heading ? `${formId}-heading` : undefined}
       aria-label={heading ? undefined : "New app form"}
-      className="card grid gap-6 p-5 sm:p-6"
+      className="grid gap-5"
     >
       {heading && (
         <div className="max-w-2xl">
@@ -207,176 +229,405 @@ export function AppForm({
           )}
         </div>
       )}
-      <form onSubmit={handleSubmit} noValidate className="grid gap-6">
-        <div className="field">
-          <label className="field-label" htmlFor={`${formId}-name`}>
-            Name
-          </label>
-          <input
-            id={`${formId}-name`}
-            className="input max-w-md"
-            type="text"
-            autoComplete="off"
-            placeholder="Rota Planner"
-            value={draft.name}
-            aria-invalid={Boolean(errors.name)}
-            aria-describedby={describedBy("name", `${formId}-name-hint`)}
-            onChange={(event) => set("name", event.target.value)}
-          />
-          <p id={`${formId}-name-hint`} className="hint">
-            Display name shown in lists and shortcuts.
-          </p>
-          <FieldError id={`${formId}-name-error`} message={errors.name} />
-        </div>
 
-        <div className="field">
-          <label className="field-label" htmlFor={`${formId}-slug`}>
-            Slug
-          </label>
-          <input
-            id={`${formId}-slug`}
-            className="input max-w-md mono"
-            type="text"
-            autoComplete="off"
-            autoCapitalize="off"
-            spellCheck={false}
-            placeholder={
-              draft.slug.trim() || slugifyAppName(draft.name) || "rota-planner"
-            }
-            value={draft.slug}
-            aria-invalid={Boolean(errors.slug)}
-            aria-describedby={describedBy("slug", `${formId}-slug-hint`)}
-            onChange={(event) => set("slug", event.target.value)}
-          />
-          <p id={`${formId}-slug-hint`} className="hint">
-            Lowercase letters, numbers and hyphens. Leave blank to use the
-            name-based default; the slug never changes.
-          </p>
-          <FieldError id={`${formId}-slug-error`} message={errors.slug} />
-        </div>
-
-        <div className="field">
-          <label className="field-label" htmlFor={`${formId}-description`}>
-            Description
-          </label>
-          <textarea
-            id={`${formId}-description`}
-            className="input max-w-md"
-            rows={4}
-            autoComplete="off"
-            placeholder="Shift planning without the spreadsheet."
-            value={draft.description}
-            aria-invalid={Boolean(errors.description)}
-            aria-describedby={describedBy(
-              "description",
-              `${formId}-description-hint`,
-            )}
-            onChange={(event) => set("description", event.target.value)}
-          />
-          <p id={`${formId}-description-hint`} className="hint">
-            Optional — a few lines for the app page. Keep the first line
-            short for lists.
-          </p>
-          <FieldError
-            id={`${formId}-description-error`}
-            message={errors.description}
-          />
-        </div>
-
-        <div className="field">
-          <label className="field-label" htmlFor={`${formId}-stack`}>
-            Tech stack
-          </label>
-          <select
-            id={`${formId}-stack`}
-            className="input max-w-md"
-            value={stack}
-            aria-invalid={Boolean(errors.stack)}
-            aria-describedby={describedBy("stack", `${formId}-stack-hint`)}
-            onChange={(event) => {
-              setStackTouched(true);
-              set("stack", event.target.value);
+      {/* Launchpad start mode — intent first, essentials after. */}
+      <div
+        className="grid gap-3 sm:grid-cols-3"
+        role="radiogroup"
+        aria-label="How do you want to start?"
+      >
+        {(
+          [
+            [
+              "stack",
+              "▦",
+              "Start from a stack",
+              "Paved road — scaffold + gates ready. For most new apps.",
+              "Scaffold + gates",
+            ],
+            [
+              "own",
+              "⌥",
+              "Bring my own code",
+              "Link a repo you already have. No scaffold.",
+              "Link repo later",
+            ],
+            [
+              "blank",
+              "▢",
+              "Blank",
+              "No stack yet. Decide later from the app page.",
+              "Register only",
+            ],
+          ] as const
+        ).map(([value, glyph, label, copy, meta]) => (
+          <label
+            key={value}
+            className="group relative grid cursor-pointer gap-0 p-4 has-[:checked]:shadow-[0_0_0_1px_var(--color-ink)]"
+            style={{
+              background:
+                intent === value
+                  ? "color-mix(in oklch, var(--color-paper) 55%, var(--color-card))"
+                  : "var(--color-card)",
+              border: `1px solid ${intent === value ? "var(--color-ink)" : "var(--color-rule)"}`,
+              borderRadius: "var(--radius-card)",
             }}
           >
-            <option value="">No stack yet</option>
-            {stacks.map((stack) => (
-              <option key={stack.slug} value={stack.slug}>
-                {stack.name}
-              </option>
-            ))}
-          </select>
-          <p id={`${formId}-stack-hint`} className="hint">
-            Optional paved-road starter with the required gates built in.{" "}
-            {stack && (
-              <Link
-                href={`/stacks/${stack}`}
-                className="underline underline-offset-2"
+            <input
+              type="radio"
+              name={`${formId}-intent`}
+              value={value}
+              checked={intent === value}
+              onChange={() => chooseIntent(value)}
+              className="sr-only"
+            />
+            <span
+              aria-hidden="true"
+              className="mb-2 grid h-8 w-8 place-items-center text-sm"
+              style={{
+                borderRadius: "var(--radius-well)",
+                background:
+                  intent === value
+                    ? "var(--color-accent)"
+                    : "var(--color-paper-2)",
+                color:
+                  intent === value
+                    ? "var(--color-card)"
+                    : "var(--color-ink)",
+              }}
+            >
+              {glyph}
+            </span>
+            <span className="text-sm font-medium">{label}</span>
+            <span
+              className="mt-1 text-[13px]"
+              style={{ color: "var(--color-muted)" }}
+            >
+              {copy}
+            </span>
+            <span
+              className="mt-3 pt-2 text-xs"
+              style={{
+                color: "var(--color-muted)",
+                borderTop: "1px solid var(--color-rule-2)",
+              }}
+            >
+              {meta}
+            </span>
+            {intent === value && (
+              <span
+                aria-hidden="true"
+                className="absolute top-3 right-3 grid h-5 w-5 place-items-center rounded-full text-[11px]"
+                style={{
+                  background: "var(--color-accent)",
+                  color: "var(--color-card)",
+                }}
               >
-                Open the stack
-              </Link>
+                ✓
+              </span>
             )}
-          </p>
-          <FieldError id={`${formId}-stack-error`} message={errors.stack} />
-        </div>
-
-        <div className="field">
-          <label className="field-label" htmlFor={`${formId}-node`}>
-            Sandbox node
           </label>
-          <select
-            id={`${formId}-node`}
-            className="input max-w-md"
-            value={node}
-            aria-invalid={Boolean(errors.node)}
-            aria-describedby={describedBy("node", `${formId}-node-hint`)}
-            onChange={(event) => set("node", event.target.value)}
-          >
-            {nodes.map((node) => (
-              <option key={node.slug} value={node.slug}>
-                {node.name} — {node.location}
-              </option>
-            ))}
-          </select>
-          <p id={`${formId}-node-hint`} className="hint">
-            The new app starts with one Sandbox environment on this node. It
-            stays Pending until your first deploy.
-          </p>
-          <FieldError id={`${formId}-node-error`} message={errors.node} />
-        </div>
+        ))}
+      </div>
 
-        <fieldset className="field">
-          <legend className="field-label">Access policy</legend>
-          <p id={`${formId}-access-hint`} className="hint">
-            Who may use the deployed app. Workspace is the safe default —
-            a new app never starts public by accident.
-          </p>
-          <div className="grid gap-2" role="radiogroup" aria-label="Access scope">
-            {(
-              [
-                ["public", "Public", "Anyone on the internet can reach the app. No sign-in."],
-                ["workspace", "Workspace", "Only signed-in workspace members."],
-                ["restricted", "Restricted", "Only visitors matching the rules below. Denied by default."],
-              ] as const
-            ).map(([scope, label, hint]) => (
-              <label key={scope} className="flex items-start gap-2 text-sm">
+      <form
+        onSubmit={handleSubmit}
+        noValidate
+        className="grid items-start gap-5 lg:grid-cols-[minmax(0,1fr)_300px]"
+      >
+        <div className="grid min-w-0 gap-5">
+          <div className="card grid gap-5 p-5 sm:p-6">
+            <div className="flex flex-wrap items-start justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold tracking-tight">
+                  Essentials
+                </p>
+                <p
+                  className="mt-0.5 text-[13px]"
+                  style={{ color: "var(--color-muted)" }}
+                >
+                  Only what&rsquo;s needed to create the app.
+                </p>
+              </div>
+              <span
+                className="tag"
+                style={{
+                  background: "var(--color-info-soft)",
+                  color: "var(--color-info)",
+                }}
+              >
+                {intent === "stack"
+                  ? "Stack path"
+                  : intent === "own"
+                    ? "Own code"
+                    : "Blank"}
+              </span>
+            </div>
+
+            <div className="field">
+              <label className="field-label" htmlFor={`${formId}-name`}>
+                Name
+              </label>
+              <input
+                id={`${formId}-name`}
+                className="input"
+                type="text"
+                autoComplete="off"
+                placeholder="Rota Planner"
+                value={draft.name}
+                aria-invalid={Boolean(errors.name)}
+                aria-describedby={describedBy("name", `${formId}-name-hint`)}
+                onChange={(event) => set("name", event.target.value)}
+              />
+              <p id={`${formId}-name-hint`} className="hint">
+                Display name shown in lists and shortcuts.
+              </p>
+              <FieldError id={`${formId}-name-error`} message={errors.name} />
+            </div>
+
+            <div className="field">
+              <div className="flex items-baseline justify-between gap-2">
+                <label className="field-label" htmlFor={`${formId}-slug`}>
+                  Slug
+                </label>
+                <span
+                  className="text-[13px]"
+                  style={{ color: "var(--color-muted)" }}
+                >
+                  Permanent
+                </span>
+              </div>
+              <div className="flex">
+                <span
+                  aria-hidden="true"
+                  className="mono flex flex-none items-center px-2.5 text-[13px]"
+                  style={{
+                    background: "var(--color-paper)",
+                    border: "1px solid var(--color-rule)",
+                    borderRight: 0,
+                    borderRadius:
+                      "var(--radius-well) 0 0 var(--radius-well)",
+                    color: "var(--color-muted)",
+                  }}
+                >
+                  apps&nbsp;/
+                </span>
                 <input
-                  type="radio"
-                  name={`${formId}-access-scope`}
-                  value={scope}
-                  checked={accessPolicy.scope === scope}
-                  onChange={() =>
-                    setAccessPolicy({ ...accessPolicy, scope })
+                  id={`${formId}-slug`}
+                  className="input mono"
+                  style={{ borderRadius: "0 var(--radius-well) var(--radius-well) 0" }}
+                  type="text"
+                  autoComplete="off"
+                  autoCapitalize="off"
+                  spellCheck={false}
+                  placeholder={
+                    draft.slug.trim() ||
+                    slugifyAppName(draft.name) ||
+                    "rota-planner"
                   }
+                  value={draft.slug}
+                  aria-invalid={Boolean(errors.slug)}
+                  aria-describedby={describedBy("slug", `${formId}-slug-hint`)}
+                  onChange={(event) => set("slug", event.target.value)}
                 />
-                <span>
-                  <span className="font-medium">{label}</span>
-                  <span className="block text-[13px]" style={{ color: "var(--color-muted)" }}>
+              </div>
+              <p id={`${formId}-slug-hint`} className="hint">
+                Lowercase letters, numbers and hyphens. Leave blank to use
+                the name-based default; the slug never changes.
+              </p>
+              <FieldError id={`${formId}-slug-error`} message={errors.slug} />
+            </div>
+
+            <div className="field">
+              <div className="flex items-baseline justify-between gap-2">
+                <label
+                  className="field-label"
+                  htmlFor={`${formId}-description`}
+                >
+                  Description
+                </label>
+                <span
+                  className="tnum text-[13px]"
+                  style={{ color: "var(--color-muted)" }}
+                >
+                  {draft.description.length} / 2,000
+                </span>
+              </div>
+              <textarea
+                id={`${formId}-description`}
+                className="input"
+                rows={4}
+                autoComplete="off"
+                placeholder="Shift planning without the spreadsheet."
+                value={draft.description}
+                aria-invalid={Boolean(errors.description)}
+                aria-describedby={describedBy(
+                  "description",
+                  `${formId}-description-hint`,
+                )}
+                onChange={(event) => set("description", event.target.value)}
+              />
+              <p id={`${formId}-description-hint`} className="hint">
+                Optional — a few lines for the app page. Keep the first
+                line short for lists.
+              </p>
+              <FieldError
+                id={`${formId}-description-error`}
+                message={errors.description}
+              />
+            </div>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <div className="field">
+                <label className="field-label" htmlFor={`${formId}-stack`}>
+                  Tech stack
+                </label>
+                <select
+                  id={`${formId}-stack`}
+                  className="input"
+                  value={stack}
+                  aria-invalid={Boolean(errors.stack)}
+                  aria-describedby={describedBy("stack", `${formId}-stack-hint`)}
+                  onChange={(event) => {
+                    setStackTouched(true);
+                    set("stack", event.target.value);
+                  }}
+                >
+                  <option value="">No stack yet</option>
+                  {stacks.map((stack) => (
+                    <option key={stack.slug} value={stack.slug}>
+                      {stack.name}
+                    </option>
+                  ))}
+                </select>
+                <p id={`${formId}-stack-hint`} className="hint">
+                  {intent === "own"
+                    ? "Your own code — you'll link the repo from the app page. "
+                    : intent === "blank"
+                      ? "No stack yet — decide later from the app page. "
+                      : "Optional paved-road starter with the required gates built in. "}
+                  {stack && (
+                    <Link
+                      href={`/stacks/${stack}`}
+                      className="underline underline-offset-2"
+                    >
+                      Open the stack
+                    </Link>
+                  )}
+                </p>
+                {selectedStack && (
+                  <span className="flex flex-wrap gap-1.5" aria-label="Stack layers">
+                    {selectedStack.stack.slice(0, 3).map((layer) => (
+                      <span
+                        key={`${layer.category}-${layer.label}`}
+                        className="tag"
+                        style={{
+                          background: "var(--color-paper)",
+                          border: "1px solid var(--color-rule-2)",
+                          color: "var(--color-ink-2)",
+                          fontWeight: 500,
+                        }}
+                      >
+                        {layer.value}
+                      </span>
+                    ))}
+                    <span
+                      className="tag"
+                      style={{
+                        background: "var(--color-paper)",
+                        border: "1px solid var(--color-rule-2)",
+                        color: "var(--color-ink-2)",
+                        fontWeight: 500,
+                      }}
+                    >
+                      {selectedStack.checks.length} gates built in
+                    </span>
+                  </span>
+                )}
+                <FieldError id={`${formId}-stack-error`} message={errors.stack} />
+              </div>
+
+              <div className="field">
+                <label className="field-label" htmlFor={`${formId}-node`}>
+                  Sandbox node
+                </label>
+                <select
+                  id={`${formId}-node`}
+                  className="input"
+                  value={node}
+                  aria-invalid={Boolean(errors.node)}
+                  aria-describedby={describedBy("node", `${formId}-node-hint`)}
+                  onChange={(event) => set("node", event.target.value)}
+                >
+                  {nodes.map((node) => (
+                    <option key={node.slug} value={node.slug}>
+                      {node.name} — {node.location}
+                    </option>
+                  ))}
+                </select>
+                <p id={`${formId}-node-hint`} className="hint">
+                  The new app starts with one Sandbox environment on this
+                  node. It stays Pending until your first deploy.
+                </p>
+                <FieldError id={`${formId}-node-error`} message={errors.node} />
+              </div>
+            </div>
+          </div>
+
+          <fieldset className="card field p-5 sm:p-6">
+            <legend className="sr-only">Access policy</legend>
+            <p className="text-sm font-semibold tracking-tight">
+              Who can use it?
+            </p>
+            <p id={`${formId}-access-hint`} className="hint">
+              Who may use the deployed app. Workspace is the safe default —
+              a new app never starts public by accident.
+            </p>
+            <div
+              className="grid gap-2 sm:grid-cols-3"
+              role="radiogroup"
+              aria-label="Access scope"
+            >
+              {(
+                [
+                  ["public", "Public", "Anyone on the internet can reach the app. No sign-in."],
+                  ["workspace", "Workspace", "Only signed-in workspace members."],
+                  ["restricted", "Restricted", "Only visitors matching the rules below. Denied by default."],
+                ] as const
+              ).map(([scope, label, hint]) => (
+                <label
+                  key={scope}
+                  className="relative grid cursor-pointer gap-0 p-3"
+                  style={{
+                    background: "var(--color-card)",
+                    border: `1px solid ${accessPolicy.scope === scope ? "var(--color-ink)" : "var(--color-rule)"}`,
+                    borderRadius: "var(--radius-card)",
+                    boxShadow:
+                      accessPolicy.scope === scope
+                        ? "0 0 0 1px var(--color-ink)"
+                        : undefined,
+                  }}
+                >
+                  <input
+                    type="radio"
+                    name={`${formId}-access-scope`}
+                    value={scope}
+                    checked={accessPolicy.scope === scope}
+                    onChange={() =>
+                      setAccessPolicy({ ...accessPolicy, scope })
+                    }
+                    className="sr-only"
+                  />
+                  <span className="text-sm font-medium">{label}</span>
+                  <span
+                    className="mt-0.5 text-[13px]"
+                    style={{ color: "var(--color-muted)" }}
+                  >
                     {hint}
                   </span>
-                </span>
-              </label>
-            ))}
-          </div>
+                </label>
+              ))}
+            </div>
 
           {accessPolicy.scope !== "public" && (
             <label className="flex items-center gap-2 text-sm">
@@ -508,6 +759,17 @@ export function AppForm({
           />
         </fieldset>
 
+          <div className="card grid gap-5 p-5 sm:p-6">
+            <div>
+              <p className="text-sm font-semibold tracking-tight">Team</p>
+              <p
+                className="mt-0.5 text-[13px]"
+                style={{ color: "var(--color-muted)" }}
+              >
+                Who owns this app, and who gets repo access.
+              </p>
+            </div>
+
         <div className="field">
           <label className="field-label" htmlFor={`${formId}-owner`}>
             App owner
@@ -515,7 +777,7 @@ export function AppForm({
           {ownerOptions.length > 0 ? (
             <select
               id={`${formId}-owner`}
-              className="input max-w-md"
+              className="input"
               value={owner}
               aria-invalid={Boolean(errors.owner)}
               aria-describedby={describedBy("owner", `${formId}-owner-hint`)}
@@ -537,7 +799,7 @@ export function AppForm({
           ) : (
             <input
               id={`${formId}-owner`}
-              className="input max-w-md"
+              className="input"
               type="email"
               autoComplete="off"
               placeholder="owner@company.com"
@@ -563,7 +825,7 @@ export function AppForm({
           </label>
           <input
             id={`${formId}-owner-github`}
-            className="input max-w-md mono"
+            className="input mono"
             type="text"
             autoComplete="off"
             autoCapitalize="off"
@@ -587,6 +849,7 @@ export function AppForm({
             message={errors.ownerGithub}
           />
         </div>
+          </div>
 
         {sourceControl && (
           <div
@@ -660,17 +923,201 @@ export function AppForm({
           </div>
         )}
 
-        <div className="flex flex-wrap gap-3">
-          <button type="submit" className="btn-primary px-3 py-1.5 text-[13px]">
-            {submitLabel}
-          </button>
-          <button
-            type="button"
-            className="btn-ghost px-3 py-1.5 text-[13px]"
-            onClick={onCancel}
+        </div>
+
+        <aside
+          className="grid min-w-0 gap-4 self-start lg:sticky lg:top-4"
+          aria-label="App summary"
+        >
+          <div className="card p-4">
+            <p
+              className="text-[11px] font-semibold tracking-[0.06em] uppercase"
+              style={{ color: "var(--color-muted)" }}
+            >
+              Preview — apps list
+            </p>
+            <div
+              className="mt-2.5 p-3.5"
+              style={{
+                border: "1px solid var(--color-rule)",
+                borderRadius: "var(--radius-card)",
+              }}
+            >
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium tracking-tight">
+                  {draft.name.trim() || "Your app"}
+                </span>
+                <span
+                  className="tag"
+                  style={{
+                    background: "var(--color-warn-soft)",
+                    color: "var(--color-warn-deep)",
+                  }}
+                >
+                  Pending
+                </span>
+              </div>
+              <p
+                className="mt-1 line-clamp-2 text-[13px]"
+                style={{ color: "var(--color-ink-2)" }}
+              >
+                {draft.description.trim().split("\n")[0] ||
+                  "Your description's first line appears here."}
+              </p>
+              <p
+                className="mono mt-2.5 text-xs"
+                style={{ color: "var(--color-muted)" }}
+              >
+                {effectiveSlug}
+                {selectedNode
+                  ? ` · Sandbox · ${selectedNode.name} — ${selectedNode.location}`
+                  : ""}
+              </p>
+            </div>
+            <dl className="mt-2">
+              {(
+                [
+                  ["Slug", effectiveSlug, true],
+                  [
+                    "Stack",
+                    selectedStack ? selectedStack.name : "No stack yet",
+                    false,
+                  ],
+                  ["Access", accessLabel, false],
+                  [
+                    "Repo",
+                    willCreateRepo ? repoFullName : "Link after create",
+                    true,
+                  ],
+                ] as const
+              ).map(([label, value, mono]) => (
+                <div
+                  key={label}
+                  className="flex items-baseline justify-between gap-3 py-1.5"
+                  style={{ borderBottom: "1px solid var(--color-rule-2)" }}
+                >
+                  <dt
+                    className="text-[13px]"
+                    style={{ color: "var(--color-muted)" }}
+                  >
+                    {label}
+                  </dt>
+                  <dd
+                    className={`m-0 text-right text-[13px] font-medium ${mono ? "mono" : ""}`}
+                    style={{ overflowWrap: "anywhere" }}
+                  >
+                    {value}
+                  </dd>
+                </div>
+              ))}
+            </dl>
+          </div>
+
+          <div className="card p-4">
+            <p className="text-[13px] font-semibold">What you&rsquo;ll get</p>
+            <div className="mt-1.5 grid gap-1">
+              {(
+                [
+                  [
+                    draft.name.trim() ? "done" : "todo",
+                    "Identity",
+                    draft.name.trim()
+                      ? "Name + slug ready"
+                      : "Name your app to start",
+                  ],
+                  [
+                    selectedNode ? "done" : "todo",
+                    "Runtime",
+                    selectedStack
+                      ? `${selectedStack.name} · ${selectedNode?.name ?? "Pick a node"}`
+                      : "Sandbox Pending until first deploy",
+                  ],
+                  ["todo", "First deploy", "Guided on the app page after create"],
+                ] as const
+              ).map(([state, title, copy]) => (
+                <p key={title} className="flex items-start gap-2 py-1 text-sm">
+                  <span
+                    aria-hidden="true"
+                    className="mt-0.5 grid h-5 w-5 flex-none place-items-center rounded-full text-[11px] font-semibold"
+                    style={
+                      state === "done"
+                        ? {
+                            background: "var(--color-ok-soft)",
+                            color: "var(--color-ok)",
+                          }
+                        : {
+                            background: "var(--color-paper-2)",
+                            color: "var(--color-muted)",
+                          }
+                    }
+                  >
+                    {state === "done" ? "✓" : "·"}
+                  </span>
+                  <span>
+                    <span className="font-medium">{title}</span>
+                    <span
+                      className="block text-[13px]"
+                      style={{ color: "var(--color-muted)" }}
+                    >
+                      {copy}
+                    </span>
+                  </span>
+                </p>
+              ))}
+            </div>
+            <p
+              className="mt-2 pt-2 text-[13px]"
+              style={{
+                color: "var(--color-muted)",
+                borderTop: "1px solid var(--color-rule-2)",
+              }}
+            >
+              Governed checks ride along — unit tests, lint, build, DLP scan
+              and dependency audit stay green until the first real run.
+            </p>
+          </div>
+        </aside>
+
+        <div
+          className="sticky bottom-3 flex flex-wrap items-center justify-between gap-3 p-3 sm:col-span-2 lg:col-span-2"
+          style={{
+            background:
+              "color-mix(in oklch, var(--color-card) 94%, transparent)",
+            border: "1px solid var(--color-rule)",
+            borderRadius: "var(--radius-card)",
+            boxShadow: "var(--shadow-menu)",
+            backdropFilter: "blur(8px)",
+          }}
+        >
+          <span
+            className="text-[13px]"
+            style={{ color: "var(--color-muted)" }}
           >
-            Cancel
-          </button>
+            <span className="mono font-semibold" style={{ color: "var(--color-ink)" }}>
+              {effectiveSlug}
+            </span>
+            {" · "}
+            {selectedStack ? selectedStack.name : "No stack yet"}
+            {" · "}
+            {selectedNode ? selectedNode.name : "No node"}
+            {" · "}
+            {accessLabel}
+          </span>
+          <span className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn-ghost px-3 py-2 text-[13px]"
+              onClick={onCancel}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              className="btn-primary px-4 py-2 text-[13px]"
+            >
+              {submitLabel}
+            </button>
+          </span>
         </div>
       </form>
     </section>

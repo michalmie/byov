@@ -282,6 +282,33 @@ describe("AppForm stack prefill", () => {
     expect(seen[0]?.accessPolicy?.scope).toBe("public");
   });
 
+  it("clears the stack when Bring my own code is chosen", () => {
+    const seen: string[] = [];
+    renderForm("ai-chatbot", (draft) => {
+      seen.push(draft.stack);
+      return null;
+    });
+    fireEvent.click(
+      screen.getByRole("radio", { name: /Bring my own code/ }),
+    );
+    expect(screen.getByLabelText("Tech stack")).toHaveValue("");
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Rota Planner" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create app" }));
+    expect(seen).toEqual([""]);
+  });
+
+  it("previews the app in the summary rail as the name is typed", () => {
+    renderForm();
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Rota Planner" },
+    });
+    expect(screen.getByText(/apps list/)).toBeInTheDocument();
+    expect(screen.getAllByText("rota-planner").length).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText("Rota Planner")).toBeInTheDocument();
+  });
+
   it("submits the prefilled stack with an explicit choice winning", () => {
     const seen: string[] = [];
     renderForm("ai-chatbot", (draft) => {

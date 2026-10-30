@@ -96,6 +96,12 @@ The solution has three parts:
   catalog, and each stack detail page ("New app from this stack",
   prefilling the stack via `?stack=`; unknown slugs fall back to the
   first stack).
+- The form is a Launchpad: start-mode tiles (stack / own code / blank,
+  the latter two clearing the stack), grouped Essentials and Access
+  cards, a live summary rail (apps-list preview, slug, stack, repo,
+  access, "what you'll get") and a sticky action bar restating
+  slug · stack · node · access. All validation, owner and
+  source-control behavior is unchanged.
 
 ### App owner (first slice, built)
 

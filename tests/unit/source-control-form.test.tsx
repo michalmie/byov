@@ -136,7 +136,7 @@ describe("AppForm source-control preview", () => {
       target: { value: "Rota Planner" },
     });
     expect(
-      screen.getByText("acme-labs/byov-rota-planner"),
+      screen.getAllByText("acme-labs/byov-rota-planner")[0],
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Create app" }));
     expect(seen).toEqual([
