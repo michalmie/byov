@@ -495,23 +495,30 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
   redeploys the provider app, records the rollback in the audit
   trail, and refuses unprovisioned envs or unknown deployments.
 
-### Source control (first slice, built)
+### Code repositories (built)
 
-- Workspace source control (`Settings → Source control`, admins only):
-  link one GitHub App installation for the whole workspace — personal
-  (User) or Organization account — persisted via the workspace API
-  (`/api/workspace/source-control`, `workspace_kv` key `source_control`).
-  The document holds the owner login, account type and optional
-  installation id; no token is stored in Postgres or the browser.
+- Workspace code repositories (`Settings → Code repositories`, admins
+  only): the page lists configured providers and **New Code
+  Repository** starts setup. GitHub is the available provider
+  (default; GitLab/Bitbucket/Gitea show as soon) — link one GitHub
+  App installation for the whole workspace, personal (User) or
+  Organization account — persisted via the workspace API
+  (`/api/workspace/source-control`, `workspace_kv` key
+  `source_control`). The document holds the provider, owner login,
+  account type and optional installation id; no token is stored in
+  Postgres or the browser. One linked provider is stored today.
 - Repo creation rules: new repos are **private by default**; choosing
   public as the default requires explicitly allowing public repos.
   Defaults also cover the watched branch (`main`) and comma-separated
   GitHub topics added to every new repo.
-- Naming taxonomy: every repo is `{prefix}{app-slug}{suffix}` — `byov-`
-  prefix by default (e.g. `acme-labs/byov-rota-planner`) — resolved by
+- Naming taxonomy: one editable **repo name pattern** field,
+  prefilled with the proposed `byov-{app-slug}` (e.g.
+  `acme-labs/byov-rota-planner`) and freely modifiable — resolved by
   the pure `lib/source-control.ts` (`resolveRepoName` /
   `resolveRepoFullName` / `resolveRepoUrl`, 100-char GitHub limit,
-  sanitized slugs). Settings shows a live preview per app slug.
+  sanitized slugs; stored prefix/suffix derive from the pattern,
+  and legacy affix-only documents migrate to a pattern on read).
+  Settings previews the name for a sample slug.
 - Auto-create: when linked and enabled, the New app form previews the
   repo that will be created and links it on create (`repoUrl` +
   `branch` on the app). The app page shows the would-be repo for

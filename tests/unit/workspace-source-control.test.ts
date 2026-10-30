@@ -119,13 +119,14 @@ describe("workspace source-control store", () => {
       draft({
         connected: true,
         accountLogin: "  acme-labs ",
-        repoPrefix: " BYOV- ",
+        repoPattern: " BYOV-{app-slug} ",
         topics: " BYOV,, Internal-Tools ",
       }),
     );
     expect(result.ok).toBe(true);
     if (!result.ok) return;
     expect(result.settings.accountLogin).toBe("acme-labs");
+    expect(result.settings.repoPattern).toBe("byov-{app-slug}");
     expect(result.settings.repoPrefix).toBe("byov-");
     expect(result.settings.topics).toBe("byov, internal-tools");
     expect(result.settings.defaultVisibility).toBe("private");

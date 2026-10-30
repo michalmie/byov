@@ -283,7 +283,7 @@ export function AppForm({
               borderRadius: "var(--radius-card)",
             }}
           >
-            <p className="font-medium">Source control</p>
+            <p className="font-medium">Code repositories</p>
             {willCreateRepo ? (
               <>
                 <p style={{ color: "var(--color-ink-2)" }}>
@@ -302,14 +302,14 @@ export function AppForm({
                 <span className="mono">{sourceControl.accountLogin || "—"}</span>.
                 Auto-create is off — link the repo from the app page.{" "}
                 <Link href="/settings/source-control" className="underline underline-offset-2">
-                  Source control settings
+                  Code repository settings
                 </Link>
               </p>
             ) : (
               <p style={{ color: "var(--color-ink-2)" }}>
                 No GitHub account linked yet.{" "}
                 <Link href="/settings/source-control" className="underline underline-offset-2">
-                  Link GitHub in Settings → Source control
+                  Link GitHub in Settings → Code repositories
                 </Link>{" "}
                 to auto-create a private{" "}
                 <span className="mono">byov-</span> repo for new apps.
