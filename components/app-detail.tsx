@@ -104,6 +104,9 @@ export function AppDetailView({ slug }: { slug: string }) {
           >
             {app.description}
           </p>
+          <p className="mono mt-2 text-[13px]" style={{ color: "var(--color-muted)" }}>
+            Repo: {app.repoUrl ? `${app.repoUrl}${app.branch ? ` (${app.branch})` : ""}` : "not linked — POST /api/v1/apps/" + app.slug + "/repo"}
+          </p>
         </div>
 
         <PageTabs sections={appSections} />

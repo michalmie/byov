@@ -39,6 +39,10 @@ export interface App {
   checks: Check[];
   envs: AppEnvironment[];
   deployments: Deployment[];
+  /** Linked source repository (https or git URL); blank until linked. */
+  repoUrl?: string;
+  /** Branch the pipeline watches; defaults to the provider default. */
+  branch?: string;
 }
 
 /** How a node serves environment URLs. */

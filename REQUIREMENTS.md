@@ -438,6 +438,29 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
   (create → deploy → Sandbox URL serves the app) remains the
   acceptance spike — sandbox tests use a fake provider.
 
+### Cell (slice 3: repo + webhook pipeline + audit events, built)
+
+- Repo linkage: apps carry optional `repoUrl`/`branch` (create via
+  either API surface, or `POST /api/v1/apps/[slug]/repo`). The app
+  page shows the link state. Validation accepts https/git URLs.
+- Gates (`lib/gates.ts`): DLP scan runs server-side over pushed
+  file contents (private keys, cloud/GitHub tokens, secret
+  assignments, committed `.env` files) and never echoes values.
+  Unit tests / Lint / Production build / Dependency audit are
+  attested per check name by the reporter (connector/CI); missing
+  or failed attestation fails closed. Fresh results persist on the
+  app — checks are no longer static green labels.
+- Pipeline (`lib/pipeline.ts` + `POST /api/v1/apps/[slug]/webhook`,
+  token/session or `x-byov-webhook-secret`): evaluates gates,
+  persists them, deploys the target env (default `sandbox`) only
+  on full pass via the slice-2 adapter.
+- Audit/activity: migration `0005_events` + `lib/events.ts`.
+  App registration, gate pass/block and deploys record persisted
+  events; `GET /api/workspace/activity` serves them and the
+  dashboard + `/activity` prefer them over the sample feed once
+  any exist. Isolated server-side check runner (checkout + exec)
+  remains a follow-up — reporters attest command gates today.
+
 ### Database (first slice)
 
 - All Control Plane server state lives in Postgres: API tokens

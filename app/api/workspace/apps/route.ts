@@ -20,6 +20,8 @@ function asDraft(body: Record<string, unknown>): AppDraft {
     description: text(body.description),
     stack: text(body.stack),
     node: text(body.node),
+    repoUrl: text(body.repoUrl),
+    branch: text(body.branch),
   };
 }
 

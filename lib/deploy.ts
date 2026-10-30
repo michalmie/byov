@@ -25,6 +25,7 @@ import {
   type CoolifyDeps,
 } from "./coolify-adapter";
 import { resolveEnvUrl } from "./dev-urls";
+import { recordEvent } from "./events";
 import {
   findWorkspaceApp,
   getWorkspaceSettings,
@@ -137,6 +138,11 @@ export async function deployEnv(
     app.deployments = [deployment, ...app.deployments];
     await saveWorkspaceApp(app);
     await touchWorkspaceNode(node.slug);
+    await recordEvent({
+      actor,
+      text: `deployed ${app.name} to ${envName}`,
+      appSlug: slug,
+    });
     return { ok: true, app, deployment, providerId };
   } catch (error) {
     env.status = "degraded";

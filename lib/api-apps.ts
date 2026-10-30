@@ -59,6 +59,8 @@ export interface CreateApiAppInput {
   description: unknown;
   stack: unknown;
   node: unknown;
+  repoUrl?: unknown;
+  branch?: unknown;
 }
 
 function asDraft(input: CreateApiAppInput): AppDraft {
@@ -69,6 +71,8 @@ function asDraft(input: CreateApiAppInput): AppDraft {
       typeof input.description === "string" ? input.description : "",
     stack: typeof input.stack === "string" ? input.stack : "",
     node: typeof input.node === "string" ? input.node : "",
+    repoUrl: typeof input.repoUrl === "string" ? input.repoUrl : "",
+    branch: typeof input.branch === "string" ? input.branch : "",
   };
 }
 
