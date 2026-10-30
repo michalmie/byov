@@ -31,7 +31,9 @@ const COOLIFY_GUIDE: KindGuide = {
       .
     </>,
     "Log in to Coolify and set its FQDN (the same hostname as the A record).",
-    "Paste the Coolify URL as the endpoint below and press Test.",
+    "In Coolify, create an API token for BYOV with permission to manage applications (under Keys & Tokens / API tokens in the Coolify panel).",
+    "Paste the Coolify URL as the endpoint below, paste the API token into Coolify API token, and press Test token — it must pass before the first deploy.",
+    "Set a zone (or tailnet host) in Serve URLs and add the wildcard DNS record so Sandbox URLs resolve.",
   ],
 };
 

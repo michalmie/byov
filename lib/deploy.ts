@@ -16,7 +16,6 @@ import type { App, Deployment, Node } from "./control-plane";
 import { listNodes } from "./control-plane";
 import {
   coolifyStatusToHealth,
-  coolifyTokenFor,
   createApplication,
   deployApplication,
   getApplication,
@@ -26,6 +25,7 @@ import {
   type CoolifyDeps,
 } from "./coolify-adapter";
 import { resolveEnvUrl } from "./dev-urls";
+import { resolveNodeToken } from "./node-credentials";
 import { recordEvent } from "./events";
 import {
   findWorkspaceApp,
@@ -87,11 +87,11 @@ export async function deployEnv(
       error: `Node "${node.name}" has no endpoint yet — add it in Settings → Nodes.`,
     };
   }
-  const token = coolifyTokenFor(node.slug);
+  const token = await resolveNodeToken(node.slug);
   if (!token) {
     return {
       ok: false,
-      error: "No Coolify API token configured — set COOLIFY_API_TOKEN on the BYOV server.",
+      error: `No API token saved for "${node.name}" — edit the node in Settings → Nodes and paste its Coolify API token.`,
     };
   }
 
@@ -176,9 +176,9 @@ export async function envStatus(
   if (!node?.endpoint) {
     return { ok: false, error: "Node endpoint is not configured." };
   }
-  const token = coolifyTokenFor(node.slug);
+  const token = await resolveNodeToken(node.slug);
   if (!token) {
-    return { ok: false, error: "No Coolify API token configured." };
+    return { ok: false, error: "No API token saved for this node — add it in Settings → Nodes." };
   }
   try {
     const remote = await getApplication(node.endpoint, token, env.providerId, deps);
@@ -208,9 +208,9 @@ export async function envLogs(
   if (!node?.endpoint) {
     return { ok: false, error: "Node endpoint is not configured." };
   }
-  const token = coolifyTokenFor(node.slug);
+  const token = await resolveNodeToken(node.slug);
   if (!token) {
-    return { ok: false, error: "No Coolify API token configured." };
+    return { ok: false, error: "No API token saved for this node — add it in Settings → Nodes." };
   }
   try {
     const logs = await getApplicationLogs(node.endpoint, token, env.providerId, deps);

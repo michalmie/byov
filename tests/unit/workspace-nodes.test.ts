@@ -30,6 +30,7 @@ const tables: Record<string, Map<string, string>> = {
   workspace_stacks: new Map(),
   workspace_users: new Map(),
   workspace_kv: new Map(),
+  workspace_node_credentials: new Map(),
 };
 
 function tableOf(sql: string): Map<string, string> {
@@ -48,6 +49,9 @@ async function fakeQuery(
   const table = tableOf(text);
   const sql = text.trimStart().toUpperCase();
   if (sql.startsWith("SELECT")) {
+    if (text.includes("workspace_node_credentials")) {
+      return [...table.keys()].map((slug) => ({ slug }));
+    }
     return [...table.entries()]
       .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
       .map(([, value]) => ({ data: JSON.parse(value) }));
@@ -77,6 +81,9 @@ async function fakeQueryOne(
     return null;
   }
   const key = String(params[0]);
+  if (text.includes("workspace_node_credentials")) {
+    return { ciphertext: value };
+  }
   return { slug: key, id: key, data: JSON.parse(value) };
 }
 
@@ -127,6 +134,28 @@ describe("workspace nodes store", () => {
     expect(result.node.slug).toBe("lab-01");
     expect(result.node.status).toBe("pending");
     await expect(listWorkspaceNodes()).resolves.toEqual([result.node]);
+  });
+
+  it("saves the API token server-side and only exposes hasApiToken", async () => {
+    const result = await createWorkspaceNode({
+      ...DRAFT,
+      apiToken: "super-secret-token-value",
+    });
+    expect(result.ok).toBe(true);
+    const listed = await listWorkspaceNodes();
+    expect(listed[0]?.hasApiToken).toBe(true);
+    expect(JSON.stringify(listed)).not.toContain("super-secret-token-value");
+    const stored = tables.workspace_node_credentials.get("lab-01") ?? "";
+    expect(stored).not.toContain("super-secret-token-value");
+    // Blank update keeps the token; explicit clear removes it.
+    const kept = await updateWorkspaceNode("lab-01", { ...DRAFT, apiToken: "" });
+    expect(kept.ok && kept.node.hasApiToken).toBe(true);
+    const cleared = await updateWorkspaceNode("lab-01", {
+      ...DRAFT,
+      apiToken: "",
+      clearApiToken: true,
+    });
+    expect(cleared.ok && cleared.node.hasApiToken).toBeFalsy();
   });
 
   it("writes use $1-style parameters, never interpolation", async () => {

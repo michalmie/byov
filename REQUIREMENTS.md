@@ -517,6 +517,24 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
   vault-grade secret encryption, and an isolated server-side
   check runner. These are tracked decisions, not silent gaps.
 
+### Node API tokens (Settings → Nodes, built)
+
+- Coolify nodes carry a provider API token, configured in the node
+  form (Settings → Nodes → Manage): create the token in Coolify
+  (Keys & Tokens / API tokens, manage-applications permission),
+  paste it into Coolify API token, and verify with Test token
+  (`POST /api/workspace/nodes/verify-token`, admin-only,
+  authenticated read against the node). The setup checklist in
+  the form and the next-steps panel walk through it.
+- Storage: migration `0007_node_credentials` +
+  `lib/node-credentials.ts`. Tokens are AES-256-GCM ciphertext
+  (AUTH_SECRET-derived key) in `workspace_node_credentials`,
+  apart from public node documents. APIs and cards only expose
+  `Node.hasApiToken`; blank edit keeps the token, explicit clear
+  removes it, node delete removes it. Deploys resolve saved token
+  → `COOLIFY_TOKEN_<SLUG>` → `COOLIFY_API_TOKEN` (`resolveNodeToken`)
+  and the missing-token error now points at Settings → Nodes.
+
 ### Database (first slice)
 
 - All Control Plane server state lives in Postgres: API tokens

@@ -137,7 +137,7 @@ describe("deployEnv", () => {
     delete process.env.COOLIFY_API_TOKEN;
     const noToken = await deployEnv("rota-planner", "sandbox", "a@b.c", okDeps());
     expect(noToken.ok).toBe(false);
-    if (!noToken.ok) expect(noToken.error).toContain("COOLIFY_API_TOKEN");
+    if (!noToken.ok) expect(noToken.error).toContain("Settings");
   });
 });
 

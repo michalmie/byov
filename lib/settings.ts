@@ -43,6 +43,10 @@ export interface NodeDraft {
   endpoint: string;
   domainZone: string;
   tailnetHost: string;
+  /** Write-only provider API token; blank keeps the saved token. */
+  apiToken?: string;
+  /** Remove the saved token on save (edit flows). */
+  clearApiToken?: boolean;
 }
 
 export type NodeField =
@@ -51,7 +55,8 @@ export type NodeField =
   | "location"
   | "endpoint"
   | "domainZone"
-  | "tailnetHost";
+  | "tailnetHost"
+  | "apiToken";
 export type NodeFieldErrors = Partial<Record<NodeField, string>>;
 
 export function slugifyNodeName(name: string): string {
@@ -160,6 +165,15 @@ export function validateNodeDraft(
       "Enter the machine name as known on the tailnet, e.g. qa-lab-01.";
   }
 
+  const apiToken = (draft.apiToken ?? "").trim();
+  if (apiToken) {
+    if (apiToken.length > 1000) {
+      errors.apiToken = "Keep the API token under 1000 characters.";
+    } else if (/\s/.test(apiToken)) {
+      errors.apiToken = "Paste the token without spaces or line breaks.";
+    }
+  }
+
   return errors;
 }
 
@@ -192,6 +206,7 @@ export function buildNode(
     ...(endpoint ? { endpoint } : {}),
     ...(domainZone ? { domainZone } : {}),
     ...(tailnetHost ? { tailnetHost } : {}),
+    ...((draft.apiToken ?? "").trim() ? { hasApiToken: true } : {}),
   };
 }
 
@@ -363,7 +378,7 @@ export function parseStoredNodes(value: unknown): Node[] | undefined {
     if (!isRecord(entry)) {
       continue;
     }
-    const { slug, name, kind, location, status, endpoint, domainZone, tailnetHost } =
+    const { slug, name, kind, location, status, endpoint, domainZone, tailnetHost, hasApiToken } =
       entry;
     if (
       typeof slug !== "string" ||
@@ -392,6 +407,7 @@ export function parseStoredNodes(value: unknown): Node[] | undefined {
       ...(typeof tailnetHost === "string" && isHostname(tailnetHost)
         ? { tailnetHost: tailnetHost.trim().toLowerCase() }
         : {}),
+      ...(hasApiToken === true ? { hasApiToken: true } : {}),
     });
   }
   return nodes;

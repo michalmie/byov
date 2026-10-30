@@ -9,6 +9,7 @@ import {
 } from "@/lib/settings";
 import { NodeKindInstructions } from "./node-setup-guide";
 import { NodeTestButton } from "./node-test-button";
+import { NodeTokenTestButton } from "./node-token-test";
 
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) {
@@ -39,6 +40,8 @@ export function NodeForm({
   submitLabel,
   onSubmit,
   onCancel,
+  savedToken = false,
+  nodeSlug,
 }: {
   formId: string;
   heading: string;
@@ -47,6 +50,10 @@ export function NodeForm({
   submitLabel: string;
   onSubmit: (draft: NodeDraft) => NodeFieldErrors | null;
   onCancel: () => void;
+  /** True when a token is already saved server-side (edit flows). */
+  savedToken?: boolean;
+  /** Node slug so Test token can fall back to the saved token. */
+  nodeSlug?: string;
 }) {
   const [draft, setDraft] = useState<NodeDraft>(initial);
   const [errors, setErrors] = useState<NodeFieldErrors>({});
@@ -215,8 +222,8 @@ export function NodeForm({
           />
           <p id={`${formId}-endpoint-hint`} className="hint">
             {isVercel
-              ? "Link to the Vercel project or team dashboard. Credentials are managed when the node adapter lands."
-              : "Where the control plane reaches this node. Credentials are managed when the node adapter lands."}
+              ? "Link to the Vercel project or team dashboard."
+              : "Where the control plane reaches this node, e.g. https://panel.example.com."}
           </p>
           <FieldError
             id={`${formId}-endpoint-error`}
@@ -224,6 +231,60 @@ export function NodeForm({
           />
           <NodeTestButton endpoint={draft.endpoint} />
         </div>
+
+        {!isVercel && (
+          <div className="field">
+            <label className="field-label" htmlFor={`${formId}-apiToken`}>
+              Coolify API token{" "}
+              <span className="hint">
+                {savedToken ? "(saved — paste to replace)" : "(required to deploy)"}
+              </span>
+            </label>
+            <input
+              id={`${formId}-apiToken`}
+              className="input max-w-md mono"
+              type="password"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder={savedToken ? "Token saved — leave blank to keep it" : "Paste the Coolify API token"}
+              value={draft.apiToken ?? ""}
+              aria-invalid={Boolean(errors.apiToken)}
+              aria-describedby={describedBy("apiToken", `${formId}-apiToken-hint`)}
+              onChange={(event) => set("apiToken", event.target.value)}
+            />
+            <p id={`${formId}-apiToken-hint`} className="hint">
+              In Coolify, create an API token with permission to manage
+              applications (in the Coolify panel under Keys &amp; Tokens /
+              API tokens), then paste it here. BYOV uses it to create apps,
+              set their FQDN, and deploy. It is encrypted on the BYOV server,
+              never shown again, and blank keeps the saved token.
+            </p>
+            <FieldError
+              id={`${formId}-apiToken-error`}
+              message={errors.apiToken}
+            />
+            <NodeTokenTestButton
+              endpoint={draft.endpoint}
+              apiToken={draft.apiToken ?? ""}
+              slug={nodeSlug}
+            />
+            {savedToken && (
+              <label className="flex items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={Boolean(draft.clearApiToken)}
+                  onChange={(event) =>
+                    setDraft((prev) => ({
+                      ...prev,
+                      clearApiToken: event.target.checked,
+                    }))
+                  }
+                />
+                Remove the saved token on save
+              </label>
+            )}
+          </div>
+        )}
         </fieldset>
 
         <fieldset className="grid gap-5">
