@@ -158,6 +158,26 @@ describe("workspace nodes store", () => {
     expect(cleared.ok && cleared.node.hasApiToken).toBeFalsy();
   });
 
+  it("marks the node healthy when the create-time token test passes", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => ({ status: 200, text: async () => "[]" })),
+    );
+    try {
+      const result = await createWorkspaceNode({
+        ...DRAFT,
+        apiToken: "working-token",
+      });
+      expect(result.ok).toBe(true);
+      if (result.ok) {
+        expect(result.node.status).toBe("healthy");
+      }
+      expect((await listWorkspaceNodes())[0]?.status).toBe("healthy");
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
+
   it("writes use $1-style parameters, never interpolation", async () => {
     await createWorkspaceNode(DRAFT);
     const write = vi

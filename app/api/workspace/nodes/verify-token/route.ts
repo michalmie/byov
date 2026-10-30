@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { apiBadJson, apiError, apiOk } from "@/lib/api-response";
 import { verifyCoolifyConnection } from "@/lib/coolify-adapter";
 import { resolveNodeToken } from "@/lib/node-credentials";
+import { touchWorkspaceNode } from "@/lib/workspace-store";
 import { isAuthFailure, readJsonBody, requireWorkspaceAdmin } from "../../_lib";
 
 /**
@@ -32,5 +33,10 @@ export async function POST(request: NextRequest) {
     });
   }
   const result = await verifyCoolifyConnection(endpoint, token);
+  if (result.ok && slug) {
+    // A passing authenticated test is first contact: a Pending node
+    // becomes healthy immediately, no deploy needed.
+    await touchWorkspaceNode(slug).catch(() => undefined);
+  }
   return apiOk(result);
 }

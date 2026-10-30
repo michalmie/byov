@@ -70,9 +70,11 @@ import {
 import { recordEvent } from "@/lib/events";
 import {
   deleteNodeToken,
+  getSavedNodeToken,
   listTokenSlugs,
   saveNodeToken,
 } from "@/lib/node-credentials";
+import { verifyCoolifyConnection } from "@/lib/coolify-adapter";
 
 interface DocRow {
   data: unknown;
@@ -116,6 +118,41 @@ export type NodeDeleteResult =
   | { ok: false; notFound: true }
   | { ok: false; error: string; usage: NodeUsageEntry[] };
 
+/**
+ * Best-effort authenticated contact check: a passing Coolify token
+ * test counts as first contact, so a Pending node flips healthy.
+ * Bounded so saves never hang on an unreachable node.
+ */
+export async function verifyNodeContact(
+  slug: string,
+  endpoint: string,
+  token: string,
+): Promise<boolean> {
+  if (!endpoint.trim() || !token.trim()) {
+    return false;
+  }
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  try {
+    const result = await Promise.race([
+      verifyCoolifyConnection(endpoint, token),
+      new Promise<{ ok: false }>((resolve) => {
+        timer = setTimeout(() => resolve({ ok: false }), 4000);
+      }),
+    ]);
+    if (!result.ok) {
+      return false;
+    }
+    await touchWorkspaceNode(slug);
+    return true;
+  } catch {
+    return false;
+  } finally {
+    if (timer) {
+      clearTimeout(timer);
+    }
+  }
+}
+
 /** Validate and insert; the slug derives from the name. */
 export async function createWorkspaceNode(
   draft: NodeDraft,
@@ -134,8 +171,19 @@ export async function createWorkspaceNode(
   if (apiToken) {
     await saveNodeToken(node.slug, apiToken);
   }
-  const [enriched] = await withTokenFlags([node]);
-  return { ok: true, node: enriched ?? node };
+  let saved = node;
+  if (node.kind === "Coolify" && apiToken) {
+    const verified = await verifyNodeContact(
+      node.slug,
+      node.endpoint ?? "",
+      apiToken,
+    );
+    if (verified) {
+      saved = { ...node, status: "healthy" };
+    }
+  }
+  const [enriched] = await withTokenFlags([saved]);
+  return { ok: true, node: { ...(enriched ?? saved), status: saved.status } };
 }
 
 /** Validate and replace by slug; the slug never changes. */
@@ -187,8 +235,21 @@ export async function updateWorkspaceNode(
   } else if (draft.clearApiToken) {
     await deleteNodeToken(slug).catch(() => undefined);
   }
-  const [enriched] = await withTokenFlags([updated]);
-  return { ok: true, node: enriched ?? updated };
+  let saved = updated;
+  if (updated.kind === "Coolify" && updated.status === "pending") {
+    const effective =
+      apiToken || (await getSavedNodeToken(slug).catch(() => null)) || "";
+    const verified = await verifyNodeContact(
+      slug,
+      updated.endpoint ?? "",
+      effective,
+    );
+    if (verified) {
+      saved = { ...updated, status: "healthy" };
+    }
+  }
+  const [enriched] = await withTokenFlags([saved]);
+  return { ok: true, node: { ...(enriched ?? saved), status: saved.status } };
 }
 
 /** Mark a workspace node healthy after first adapter contact. */

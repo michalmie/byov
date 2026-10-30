@@ -549,7 +549,10 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
   paste it into Coolify API token, and verify with Test token
   (`POST /api/workspace/nodes/verify-token`, admin-only,
   authenticated read against the node). The setup checklist in
-  the form and the next-steps panel walk through it.
+  the form and the next-steps panel walk through it. A passing
+  test counts as first contact — it flips a Pending node healthy
+  (`touchWorkspaceNode`), as do node create/edit saves that
+  re-verify, and the first deploy.
 - Storage: migration `0007_node_credentials` +
   `lib/node-credentials.ts`. Tokens are AES-256-GCM ciphertext
   (AUTH_SECRET-derived key) in `workspace_node_credentials`,
