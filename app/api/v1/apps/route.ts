@@ -40,6 +40,8 @@ export async function POST(request: NextRequest) {
     node?: unknown;
     repoUrl?: unknown;
     branch?: unknown;
+    owner?: unknown;
+    ownerGithub?: unknown;
   };
   let result;
   try {
@@ -51,6 +53,8 @@ export async function POST(request: NextRequest) {
       node: input.node,
       repoUrl: input.repoUrl,
       branch: input.branch,
+      owner: input.owner,
+      ownerGithub: input.ownerGithub,
     });
   } catch {
     return apiDbError();

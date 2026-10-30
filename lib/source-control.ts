@@ -321,6 +321,68 @@ export function canCreateRepos(settings: SourceControlSettings): boolean {
   );
 }
 
+/** GitHub permission granted to an app owner on its repo. */
+export type RepoContributorPermission = "push";
+
+export interface RepoContributorGrant {
+  /** GitHub login granted access, as entered (case preserved). */
+  username: string;
+  /** Contributor write access — GitHub `push` permission. */
+  permission: RepoContributorPermission;
+  repoFullName: string;
+  repoUrl: string;
+  /**
+   * `already-owner` when the login owns the account the repo lives
+   * under (access is inherent, no invite needed); otherwise `invited`.
+   */
+  status: "invited" | "already-owner";
+}
+
+/** True when the login owns the linked GitHub account. */
+export function isRepoAccountOwner(
+  settings: SourceControlSettings,
+  login: string,
+): boolean {
+  const account = settings.accountLogin.trim();
+  const candidate = login.trim();
+  return (
+    account !== "" &&
+    candidate !== "" &&
+    account.toLowerCase() === candidate.toLowerCase()
+  );
+}
+
+/**
+ * Contributor grant for an app owner on the repo BYOV creates/links
+ * for `appSlug`. Returns null when no grant applies: no valid owner
+ * login, or GitHub is not linked so there is no repo to grant on.
+ * This is the governed record — the installation-token adapter
+ * applies the same grant via the GitHub API once it lands, exactly
+ * as repo creation itself is recorded today.
+ */
+export function resolveOwnerRepoGrant(
+  settings: SourceControlSettings,
+  appSlug: string,
+  ownerGithub: string | undefined,
+): RepoContributorGrant | null {
+  const username = (ownerGithub ?? "").trim();
+  if (!username || !isGitHubLogin(username)) {
+    return null;
+  }
+  if (!canCreateRepos(settings)) {
+    return null;
+  }
+  return {
+    username,
+    permission: "push",
+    repoFullName: resolveRepoFullName(settings, appSlug),
+    repoUrl: resolveRepoUrl(settings, appSlug),
+    status: isRepoAccountOwner(settings, username)
+      ? "already-owner"
+      : "invited",
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }

@@ -45,6 +45,13 @@ export interface App {
   repoUrl?: string;
   /** Branch the pipeline watches; defaults to the provider default. */
   branch?: string;
+  /** App owner email (workspace identity); blank until assigned. */
+  owner?: string;
+  /**
+   * App owner GitHub login. When set, the owner is granted push access
+   * as a contributor on the app repo (see `resolveOwnerRepoGrant`).
+   */
+  ownerGithub?: string;
 }
 
 /** How a node serves environment URLs. */

@@ -23,6 +23,11 @@ export const MCP_TOOLS = [
         node: { type: "string", description: "Node slug hosting the Sandbox" },
         stack: { type: "string" },
         repoUrl: { type: "string" },
+        owner: { type: "string", description: "App owner email" },
+        ownerGithub: {
+          type: "string",
+          description: "App owner GitHub login (granted push as repo contributor)",
+        },
       },
       required: ["name", "node"],
     },
@@ -81,6 +86,9 @@ export async function callMcpTool(
                   node: args.node,
                   stack: typeof args.stack === "string" ? args.stack : "",
                   repoUrl: typeof args.repoUrl === "string" ? args.repoUrl : "",
+                  owner: typeof args.owner === "string" ? args.owner : "",
+                  ownerGithub:
+                    typeof args.ownerGithub === "string" ? args.ownerGithub : "",
                 }),
               ),
             },

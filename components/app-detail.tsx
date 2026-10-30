@@ -19,6 +19,7 @@ import { useManagedStacks } from "@/lib/stack-store";
 import { useSourceControlSettings } from "@/lib/source-control-store";
 import {
   canCreateRepos,
+  resolveOwnerRepoGrant,
   resolveRepoFullName,
   resolveRepoUrl,
 } from "@/lib/source-control";
@@ -54,6 +55,11 @@ export function AppDetailView({ slug }: { slug: string }) {
   }
 
   const custom = isCustomApp(app.slug);
+  const ownerGrant = resolveOwnerRepoGrant(
+    sourceControl,
+    app.slug,
+    app.ownerGithub,
+  );
   const stackName =
     getManagedStack(app.stack)?.name || app.stack || "No stack yet";
   const health = appHealth(app);
@@ -111,6 +117,19 @@ export function AppDetailView({ slug }: { slug: string }) {
           >
             {app.description}
           </p>
+          <p className="mt-2 text-[13px]" style={{ color: "var(--color-ink-2)" }}>
+            Owner:{" "}
+            {app.owner ? (
+              <>
+                {app.owner}
+                {app.ownerGithub ? (
+                  <span className="mono"> (@{app.ownerGithub})</span>
+                ) : null}
+              </>
+            ) : (
+              "Unassigned — assign an owner when creating the app"
+            )}
+          </p>
           <p className="mono mt-2 text-[13px]" style={{ color: "var(--color-muted)" }}>
             Repo:{" "}
             {app.repoUrl
@@ -119,6 +138,18 @@ export function AppDetailView({ slug }: { slug: string }) {
                 ? `not linked — would be ${resolveRepoFullName(sourceControl, app.slug)} (${resolveRepoUrl(sourceControl, app.slug)}) · link via POST /api/v1/apps/${app.slug}/repo`
                 : `not linked — POST /api/v1/apps/${app.slug}/repo · link GitHub in Settings → Code repositories`}
           </p>
+          {ownerGrant && (
+            <p className="mt-1 text-[13px]" style={{ color: "var(--color-ink-2)" }}>
+              {ownerGrant.status === "already-owner"
+                ? `Owner @${ownerGrant.username} owns ${ownerGrant.repoFullName} — full repo access, no invite needed.`
+                : `Owner @${ownerGrant.username} is a contributor (${ownerGrant.permission}) on ${ownerGrant.repoFullName}.`}
+            </p>
+          )}
+          {!ownerGrant && app.ownerGithub && canCreateRepos(sourceControl) && (
+            <p className="mt-1 text-[13px]" style={{ color: "var(--color-muted)" }}>
+              Owner repo access: pending — GitHub login could not be verified.
+            </p>
+          )}
         </div>
 
         <PageTabs sections={appSections} />

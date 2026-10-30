@@ -1,7 +1,8 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { AppForm } from "@/components/app-form";
+import { AppForm, type AppOwnerOption } from "@/components/app-form";
 import type { AppDraft, AppFieldErrors } from "@/lib/apps";
 import { listNodes } from "@/lib/control-plane";
+import type { SourceControlSettings } from "@/lib/source-control";
 import { listStacks } from "@/lib/stacks";
 
 const stacks = listStacks();
@@ -101,6 +102,146 @@ describe("AppForm stack prefill", () => {
     const description = screen.getByLabelText("Description");
     expect(description.tagName).toBe("TEXTAREA");
     expect(description).toHaveAttribute("rows", "4");
+  });
+
+  it("defaults the owner to the signed-in creator and submits it", () => {
+    const seen: AppDraft[] = [];
+    render(
+      <AppForm
+        formId="new-app"
+        initial={{ name: "", slug: "", description: "", stack: "", node: "" }}
+        stacks={stacks}
+        nodes={nodes}
+        preferredNode=""
+        currentUserEmail="ada@example.com"
+        submitLabel="Create app"
+        onSubmit={(draft) => {
+          seen.push(draft);
+          return null;
+        }}
+        onCancel={() => {}}
+      />,
+    );
+    expect(screen.getByLabelText("App owner")).toHaveValue("ada@example.com");
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Rota Planner" },
+    });
+    fireEvent.change(screen.getByLabelText("Owner GitHub username"), {
+      target: { value: "ada-dev" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create app" }));
+    expect(seen[0]?.owner).toBe("ada@example.com");
+    expect(seen[0]?.ownerGithub).toBe("ada-dev");
+  });
+
+  it("assigns a workspace member as owner from the picker", () => {
+    const owners: AppOwnerOption[] = [
+      { email: "ada@example.com", name: "Ada Lovelace" },
+      { email: "sam@example.com", name: "Sam Tan" },
+    ];
+    const seen: AppDraft[] = [];
+    render(
+      <AppForm
+        formId="new-app"
+        initial={{ name: "", slug: "", description: "", stack: "", node: "" }}
+        stacks={stacks}
+        nodes={nodes}
+        preferredNode=""
+        owners={owners}
+        currentUserEmail="ada@example.com"
+        submitLabel="Create app"
+        onSubmit={(draft) => {
+          seen.push(draft);
+          return null;
+        }}
+        onCancel={() => {}}
+      />,
+    );
+    const picker = screen.getByLabelText("App owner");
+    expect(picker.tagName).toBe("SELECT");
+    expect(picker).toHaveValue("ada@example.com");
+    fireEvent.change(picker, { target: { value: "sam@example.com" } });
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Rota Planner" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create app" }));
+    expect(seen[0]?.owner).toBe("sam@example.com");
+  });
+
+  it("lets the creator clear the owner back to Unassigned", () => {
+    const seen: AppDraft[] = [];
+    render(
+      <AppForm
+        formId="new-app"
+        initial={{ name: "", slug: "", description: "", stack: "", node: "" }}
+        stacks={stacks}
+        nodes={nodes}
+        preferredNode=""
+        owners={[{ email: "ada@example.com" }]}
+        currentUserEmail="ada@example.com"
+        submitLabel="Create app"
+        onSubmit={(draft) => {
+          seen.push(draft);
+          return null;
+        }}
+        onCancel={() => {}}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("App owner"), {
+      target: { value: "" },
+    });
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Rota Planner" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Create app" }));
+    expect(seen[0]?.owner).toBe("");
+  });
+
+  it("previews the owner as repo contributor when a repo will be created", () => {
+    const sourceControl: SourceControlSettings = {
+      provider: "github",
+      connected: true,
+      accountType: "organization",
+      accountLogin: "acme-labs",
+      installationId: "12345678",
+      defaultVisibility: "private",
+      allowPublicRepos: false,
+      repoPattern: "byov-{app-slug}",
+      repoPrefix: "byov-",
+      repoSuffix: "",
+      defaultBranch: "main",
+      autoCreateRepo: true,
+      topics: "byov",
+    };
+    render(
+      <AppForm
+        formId="new-app"
+        initial={{ name: "", slug: "", description: "", stack: "", node: "" }}
+        stacks={stacks}
+        nodes={nodes}
+        preferredNode=""
+        sourceControl={sourceControl}
+        currentUserEmail="ada@example.com"
+        submitLabel="Create app"
+        onSubmit={() => null}
+        onCancel={() => {}}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("Name"), {
+      target: { value: "Rota Planner" },
+    });
+    expect(
+      screen.getByText(/Add the owner's GitHub username above/),
+    ).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Owner GitHub username"), {
+      target: { value: "ada-dev" },
+    });
+    expect(
+      screen.getByText(/will be added as a contributor \(push\)/),
+    ).toBeInTheDocument();
+    expect(
+      screen.getAllByText("acme-labs/byov-rota-planner").length,
+    ).toBeGreaterThanOrEqual(2);
   });
 
   it("submits the prefilled stack with an explicit choice winning", () => {

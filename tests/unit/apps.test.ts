@@ -187,6 +187,42 @@ describe("validateAppDraft", () => {
     );
     expect(errors.node).toMatch(/node/i);
   });
+
+  it("allows a blank owner and a valid owner assignment", () => {
+    expect(
+      validateAppDraft(draft({ owner: "", ownerGithub: "" }), listApps(), nodes, stackSlugs),
+    ).toEqual({});
+    expect(
+      validateAppDraft(
+        draft({ owner: "ada@example.com", ownerGithub: "ada-dev" }),
+        listApps(),
+        nodes,
+        stackSlugs,
+      ),
+    ).toEqual({});
+  });
+
+  it("rejects a malformed owner email", () => {
+    const errors = validateAppDraft(
+      draft({ owner: "not-an-email" }),
+      listApps(),
+      nodes,
+      stackSlugs,
+    );
+    expect(errors.owner).toMatch(/owner's email/i);
+  });
+
+  it("rejects a malformed owner GitHub login", () => {
+    for (const ownerGithub of ["-ada", "ada-", "ada--dev", "ada_dev", "ada dev"]) {
+      const errors = validateAppDraft(
+        draft({ ownerGithub }),
+        listApps(),
+        nodes,
+        stackSlugs,
+      );
+      expect(errors.ownerGithub).toMatch(/single hyphens/);
+    }
+  });
 });
 
 describe("buildApp", () => {
@@ -224,6 +260,21 @@ describe("buildApp", () => {
       listApps(),
     );
     expect(app.slug).toBe("rota-eu");
+  });
+
+  it("stores the assigned owner, lowercased, with the GitHub login", () => {
+    const app = buildApp(
+      draft({ owner: "  Ada@Example.com ", ownerGithub: "  Ada-Dev " }),
+      listApps(),
+    );
+    expect(app.owner).toBe("ada@example.com");
+    expect(app.ownerGithub).toBe("Ada-Dev");
+  });
+
+  it("omits owner fields when left blank", () => {
+    const app = buildApp(draft({ owner: "  ", ownerGithub: " " }), listApps());
+    expect("owner" in app).toBe(false);
+    expect("ownerGithub" in app).toBe(false);
   });
 
   it("trims the name, description and stack", () => {
@@ -290,6 +341,26 @@ describe("parseStoredApps", () => {
   it("round-trips a stored app", () => {
     const app = buildApp(draft(), listApps());
     expect(parseStoredApps(JSON.parse(JSON.stringify([app])))).toEqual([app]);
+  });
+
+  it("round-trips the app owner and normalizes the email", () => {
+    const app = buildApp(
+      draft({ owner: "ada@example.com", ownerGithub: "ada-dev" }),
+      listApps(),
+    );
+    const parsed = parseStoredApps(
+      JSON.parse(
+        JSON.stringify([{ ...app, owner: "  ADA@Example.com " }]),
+      ),
+    );
+    expect(parsed).toEqual([app]);
+  });
+
+  it("drops blank owner fields on read", () => {
+    const app = buildApp(draft(), listApps());
+    expect(
+      parseStoredApps([{ ...app, owner: "  ", ownerGithub: "" }]),
+    ).toEqual([app]);
   });
 
   it("keeps stack-less apps with empty descriptions", () => {

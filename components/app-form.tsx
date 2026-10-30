@@ -6,11 +6,18 @@ import type { Node } from "@/lib/control-plane";
 import { slugifyAppName, type AppDraft, type AppField, type AppFieldErrors } from "@/lib/apps";
 import {
   canCreateRepos,
+  resolveOwnerRepoGrant,
   resolveRepoFullName,
   resolveRepoUrl,
   type SourceControlSettings,
 } from "@/lib/source-control";
 import type { TechStack } from "@/lib/stacks";
+
+/** Minimal workspace-member shape the owner picker needs. */
+export interface AppOwnerOption {
+  email: string;
+  name?: string;
+}
 
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) {
@@ -33,6 +40,8 @@ export function AppForm({
   preferredNode,
   preferredStack,
   sourceControl,
+  owners,
+  currentUserEmail,
   submitLabel,
   onSubmit,
   onCancel,
@@ -50,6 +59,10 @@ export function AppForm({
   preferredStack?: string;
   /** Workspace GitHub taxonomy; preview + auto-link when it can create. */
   sourceControl?: SourceControlSettings;
+  /** Workspace members the owner picker offers; empty shows an email input. */
+  owners?: readonly AppOwnerOption[];
+  /** Signed-in creator email, used as the owner until the picker is touched. */
+  currentUserEmail?: string;
   submitLabel: string;
   onSubmit: (draft: AppDraft) => AppFieldErrors | null;
   onCancel: () => void;
@@ -59,6 +72,9 @@ export function AppForm({
   // The stack is optional, so the ?stack= prefill only applies until the
   // user touches the select — otherwise "No stack yet" could never win.
   const [stackTouched, setStackTouched] = useState(false);
+  // Same for the owner: the creator is the default owner until the
+  // picker is touched, so "Unassigned" stays reachable.
+  const [ownerTouched, setOwnerTouched] = useState(false);
 
   const preferredStackValid =
     preferredStack && stacks.some((entry) => entry.slug === preferredStack)
@@ -94,6 +110,17 @@ export function AppForm({
   const repoUrl = willCreateRepo
     ? resolveRepoUrl(sourceControl!, effectiveSlug)
     : "";
+  const owner =
+    (draft.owner ?? "") ||
+    (!ownerTouched ? (currentUserEmail ?? "") : "");
+  const ownerGithub = draft.ownerGithub ?? "";
+  const ownerGrant = sourceControl
+    ? resolveOwnerRepoGrant(sourceControl, effectiveSlug, ownerGithub)
+    : null;
+  const ownerOptions = owners ?? [];
+  const ownerKnown = ownerOptions.some(
+    (entry) => entry.email.toLowerCase() === owner.trim().toLowerCase(),
+  );
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -101,6 +128,8 @@ export function AppForm({
       ...draft,
       stack,
       node,
+      owner,
+      ownerGithub,
       ...(willCreateRepo
         ? { repoUrl, branch: sourceControl!.defaultBranch }
         : {}),
@@ -274,6 +303,86 @@ export function AppForm({
           <FieldError id={`${formId}-node-error`} message={errors.node} />
         </div>
 
+        <div className="field">
+          <label className="field-label" htmlFor={`${formId}-owner`}>
+            App owner
+          </label>
+          {ownerOptions.length > 0 ? (
+            <select
+              id={`${formId}-owner`}
+              className="input max-w-md"
+              value={owner}
+              aria-invalid={Boolean(errors.owner)}
+              aria-describedby={describedBy("owner", `${formId}-owner-hint`)}
+              onChange={(event) => {
+                setOwnerTouched(true);
+                set("owner", event.target.value);
+              }}
+            >
+              <option value="">Unassigned</option>
+              {owner && !ownerKnown && (
+                <option value={owner}>{owner}</option>
+              )}
+              {ownerOptions.map((entry) => (
+                <option key={entry.email} value={entry.email}>
+                  {entry.name ? `${entry.name} — ${entry.email}` : entry.email}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              id={`${formId}-owner`}
+              className="input max-w-md"
+              type="email"
+              autoComplete="off"
+              placeholder="owner@company.com"
+              value={owner}
+              aria-invalid={Boolean(errors.owner)}
+              aria-describedby={describedBy("owner", `${formId}-owner-hint`)}
+              onChange={(event) => {
+                setOwnerTouched(true);
+                set("owner", event.target.value);
+              }}
+            />
+          )}
+          <p id={`${formId}-owner-hint`} className="hint">
+            Who owns this app. Defaults to you; pick a workspace member or
+            leave Unassigned to decide later.
+          </p>
+          <FieldError id={`${formId}-owner-error`} message={errors.owner} />
+        </div>
+
+        <div className="field">
+          <label className="field-label" htmlFor={`${formId}-owner-github`}>
+            Owner GitHub username
+          </label>
+          <input
+            id={`${formId}-owner-github`}
+            className="input max-w-md mono"
+            type="text"
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            placeholder="ada-dev"
+            value={ownerGithub}
+            aria-invalid={Boolean(errors.ownerGithub)}
+            aria-describedby={describedBy(
+              "ownerGithub",
+              `${formId}-owner-github-hint`,
+            )}
+            onChange={(event) => set("ownerGithub", event.target.value)}
+          />
+          <p id={`${formId}-owner-github-hint`} className="hint">
+            The owner is added as a contributor (push access) to the app
+            repo when it is created or linked. Leave blank to invite them
+            later.
+          </p>
+          <FieldError
+            id={`${formId}-owner-github-error`}
+            message={errors.ownerGithub}
+          />
+        </div>
+
         {sourceControl && (
           <div
             className="grid gap-1 p-4 text-sm"
@@ -295,6 +404,34 @@ export function AppForm({
                 <p className="mono text-[13px]" style={{ color: "var(--color-muted)" }}>
                   {repoUrl}
                 </p>
+                {ownerGrant ? (
+                  <p style={{ color: "var(--color-ink-2)" }}>
+                    {ownerGrant.status === "already-owner" ? (
+                      <>
+                        Owner{" "}
+                        <span className="mono">@{ownerGrant.username}</span>{" "}
+                        owns{" "}
+                        <span className="mono">
+                          {sourceControl.accountLogin}
+                        </span>{" "}
+                        — they already have full access to{" "}
+                        <span className="mono">{repoFullName}</span>.
+                      </>
+                    ) : (
+                      <>
+                        Owner{" "}
+                        <span className="mono">@{ownerGrant.username}</span>{" "}
+                        will be added as a contributor (push) to{" "}
+                        <span className="mono">{repoFullName}</span>.
+                      </>
+                    )}
+                  </p>
+                ) : (
+                  <p style={{ color: "var(--color-ink-2)" }}>
+                    Add the owner&apos;s GitHub username above so they get
+                    contributor access automatically.
+                  </p>
+                )}
               </>
             ) : sourceControl.connected ? (
               <p style={{ color: "var(--color-ink-2)" }}>

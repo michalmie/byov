@@ -22,6 +22,8 @@ function asDraft(body: Record<string, unknown>): AppDraft {
     node: text(body.node),
     repoUrl: text(body.repoUrl),
     branch: text(body.branch),
+    owner: text(body.owner),
+    ownerGithub: text(body.ownerGithub),
   };
 }
 

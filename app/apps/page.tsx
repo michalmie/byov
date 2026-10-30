@@ -62,6 +62,15 @@ export default function Apps() {
                       >
                         {app.description}
                       </span>
+                      {app.owner && (
+                        <span
+                          className="block text-sm"
+                          style={{ color: "var(--color-muted)" }}
+                        >
+                          Owner: {app.owner}
+                          {app.ownerGithub ? ` (@${app.ownerGithub})` : ""}
+                        </span>
+                      )}
                       {isCustomApp(app.slug) && (
                         <span
                           className="mono block text-sm"

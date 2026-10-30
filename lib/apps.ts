@@ -4,6 +4,7 @@
 // Sandbox environment; the owner guide on the app page walks them
 // from scaffold to first Sandbox deploy.
 
+import { isValidEmail } from "./auth-settings";
 import type {
   App,
   AppEnvironment,
@@ -13,6 +14,7 @@ import type {
   Health,
   Node,
 } from "./control-plane";
+import { isGitHubLogin } from "./source-control";
 
 export const APPS_STORAGE_KEY = "byov:apps:v1";
 
@@ -40,6 +42,10 @@ export interface AppDraft {
   repoUrl?: string;
   /** Optional watched branch for the linked repo. */
   branch?: string;
+  /** Optional app owner email; blank means the creator owns the app. */
+  owner?: string;
+  /** Optional app owner GitHub login (repo contributor invite target). */
+  ownerGithub?: string;
 }
 
 export type AppField =
@@ -49,7 +55,9 @@ export type AppField =
   | "stack"
   | "node"
   | "repoUrl"
-  | "branch";
+  | "branch"
+  | "owner"
+  | "ownerGithub";
 export type AppFieldErrors = Partial<Record<AppField, string>>;
 
 export function slugifyAppName(name: string): string {
@@ -141,6 +149,16 @@ export function validateAppDraft(
     errors.branch = "Enter a branch name, e.g. main.";
   }
 
+  const owner = (draft.owner ?? "").trim();
+  if (owner && !isValidEmail(owner)) {
+    errors.owner = "Enter the app owner's email address.";
+  }
+  const ownerGithub = (draft.ownerGithub ?? "").trim();
+  if (ownerGithub && !isGitHubLogin(ownerGithub)) {
+    errors.ownerGithub =
+      "Use 1–39 letters, numbers or single hyphens — no leading or trailing hyphen.";
+  }
+
   return errors;
 }
 
@@ -177,6 +195,8 @@ export function buildApp(draft: AppDraft, existing: readonly App[]): App {
   const explicitSlug = draft.slug.trim();
   const repoUrl = (draft.repoUrl ?? "").trim();
   const branch = (draft.branch ?? "").trim();
+  const owner = (draft.owner ?? "").trim().toLowerCase();
+  const ownerGithub = (draft.ownerGithub ?? "").trim();
   return {
     slug: explicitSlug
       ? explicitSlug
@@ -192,6 +212,8 @@ export function buildApp(draft: AppDraft, existing: readonly App[]): App {
     deployments: [],
     ...(repoUrl ? { repoUrl } : {}),
     ...(branch ? { branch } : {}),
+    ...(owner ? { owner } : {}),
+    ...(ownerGithub ? { ownerGithub } : {}),
   };
 }
 
@@ -331,7 +353,7 @@ export function parseStoredApps(value: unknown): App[] | undefined {
     if (!isRecord(entry)) {
       continue;
     }
-    const { slug, name, stack, description, checks, envs, deployments, repoUrl, branch } = entry;
+    const { slug, name, stack, description, checks, envs, deployments, repoUrl, branch, owner, ownerGithub } = entry;
     if (
       typeof slug !== "string" ||
       !slug ||
@@ -358,6 +380,12 @@ export function parseStoredApps(value: unknown): App[] | undefined {
       deployments: parsedDeployments,
       ...(typeof repoUrl === "string" && repoUrl ? { repoUrl } : {}),
       ...(typeof branch === "string" && branch ? { branch } : {}),
+      ...(typeof owner === "string" && owner.trim()
+        ? { owner: owner.trim().toLowerCase() }
+        : {}),
+      ...(typeof ownerGithub === "string" && ownerGithub.trim()
+        ? { ownerGithub: ownerGithub.trim() }
+        : {}),
     });
   }
   return apps;
