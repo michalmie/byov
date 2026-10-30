@@ -39,6 +39,13 @@ import {
 } from "@/app/api/auth/oauth/[provider]/callback/route";
 import { verifySession } from "@/lib/auth";
 
+// JWKS signature checks are covered with real keys in jwks.test.ts;
+// here the provider fixtures use unsigned tokens, so trust the seam.
+vi.mock("@/lib/jwks", () => ({
+  verifyIdTokenSignature: async () => true,
+  _clearJwksCache: () => {},
+}));
+
 // The OAuth callback resolves login roles through the database-backed
 // bootstrap record; fake just that table (no live DB in unit tests).
 vi.mock("@/lib/db", () => {

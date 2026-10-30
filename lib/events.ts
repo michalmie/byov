@@ -21,21 +21,52 @@ function eventId(): string {
   return `evt_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
 }
 
+type FetchFn = (url: string, init: { method: string; headers: Record<string, string>; body: string }) => Promise<unknown>;
+let siemFetch: FetchFn = (url, init) => fetch(url, init);
+
+/** Test seam: replace the SIEM transport (default global fetch). */
+export function _setSiemFetch(fn: FetchFn): void {
+  siemFetch = fn;
+}
+
+/** Forward one event to the SIEM webhook when configured. */
+async function dispatchSiem(event: StoredEvent): Promise<void> {
+  const url = (process.env.BYOV_SIEM_WEBHOOK_URL ?? "").trim();
+  if (!url) return;
+  try {
+    await siemFetch(url, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ source: "byov", ...event }),
+    });
+  } catch {
+    // SIEM delivery is best-effort; the persisted row is the record.
+  }
+}
+
 /** Record one governed action. Never throws into the caller's flow. */
 export async function recordEvent(input: {
   actor: string;
   text: string;
   appSlug?: string;
 }): Promise<void> {
+  const event: StoredEvent = {
+    id: eventId(),
+    actor: input.actor,
+    text: input.text,
+    appSlug: input.appSlug ?? null,
+    createdAt: new Date().toISOString(),
+  };
   try {
     await query(
       "INSERT INTO workspace_events (id, actor, text, app_slug) VALUES ($1, $2, $3, $4)",
-      [eventId(), input.actor, input.text, input.appSlug ?? null],
+      [event.id, event.actor, event.text, event.appSlug],
     );
   } catch {
     // Audit must not break the action it describes; the action's own
     // result already reached the caller. (Follow-up: retry queue.)
   }
+  await dispatchSiem(event);
 }
 
 /** Newest persisted events, capped. */

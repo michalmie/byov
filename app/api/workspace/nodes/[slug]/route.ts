@@ -8,7 +8,7 @@ import type { NodeDraft } from "@/lib/settings";
 import {
   isAuthFailure,
   readJsonBody,
-  requireWorkspaceSession,
+  requireWorkspaceAdmin,
 } from "../../_lib";
 
 function asDraft(body: Record<string, unknown>): NodeDraft {
@@ -29,7 +29,7 @@ export async function PUT(
   request: NextRequest,
   context: { params: Promise<{ slug: string }> },
 ) {
-  const auth = await requireWorkspaceSession(request);
+  const auth = await requireWorkspaceAdmin(request);
   if (isAuthFailure(auth)) {
     return auth;
   }
@@ -55,7 +55,7 @@ export async function DELETE(
   request: NextRequest,
   context: { params: Promise<{ slug: string }> },
 ) {
-  const auth = await requireWorkspaceSession(request);
+  const auth = await requireWorkspaceAdmin(request);
   if (isAuthFailure(auth)) {
     return auth;
   }

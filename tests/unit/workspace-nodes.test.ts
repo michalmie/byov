@@ -294,7 +294,7 @@ async function sessionRequest(
   const session = await createSession({
     email: "ada@example.com",
     provider: "passwordless",
-    role: init.role ?? "member",
+    role: init.role ?? "admin",
   });
   return new NextRequest(url, {
     method: init.method ?? "GET",
@@ -330,7 +330,7 @@ describe("workspace nodes API", () => {
     expect(body.data).toHaveLength(1);
   });
 
-  it("creates a node for members and reports field errors", async () => {
+  it("creates a node for admins and reports field errors", async () => {
     const created = await nodesPost(
       await sessionRequest("http://localhost/api/workspace/nodes", {
         method: "POST",
