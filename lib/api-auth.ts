@@ -17,7 +17,12 @@ import {
   type CookieRequest,
   type UserRole,
 } from "./auth";
-import { verifyToken, type ApiTokenInfo } from "./api-tokens";
+import {
+  tokenHasScope,
+  verifyToken,
+  type ApiTokenInfo,
+  type TokenScope,
+} from "./api-tokens";
 import { apiError, apiUnauthorized } from "./api-response";
 
 export type ApiAuth =
@@ -97,6 +102,28 @@ export async function requireTokenManager(
   }
   if (auth.kind === "session" && auth.role !== "admin") {
     return apiError(403, "Only admins can manage API tokens.");
+  }
+  if (auth.kind === "token" && !tokenHasScope(auth.token, "tokens:manage")) {
+    return apiError(403, "This token cannot manage API tokens.");
+  }
+  return auth;
+}
+
+/**
+ * Scope gate for app endpoints: sessions pass (role gates apply
+ * elsewhere); tokens must carry the scope. Legacy full-access
+ * tokens (no scopes) pass every gate.
+ */
+export async function requireScope(
+  request: ApiRequest,
+  scope: TokenScope,
+): Promise<ApiAuth | NextResponse> {
+  const auth = await requireApiAuth(request);
+  if (auth instanceof Response) {
+    return auth;
+  }
+  if (auth.kind === "token" && !tokenHasScope(auth.token, scope)) {
+    return apiError(403, `This token needs the ${scope} scope.`);
   }
   return auth;
 }

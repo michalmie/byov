@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { apiDbError, requireApiAuth } from "@/lib/api-auth";
+import { apiDbError, requireScope } from "@/lib/api-auth";
 import { apiBadJson, apiError, apiOk } from "@/lib/api-response";
 import { handlePush, type PushPayload } from "@/lib/pipeline";
 
@@ -17,7 +17,7 @@ export async function POST(
   const presented = (request.headers.get("x-byov-webhook-secret") ?? "").trim();
   let actor = "webhook";
   if (!(secret && presented && presented === secret)) {
-    const auth = await requireApiAuth(request);
+    const auth = await requireScope(request, "apps:write");
     if (auth instanceof Response) {
       return auth;
     }

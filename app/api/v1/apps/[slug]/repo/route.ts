@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { apiDbError, requireApiAuth } from "@/lib/api-auth";
+import { apiDbError, requireScope } from "@/lib/api-auth";
 import { apiBadJson, apiError, apiOk } from "@/lib/api-response";
 import { isRepoUrl } from "@/lib/apps";
 import { findApp } from "@/lib/api-apps";
@@ -10,7 +10,7 @@ export async function POST(
   request: NextRequest,
   context: { params: Promise<{ slug: string }> },
 ) {
-  const auth = await requireApiAuth(request);
+  const auth = await requireScope(request, "apps:write");
   if (auth instanceof Response) {
     return auth;
   }

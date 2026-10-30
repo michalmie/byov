@@ -461,6 +461,24 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
   any exist. Isolated server-side check runner (checkout + exec)
   remains a follow-up — reporters attest command gates today.
 
+### Cell (slice 4: CLI + MCP connector + scoped tokens, built)
+
+- Scoped tokens (migration `0006_token_scopes`): tokens carry
+  `apps:read` / `apps:write` / `tokens:manage`; `/api/v1` app reads
+  need `apps:read`, writes/deploys/webhooks need `apps:write`, and
+  token management needs `tokens:manage` (or an admin session).
+  Pre-scope tokens (no scopes stored) keep full access so existing
+  connectors keep working. Settings → API tokens lists, creates
+  (secret shown once) and revokes tokens.
+- Connector core (`lib/cli-core.ts`, `lib/mcp-tools.ts`): typed
+  `/api/v1` client plus CLI commands (apps, create, link, deploy,
+  status, logs) and five MCP tools (list/create/deploy/status/
+  logs), all unit-tested with a fake fetch.
+- Entries with no new dependencies: `cli/byov.mjs` (BYOV_URL +
+  BYOV_TOKEN) and `mcp/byov-mcp.mjs` (stdio JSON-RPC; one-snippet
+  agent config in its header). The Sandbox guide connect step now
+  describes this one-time setup instead of a manual loop.
+
 ### Database (first slice)
 
 - All Control Plane server state lives in Postgres: API tokens
