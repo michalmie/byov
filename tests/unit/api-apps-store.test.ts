@@ -25,14 +25,14 @@ import type { App } from "@/lib/control-plane";
 const mockQuery = vi.mocked(query);
 const mockQueryOne = vi.mocked(queryOne);
 
-/** In-memory `api_apps` table backing the mocked `query`/`queryOne`. */
+/** In-memory unified `workspace_apps` table backing the mocked DB. */
 const apps = new Map<string, { app: App; seq: number }>();
 let nextSeq = 0;
 
 function uniqueViolation(): Error {
   return Object.assign(
     new Error(
-      'duplicate key value violates unique constraint "api_apps_pkey"',
+      'duplicate key value violates unique constraint "workspace_apps_pkey"',
     ),
     { code: "23505" },
   );
@@ -42,7 +42,15 @@ async function fakeQuery(
   text: string,
   params: unknown[],
 ): Promise<unknown[]> {
-  if (text.includes("FROM api_apps") && text.startsWith("SELECT")) {
+  // Workspace node/stack catalogues are empty in these tests (sample
+  // nodes/stacks still validate via the pure catalogues).
+  if (
+    text.includes("FROM workspace_nodes") ||
+    text.includes("FROM workspace_stacks")
+  ) {
+    return [];
+  }
+  if (text.includes("FROM workspace_apps") && text.startsWith("SELECT")) {
     if (text.includes("WHERE slug = $1")) {
       const entry = apps.get(String(params[0]));
       // Mirror `pg`: the JSONB document arrives parsed.
@@ -51,13 +59,13 @@ async function fakeQuery(
         : [];
     }
     return [...apps.values()]
-      .sort((a, b) => a.seq - b.seq || a.app.slug.localeCompare(b.app.slug))
+      .sort((a, b) => a.app.slug.localeCompare(b.app.slug))
       .map((entry) => ({
         slug: entry.app.slug,
         data: JSON.parse(JSON.stringify(entry.app)),
       }));
   }
-  if (text.startsWith("INSERT INTO api_apps")) {
+  if (text.startsWith("INSERT INTO workspace_apps")) {
     const [slug, json] = params as [string, string];
     if (apps.has(slug)) {
       throw uniqueViolation();
@@ -66,7 +74,7 @@ async function fakeQuery(
     apps.set(slug, { app: JSON.parse(json) as App, seq: nextSeq });
     return [];
   }
-  if (text.startsWith("UPDATE api_apps SET data")) {
+  if (text.startsWith("UPDATE workspace_apps SET data")) {
     const [json, slug] = params as [string, string];
     const entry = apps.get(slug);
     if (entry) {
@@ -180,7 +188,7 @@ describe("createApiApp", () => {
   it("reports a slug conflict when a concurrent create wins the race", async () => {
     const base = mockQuery.getMockImplementation();
     mockQuery.mockImplementation(async (text: string, params?: unknown[]) => {
-      if (text.startsWith("INSERT INTO api_apps")) {
+      if (text.startsWith("INSERT INTO workspace_apps")) {
         throw uniqueViolation();
       }
       return base?.(text, params) as Promise<unknown[]>;

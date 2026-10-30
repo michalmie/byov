@@ -349,10 +349,12 @@ Local bootstrap runbook:
 - Apps and environments (`lib/api-apps.ts`): `GET/POST /api/v1/apps`,
   `GET /api/v1/apps/[slug]`, `GET/POST /api/v1/apps/[slug]/envs`,
   `GET /api/v1/apps/[slug]/envs/[env]`. Validation mirrors the
-  browser new-app flow (names, slugs, known stacks from the shipped
-  catalog, known nodes); every app starts with one Pending `sandbox`
-  env. State persists as JSONB documents in Postgres (`api_apps`).
-  The API serves only API-created apps — sample apps stay a UI concern.
+  browser new-app flow (names, slugs, known stacks and nodes from
+  the shipped catalog plus workspace definitions); every app starts
+  with one Pending `sandbox` env. State persists as JSONB documents
+  in Postgres (`workspace_apps`, the unified store — see below).
+  The API serves persisted apps from either creation surface —
+  sample apps stay a UI concern.
 - Envelope: success is `{ ok: true, data }`; every error is
   `{ ok: false, error }` with an optional per-field `errors` map
   (401 unauthenticated, 403 member managing tokens, 404 unknown
@@ -390,11 +392,31 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
 - Still open (later slices): node adapter and Coolify writes, repo
   and webhook wiring, MCP server/CLI, scoped tokens, token UI pages.
 
+### Unified app store (Cell enabler, built)
+
+- `workspace_apps` is the single source of truth for persisted apps.
+  Browser creates (`/api/workspace/apps`) and machine-API creates
+  (`/api/v1/apps`) read and write the same rows, so an app appears
+  on both surfaces immediately; env mutations via `/api/v1` are
+  visible in the UI and vice versa. Sample apps remain UI fixtures
+  and are never persisted or served by any API.
+- Validation is unified in `lib/workspace-store.ts`
+  (`createWorkspaceApp`): names/slugs clash against samples plus
+  persisted apps, and Sandbox nodes/stacks may be shipped or
+  workspace-defined. `lib/api-apps.ts` is a thin `/api/v1` facade
+  over that store (same field errors, env rules, Pending Sandbox).
+  Concurrent-create slug races return the validation error instead
+  of throwing, on both surfaces.
+- Migration `0004_unify_apps` backfills any `api_apps`-only rows
+  into `workspace_apps` (`ON CONFLICT DO NOTHING` — workspace rows
+  win). `api_apps` is retained for rollback but no longer written.
+
 ### Database (first slice)
 
 - All Control Plane server state lives in Postgres: API tokens
-  (`api_tokens`), machine-API apps (`api_apps`, one JSONB document per
-  app), the auth bootstrap claim (`auth_bootstrap`, single row), the
+  (`api_tokens`), persisted apps (`workspace_apps`, one JSONB
+  document per app; `api_apps` is the pre-unification table kept
+  for rollback), the auth bootstrap claim (`auth_bootstrap`, single row), the
   saved mail account (`mail_account`, single row), OTP codes
   (`auth_otps`) and rate-limit hits (`auth_rate_limits`), plus
   workspace state (nodes, apps, stacks, users as JSONB documents;
