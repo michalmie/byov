@@ -125,7 +125,8 @@ view, not your laptop's.
   name. These confirm app URLs will resolve and present valid TLS.
 - **Pending until first contact:** every new node shows **Pending**.
   That is normal — it means BYOV has not reached the node yet. The
-  status clears once the node adapter makes first contact. A node can
+  status clears on first contact: a passing **Test token**, or the
+  first successful deploy. A node can
   be Pending with green Tests: the Tests prove the network path, the
   status tracks adapter contact.
 
