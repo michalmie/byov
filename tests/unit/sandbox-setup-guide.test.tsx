@@ -141,7 +141,7 @@ describe("SandboxSetupGuide", () => {
     const { container } = renderGuide();
     expect(screen.getByText(/the node FQDN, your API base/)).toBeInTheDocument();
     expect(
-      screen.getByText(/Set the app's FQDN on its node/),
+      screen.getByText(/points its\s+FQDN at the Sandbox URL/),
     ).toBeInTheDocument();
     expect(container.textContent).not.toMatch(/Coolify FQDN/);
   });

@@ -149,6 +149,19 @@ export async function updateWorkspaceNode(
   return { ok: true, node: updated };
 }
 
+/** Mark a workspace node healthy after first adapter contact. */
+export async function touchWorkspaceNode(slug: string): Promise<void> {
+  const nodes = await listWorkspaceNodes();
+  const target = nodes.find((node) => node.slug === slug);
+  if (!target || target.status !== "pending") {
+    return;
+  }
+  await query(
+    "UPDATE workspace_nodes SET data = $1, updated_at = now() WHERE slug = $2",
+    [JSON.stringify({ ...target, status: "healthy" }), slug],
+  );
+}
+
 /** Remove unless environments are pinned to the node. */
 export async function deleteWorkspaceNode(
   slug: string,
