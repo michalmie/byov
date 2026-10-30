@@ -92,10 +92,12 @@ sections; every field is explained in place.
 | Field        | What to enter |
 |--------------|---------------|
 | **Endpoint** (optional) | The Coolify dashboard URL you logged into in step 3, e.g. `https://coolify.example.com`. This is where the control plane will reach the node. |
+| **Coolify API token** | Create an API token in Coolify (Keys & Tokens / API tokens) with permission to manage applications, then paste it here. BYOV encrypts it on the server, never shows it again, and uses it to create apps, set FQDNs, and deploy. Leave blank on edit to keep the saved token. |
 
-Press **Test** next to the endpoint (see [Verify](#6-verify)) before
-saving. A failing test never blocks saving — the node simply stays
-Pending until it is reachable.
+Press **Test** next to the endpoint, then **Test token** (see
+[Verify](#6-verify)) before saving. A failing test never blocks
+saving — the node simply stays Pending until it is reachable — but
+deploys need a passing token test.
 
 ### Serve URLs
 

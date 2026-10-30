@@ -22,6 +22,8 @@ function asDraft(body: Record<string, unknown>): NodeDraft {
     endpoint: text(body.endpoint),
     domainZone: text(body.domainZone),
     tailnetHost: text(body.tailnetHost),
+    apiToken: text(body.apiToken),
+    clearApiToken: body.clearApiToken === true,
   };
 }
 
