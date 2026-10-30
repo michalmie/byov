@@ -257,7 +257,7 @@ function parseEnvs(value: unknown): AppEnvironment[] | undefined {
     if (!isRecord(entry)) {
       return undefined;
     }
-    const { name, node, status, url, providerId } = entry;
+    const { name, node, status, url, providerId, envVars } = entry;
     if (
       typeof name !== "string" ||
       !name ||
@@ -268,6 +268,12 @@ function parseEnvs(value: unknown): AppEnvironment[] | undefined {
     ) {
       return undefined;
     }
+    const parsedVars: Record<string, string> = {};
+    if (isRecord(envVars)) {
+      for (const [k, v] of Object.entries(envVars)) {
+        if (typeof v === "string") parsedVars[k] = v;
+      }
+    }
     envs.push({
       name,
       node,
@@ -276,6 +282,7 @@ function parseEnvs(value: unknown): AppEnvironment[] | undefined {
       ...(typeof providerId === "string" && providerId
         ? { providerId }
         : {}),
+      ...(Object.keys(parsedVars).length > 0 ? { envVars: parsedVars } : {}),
     });
   }
   return envs;

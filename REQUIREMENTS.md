@@ -479,6 +479,22 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
   agent config in its header). The Sandbox guide connect step now
   describes this one-time setup instead of a manual loop.
 
+### Cell (slice 5: vars, previews, rollback, built)
+
+- Per-env vars/secrets (`AppEnvironment.envVars`, `lib/cell.ts`):
+  `GET .../envs/[env]/vars` returns keys with masked values only;
+  `PUT` replaces the set (validated names). Deploys push vars to
+  the provider (`setApplicationEnvVars`) before triggering. Env
+  cards list var keys, never values. Values persist in the app
+  document — vault/KMS encryption remains a hardening follow-up.
+- Previews: `POST /api/v1/apps/[slug]/previews {branch}` creates
+  (or redeploys) a `preview-<branch>` env on the Sandbox node and
+  deploys it; URLs resolve through the same dev-URL contract.
+  Preview SSO protection rides the enterprise-hardening slice.
+- Rollback: `POST .../envs/[env]/rollback {deploymentId?}`
+  redeploys the provider app, records the rollback in the audit
+  trail, and refuses unprovisioned envs or unknown deployments.
+
 ### Database (first slice)
 
 - All Control Plane server state lives in Postgres: API tokens

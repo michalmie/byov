@@ -133,6 +133,21 @@ export async function updateApplicationFqdn(
   ensureOk(res.status, "Update Coolify FQDN");
 }
 
+/** Replace a Coolify application's env vars (deploy picks them up). */
+export async function setApplicationEnvVars(
+  endpoint: string,
+  token: string,
+  uuid: string,
+  vars: Record<string, string>,
+  deps: CoolifyDeps = liveDeps,
+): Promise<void> {
+  const res = await deps.fetchJson(
+    `${baseUrl(endpoint)}/api/v1/applications/${encodeURIComponent(uuid)}/envs`,
+    { method: "PUT", token, body: { envs: vars } },
+  );
+  ensureOk(res.status, "Set Coolify env vars");
+}
+
 /** Trigger a deployment; returns the provider deployment id if given. */
 export async function deployApplication(
   endpoint: string,
