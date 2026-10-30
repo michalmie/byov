@@ -97,6 +97,27 @@ The solution has three parts:
   prefilling the stack via `?stack=`; unknown slugs fall back to the
   first stack).
 
+### App owner (first slice, built)
+
+- New app setup assigns an app owner: the form defaults to the signed-in
+  creator, offers workspace members when the member list is readable,
+  and otherwise takes an email. Clearing back to Unassigned is allowed;
+  a non-blank owner must be a valid email. The owner email (lowercased)
+  persists as `App.owner` on every creation surface (browser
+  `/api/workspace/apps`, machine `/api/v1/apps` with CLI/MCP forwarding)
+  and shows in the apps list and on the app page.
+- Repo access: an optional owner GitHub login (`App.ownerGithub`,
+  GitHub login rules) is captured with the owner. The pure
+  `resolveOwnerRepoGrant` in `lib/source-control.ts` turns it into the
+  governed contributor grant — `push` permission on the app repo
+  (`{owner}/{prefix}{slug}{suffix}`) — previewed live in the New app
+  Source control box and shown on the app page. When the login owns
+  the linked account the status is `already-owner` (access is
+  inherent, no invite needed); with no valid login or no linked
+  GitHub account there is no grant. As with repo creation itself
+  (first source-control slice), the grant is the governed record
+  until the installation-token adapter applies it via the GitHub API.
+
 ### Tech stacks (first slice)
 
 - Stack catalog (`stacks/`): one folder per stack with `manifest.json`,
@@ -495,23 +516,30 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
   redeploys the provider app, records the rollback in the audit
   trail, and refuses unprovisioned envs or unknown deployments.
 
-### Source control (first slice, built)
+### Code repositories (built)
 
-- Workspace source control (`Settings → Source control`, admins only):
-  link one GitHub App installation for the whole workspace — personal
-  (User) or Organization account — persisted via the workspace API
-  (`/api/workspace/source-control`, `workspace_kv` key `source_control`).
-  The document holds the owner login, account type and optional
-  installation id; no token is stored in Postgres or the browser.
+- Workspace code repositories (`Settings → Code repositories`, admins
+  only): the page lists configured providers and **New Code
+  Repository** starts setup. GitHub is the available provider
+  (default; GitLab/Bitbucket/Gitea show as soon) — link one GitHub
+  App installation for the whole workspace, personal (User) or
+  Organization account — persisted via the workspace API
+  (`/api/workspace/source-control`, `workspace_kv` key
+  `source_control`). The document holds the provider, owner login,
+  account type and optional installation id; no token is stored in
+  Postgres or the browser. One linked provider is stored today.
 - Repo creation rules: new repos are **private by default**; choosing
   public as the default requires explicitly allowing public repos.
   Defaults also cover the watched branch (`main`) and comma-separated
   GitHub topics added to every new repo.
-- Naming taxonomy: every repo is `{prefix}{app-slug}{suffix}` — `byov-`
-  prefix by default (e.g. `acme-labs/byov-rota-planner`) — resolved by
+- Naming taxonomy: one editable **repo name pattern** field,
+  prefilled with the proposed `byov-{app-slug}` (e.g.
+  `acme-labs/byov-rota-planner`) and freely modifiable — resolved by
   the pure `lib/source-control.ts` (`resolveRepoName` /
   `resolveRepoFullName` / `resolveRepoUrl`, 100-char GitHub limit,
-  sanitized slugs). Settings shows a live preview per app slug.
+  sanitized slugs; stored prefix/suffix derive from the pattern,
+  and legacy affix-only documents migrate to a pattern on read).
+  Settings previews the name for a sample slug.
 - Auto-create: when linked and enabled, the New app form previews the
   repo that will be created and links it on create (`repoUrl` +
   `branch` on the app). The app page shows the would-be repo for
@@ -568,6 +596,32 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
   token for Coolify, endpoint Reachable for Vercel — enforced in
   `NodeForm` (`requireConnectionTest` on the Add form; edits stay
   ungated). Changing endpoint or token revokes the pass.
+
+### Access policy (first slice, built)
+
+- Every app carries an access policy (`App.accessPolicy` in
+  `lib/control-plane.ts`, pure logic in `lib/access-policy.ts`):
+  who may use the deployed app, distinct from DNS reachability
+  (where the URL routes) and Control Plane auth (who manages it).
+- Scope presets: `public` (anyone), `workspace` (signed-in
+  workspace members, the default — a new app never starts public),
+  `restricted` (allowlist rules, denied by default). Optional
+  `requireAuth` gates rules behind sign-in; environments may
+  override the app policy (`AppEnvironment.accessPolicy`).
+- Generic rules (`allow`/`deny`; deny wins): `ip`, `cidr`
+  (IPv4/IPv6), `network` (tailnet/local/vpn), `email`,
+  `emailDomain`, `group`, `authenticated`, `apiKey` (id/label,
+  never a secret), `clientCert`, `signedLink`, `country`,
+  `schedule` (access until a date). Restricted needs at least
+  one allow rule; invalid values fail validation at creation on
+  every surface (browser, `/api/workspace/apps`, `/api/v1/apps`,
+  CLI `--access-scope`, MCP `accessScope`/`accessPolicy`).
+- Creation (`/apps/new`) offers the three scopes plus a rule
+  builder; apps list, app page and environment cards show the
+  effective policy as a badge (env override → app → workspace
+  default). Legacy apps without a stored policy read as
+  Workspace. `evaluateAccess` is the shared decision contract;
+  proxy enforcement at the node (Coolify/Vercel) is the follow-up.
 
 ### Database (first slice)
 

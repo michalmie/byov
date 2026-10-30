@@ -13,6 +13,19 @@ export const SOURCE_CONTROL_STORAGE_KEY = "byov:source-control:v1";
 export const GITHUB_ACCOUNT_TYPES = ["user", "organization"] as const;
 export type GitHubAccountType = (typeof GITHUB_ACCOUNT_TYPES)[number];
 
+/** Code-repository providers. Only GitHub connects today. */
+export const REPO_PROVIDERS = ["github"] as const;
+export type RepoProvider = (typeof REPO_PROVIDERS)[number];
+export const REPO_PROVIDER_META: Record<
+  RepoProvider,
+  { label: string; blurb: string }
+> = {
+  github: {
+    label: "GitHub",
+    blurb: "Repos under a personal account or Organization via the BYOV GitHub App.",
+  },
+};
+
 export const GITHUB_ACCOUNT_TYPE_META: Record<
   GitHubAccountType,
   { label: string; blurb: string }
@@ -36,7 +49,13 @@ export const MAX_REPO_NAME_LENGTH = 100;
 export const MAX_TOPIC_LENGTH = 50;
 export const MAX_BRANCH_LENGTH = 100;
 
+/** Token in the repo-name pattern where the app slug lands. */
+export const APP_SLUG_TOKEN = "{app-slug}";
+export const DEFAULT_REPO_PATTERN = `byov-${APP_SLUG_TOKEN}`;
+
 export interface SourceControlSettings {
+  /** Provider hosting code repositories (GitHub today). */
+  provider: RepoProvider;
   /** True once a GitHub App installation is linked. */
   connected: boolean;
   accountType: GitHubAccountType;
@@ -48,9 +67,14 @@ export interface SourceControlSettings {
   defaultVisibility: RepoVisibility;
   /** When false, public repos cannot be chosen as the default. */
   allowPublicRepos: boolean;
-  /** Taxonomy prefix, e.g. `byov-`. "" disables the prefix. */
+  /**
+   * Repo-name pattern with one `{app-slug}` token, e.g.
+   * `byov-{app-slug}`. The single taxonomy field admins edit.
+   */
+  repoPattern: string;
+  /** Derived prefix (before the token); kept for stored docs. */
   repoPrefix: string;
-  /** Taxonomy suffix, e.g. `-app`. "" disables the suffix. */
+  /** Derived suffix (after the token); kept for stored docs. */
   repoSuffix: string;
   /** Branch new repos are created with. */
   defaultBranch: string;
@@ -62,12 +86,14 @@ export interface SourceControlSettings {
 
 export function defaultSourceControlSettings(): SourceControlSettings {
   return {
+    provider: "github",
     connected: false,
     accountType: "organization",
     accountLogin: "",
     installationId: "",
     defaultVisibility: "private",
     allowPublicRepos: false,
+    repoPattern: DEFAULT_REPO_PATTERN,
     repoPrefix: "byov-",
     repoSuffix: "",
     defaultBranch: "main",
@@ -77,12 +103,14 @@ export function defaultSourceControlSettings(): SourceControlSettings {
 }
 
 export type SourceControlField =
+  | "provider"
   | "connected"
   | "accountType"
   | "accountLogin"
   | "installationId"
   | "defaultVisibility"
   | "allowPublicRepos"
+  | "repoPattern"
   | "repoPrefix"
   | "repoSuffix"
   | "defaultBranch"
@@ -112,6 +140,28 @@ export function isValidRepoAffix(value: string): boolean {
   if (v.length > MAX_AFFIX_LENGTH) return false;
   if (v === "." || v === "..") return false;
   return AFFIX_PATTERN.test(v);
+}
+
+/** Pattern from legacy affixes, e.g. `byov-` + `` → `byov-{app-slug}`. */
+export function repoPatternFromAffixes(prefix: string, suffix: string): string {
+  return `${prefix.trim().toLowerCase()}${APP_SLUG_TOKEN}${suffix.trim().toLowerCase()}`;
+}
+
+/** Split a pattern around its token; null when the shape is wrong. */
+export function splitRepoPattern(
+  pattern: string,
+): { prefix: string; suffix: string } | null {
+  const v = pattern.trim().toLowerCase();
+  const parts = v.split(APP_SLUG_TOKEN);
+  if (parts.length !== 2) return null;
+  const [prefix, suffix] = parts as [string, string];
+  if (!isValidRepoAffix(prefix) || !isValidRepoAffix(suffix)) return null;
+  return { prefix, suffix };
+}
+
+/** True for a pattern with exactly one token and valid affixes. */
+export function isValidRepoPattern(value: string): boolean {
+  return splitRepoPattern(value) !== null;
 }
 
 /** Split a raw comma list into trimmed, non-empty entries. */
@@ -144,6 +194,10 @@ export function validateSourceControlSettings(
 ): SourceControlFieldErrors {
   const errors: SourceControlFieldErrors = {};
 
+  if (!REPO_PROVIDERS.includes(draft.provider)) {
+    errors.provider = "Choose a code repository provider.";
+  }
+
   if (!GITHUB_ACCOUNT_TYPES.includes(draft.accountType)) {
     errors.accountType = "Choose a personal account or an Organization.";
   }
@@ -173,15 +227,14 @@ export function validateSourceControlSettings(
       "Public repos are disabled — keep the default private or allow public repos below.";
   }
 
-  const prefix = draft.repoPrefix.trim().toLowerCase();
-  if (prefix && !isValidRepoAffix(prefix)) {
-    errors.repoPrefix =
-      "Use lowercase letters, numbers, dots, underscores or hyphens (max 30 chars).";
-  }
-  const suffix = draft.repoSuffix.trim().toLowerCase();
-  if (suffix && !isValidRepoAffix(suffix)) {
-    errors.repoSuffix =
-      "Use lowercase letters, numbers, dots, underscores or hyphens (max 30 chars).";
+  const pattern = (draft.repoPattern ?? "").trim().toLowerCase();
+  if (!pattern) {
+    errors.repoPattern = `Enter a repo name pattern, e.g. ${DEFAULT_REPO_PATTERN}.`;
+  } else if (!pattern.includes(APP_SLUG_TOKEN)) {
+    errors.repoPattern = `Include ${APP_SLUG_TOKEN} where the app slug goes.`;
+  } else if (!isValidRepoPattern(pattern)) {
+    errors.repoPattern =
+      "Use one {app-slug} token with lowercase letters, numbers, dots, underscores or hyphens around it (max 30 chars each side).";
   }
 
   const branch = draft.defaultBranch.trim();
@@ -222,8 +275,13 @@ export function resolveRepoName(
   settings: SourceControlSettings,
   appSlug: string,
 ): string {
-  const prefix = sanitizeRepoSegment(settings.repoPrefix ?? "");
-  const suffix = sanitizeRepoSegment(settings.repoSuffix ?? "");
+  const split = splitRepoPattern(settings.repoPattern ?? "");
+  const prefix = sanitizeRepoSegment(
+    split ? split.prefix : (settings.repoPrefix ?? ""),
+  );
+  const suffix = sanitizeRepoSegment(
+    split ? split.suffix : (settings.repoSuffix ?? ""),
+  );
   const slug = sanitizeRepoSegment(appSlug || "app") || "app";
   let name = `${prefix}${slug}${suffix}`;
   name = name.replace(/^[-.]+/, "").replace(/[-.]+$/, "");
@@ -263,6 +321,68 @@ export function canCreateRepos(settings: SourceControlSettings): boolean {
   );
 }
 
+/** GitHub permission granted to an app owner on its repo. */
+export type RepoContributorPermission = "push";
+
+export interface RepoContributorGrant {
+  /** GitHub login granted access, as entered (case preserved). */
+  username: string;
+  /** Contributor write access — GitHub `push` permission. */
+  permission: RepoContributorPermission;
+  repoFullName: string;
+  repoUrl: string;
+  /**
+   * `already-owner` when the login owns the account the repo lives
+   * under (access is inherent, no invite needed); otherwise `invited`.
+   */
+  status: "invited" | "already-owner";
+}
+
+/** True when the login owns the linked GitHub account. */
+export function isRepoAccountOwner(
+  settings: SourceControlSettings,
+  login: string,
+): boolean {
+  const account = settings.accountLogin.trim();
+  const candidate = login.trim();
+  return (
+    account !== "" &&
+    candidate !== "" &&
+    account.toLowerCase() === candidate.toLowerCase()
+  );
+}
+
+/**
+ * Contributor grant for an app owner on the repo BYOV creates/links
+ * for `appSlug`. Returns null when no grant applies: no valid owner
+ * login, or GitHub is not linked so there is no repo to grant on.
+ * This is the governed record — the installation-token adapter
+ * applies the same grant via the GitHub API once it lands, exactly
+ * as repo creation itself is recorded today.
+ */
+export function resolveOwnerRepoGrant(
+  settings: SourceControlSettings,
+  appSlug: string,
+  ownerGithub: string | undefined,
+): RepoContributorGrant | null {
+  const username = (ownerGithub ?? "").trim();
+  if (!username || !isGitHubLogin(username)) {
+    return null;
+  }
+  if (!canCreateRepos(settings)) {
+    return null;
+  }
+  return {
+    username,
+    permission: "push",
+    repoFullName: resolveRepoFullName(settings, appSlug),
+    repoUrl: resolveRepoUrl(settings, appSlug),
+    status: isRepoAccountOwner(settings, username)
+      ? "already-owner"
+      : "invited",
+  };
+}
+
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
@@ -287,6 +407,25 @@ export function parseStoredSourceControlSettings(
   )
     ? (value.defaultVisibility as RepoVisibility)
     : defaults.defaultVisibility;
+  const storedPrefix =
+    typeof value.repoPrefix === "string" && isValidRepoAffix(value.repoPrefix)
+      ? value.repoPrefix.trim().toLowerCase()
+      : defaults.repoPrefix;
+  const storedSuffix =
+    typeof value.repoSuffix === "string" && isValidRepoAffix(value.repoSuffix)
+      ? value.repoSuffix.trim().toLowerCase()
+      : defaults.repoSuffix;
+  const repoPattern =
+    typeof value.repoPattern === "string" && isValidRepoPattern(value.repoPattern)
+      ? value.repoPattern.trim().toLowerCase()
+      : repoPatternFromAffixes(storedPrefix, storedSuffix);
+  const derived = splitRepoPattern(repoPattern) ?? {
+    prefix: storedPrefix,
+    suffix: storedSuffix,
+  };
+  const provider = REPO_PROVIDERS.includes(value.provider as RepoProvider)
+    ? (value.provider as RepoProvider)
+    : defaults.provider;
   const login =
     typeof value.accountLogin === "string" ? value.accountLogin.trim() : "";
   const installationId =
@@ -294,6 +433,7 @@ export function parseStoredSourceControlSettings(
       ? value.installationId.trim()
       : "";
   return {
+    provider,
     connected:
       typeof value.connected === "boolean"
         ? value.connected
@@ -306,14 +446,9 @@ export function parseStoredSourceControlSettings(
       typeof value.allowPublicRepos === "boolean"
         ? value.allowPublicRepos
         : defaults.allowPublicRepos,
-    repoPrefix:
-      typeof value.repoPrefix === "string" && isValidRepoAffix(value.repoPrefix)
-        ? value.repoPrefix.trim().toLowerCase()
-        : defaults.repoPrefix,
-    repoSuffix:
-      typeof value.repoSuffix === "string" && isValidRepoAffix(value.repoSuffix)
-        ? value.repoSuffix.trim().toLowerCase()
-        : defaults.repoSuffix,
+    repoPattern,
+    repoPrefix: derived.prefix,
+    repoSuffix: derived.suffix,
     defaultBranch:
       typeof value.defaultBranch === "string" && value.defaultBranch.trim()
         ? value.defaultBranch.trim()
@@ -331,15 +466,24 @@ export function parseStoredSourceControlSettings(
 export function normalizeSourceControlSettings(
   draft: SourceControlSettings,
 ): SourceControlSettings {
+  const repoPattern = (
+    draft.repoPattern ??
+    repoPatternFromAffixes(draft.repoPrefix ?? "", draft.repoSuffix ?? "")
+  )
+    .trim()
+    .toLowerCase();
+  const derived = splitRepoPattern(repoPattern);
   return {
+    provider: REPO_PROVIDERS.includes(draft.provider) ? draft.provider : "github",
     connected: draft.connected,
     accountType: draft.accountType,
     accountLogin: draft.accountLogin.trim(),
     installationId: draft.installationId.trim(),
     defaultVisibility: draft.defaultVisibility,
     allowPublicRepos: draft.allowPublicRepos,
-    repoPrefix: draft.repoPrefix.trim().toLowerCase(),
-    repoSuffix: draft.repoSuffix.trim().toLowerCase(),
+    repoPattern,
+    repoPrefix: derived ? derived.prefix : draft.repoPrefix.trim().toLowerCase(),
+    repoSuffix: derived ? derived.suffix : draft.repoSuffix.trim().toLowerCase(),
     defaultBranch: draft.defaultBranch.trim() || "main",
     autoCreateRepo: draft.autoCreateRepo,
     topics: normalizeTopics(draft.topics),

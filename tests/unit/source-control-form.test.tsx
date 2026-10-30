@@ -17,13 +17,15 @@ function Harness({
   onDraft?: (draft: SourceControlSettings) => void;
 }) {
   const [draft, setDraft] = useState(initial);
-  const [previewSlug, setPreviewSlug] = useState("rota-planner");
   return (
     <SourceControlForm
       draft={draft}
       errors={{}}
-      previewSlug={previewSlug}
-      onPreviewSlugChange={setPreviewSlug}
+      onProvider={(value) => {
+        const next = { ...draft, provider: value };
+        setDraft(next);
+        onDraft?.(next);
+      }}
       onToggle={(field, value) => {
         const next = { ...draft, [field]: value };
         setDraft(next);
@@ -55,7 +57,7 @@ describe("SourceControlForm", () => {
     expect(screen.getByText(/Visibility:/)).toHaveTextContent("private");
   });
 
-  it("updates the preview from prefix, owner and preview slug", () => {
+  it("has one editable pattern field, prefilled with byov-{app-slug}", () => {
     render(
       <Harness
         initial={{
@@ -66,23 +68,38 @@ describe("SourceControlForm", () => {
       />,
     );
     expect(screen.getByText("acme-labs/byov-rota-planner")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Prefix"), {
-      target: { value: "apps-" },
-    });
+    expect(screen.queryByLabelText("Prefix")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/Suffix/)).not.toBeInTheDocument();
+    const pattern = screen.getByLabelText("Repo name pattern");
+    expect(pattern).toHaveValue("byov-{app-slug}");
+    fireEvent.change(pattern, { target: { value: "apps-{app-slug}" } });
     expect(screen.getByText("acme-labs/apps-rota-planner")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("Preview with app slug"), {
-      target: { value: "leave-balancer" },
-    });
-    expect(screen.getByText("acme-labs/apps-leave-balancer")).toBeInTheDocument();
+  });
+
+  it("offers GitHub as the default provider with future providers disabled", () => {
+    render(<Harness initial={defaultSourceControlSettings()} />);
+    const provider = document.querySelector<HTMLInputElement>(
+      'input[name="sc-provider"]:not(:disabled)',
+    );
+    expect(provider?.value).toBe("github");
+    expect(provider).toBeChecked();
+    const future = document.querySelectorAll<HTMLInputElement>(
+      'input[name="sc-provider"]:disabled',
+    );
+    expect(future.length).toBe(3);
   });
 
   it("keeps private selected by default and personal/org choices visible", () => {
     render(<Harness initial={defaultSourceControlSettings()} />);
     expect(
-      screen.getByRole("radio", { name: /Personal account/ }),
+      document.querySelector<HTMLInputElement>(
+        'input[name="sc-account-type"][value="user"]',
+      ),
     ).not.toBeChecked();
     expect(
-      screen.getByRole("radio", { name: /Organization/ }),
+      document.querySelector<HTMLInputElement>(
+        'input[name="sc-account-type"][value="organization"]',
+      ),
     ).toBeChecked();
     expect(screen.getByRole("radio", { name: /privateOnly/i })).toBeChecked();
   });

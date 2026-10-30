@@ -136,6 +136,33 @@ describe("workspace apps store", () => {
     await expect(listWorkspaceApps()).resolves.toEqual([result.app]);
   });
 
+  it("persists the assigned owner and GitHub login", async () => {
+    const result = await createWorkspaceApp(
+      draft({ owner: "Ada@Example.com", ownerGithub: "ada-dev" }),
+    );
+    expect(result.ok).toBe(true);
+    if (!result.ok) {
+      return;
+    }
+    expect(result.app.owner).toBe("ada@example.com");
+    expect(result.app.ownerGithub).toBe("ada-dev");
+    await expect(listWorkspaceApps()).resolves.toEqual([result.app]);
+  });
+
+  it("rejects a malformed owner assignment", async () => {
+    const badEmail = await createWorkspaceApp(draft({ owner: "nope" }));
+    expect(badEmail.ok).toBe(false);
+    if (!badEmail.ok) {
+      expect(badEmail.errors.owner).toMatch(/owner's email/);
+    }
+    const badLogin = await createWorkspaceApp(draft({ ownerGithub: "ada_dev" }));
+    expect(badLogin.ok).toBe(false);
+    if (!badLogin.ok) {
+      expect(badLogin.errors.ownerGithub).toMatch(/single hyphens/);
+    }
+    await expect(listWorkspaceApps()).resolves.toEqual([]);
+  });
+
   it("rejects a duplicate slug", async () => {
     await createWorkspaceApp(draft());
     const result = await createWorkspaceApp(

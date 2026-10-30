@@ -90,7 +90,7 @@ Setup:
 
 Commands:
   byov apps                          List apps
-  byov create <name> --node <slug> [--stack <slug>] [--repo <url>]
+  byov create <name> --node <slug> [--stack <slug>] [--repo <url>] [--owner <email>] [--owner-github <login>]
   byov link <app> --repo <url> [--branch <name>]
   byov deploy <app> [env]            Deploy (default env: sandbox)
   byov status <app> [env]            Live env status
@@ -114,7 +114,7 @@ export async function runCli(
       case "create": {
         const name = positional[0];
         if (!name || !flags.node) {
-          return { code: 2, out: "Usage: byov create <name> --node <slug> [--stack <slug>] [--repo <url>]" };
+          return { code: 2, out: "Usage: byov create <name> --node <slug> [--stack <slug>] [--repo <url>] [--owner <email>] [--owner-github <login>] [--access-scope <public|workspace|restricted>]" };
         }
         const app = await client.createApp({
           name,
@@ -122,6 +122,11 @@ export async function runCli(
           stack: flags.stack ?? "",
           repoUrl: flags.repo ?? "",
           branch: flags.branch ?? "",
+          owner: flags.owner ?? "",
+          ownerGithub: flags["owner-github"] ?? "",
+          ...(flags["access-scope"]
+            ? { accessPolicy: { scope: flags["access-scope"], rules: [] } }
+            : {}),
         });
         return { code: 0, out: JSON.stringify(app, null, 2) };
       }

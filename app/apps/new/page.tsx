@@ -10,6 +10,8 @@ import { useManagedApps } from "@/lib/apps-store";
 import { useManagedStacks } from "@/lib/stack-store";
 import { useWorkspaceSettings } from "@/lib/settings-store";
 import { useSourceControlSettings } from "@/lib/source-control-store";
+import { useSession } from "@/lib/use-session";
+import { useUsers } from "@/lib/users-store";
 
 function NewAppForm() {
   const router = useRouter();
@@ -18,6 +20,8 @@ function NewAppForm() {
   const { stacks } = useManagedStacks();
   const { settings, nodes } = useWorkspaceSettings();
   const { settings: sourceControl } = useSourceControlSettings();
+  const { users } = useUsers();
+  const { user } = useSession();
   const preferredStack = searchParams.get("stack") ?? "";
 
   return (
@@ -29,6 +33,8 @@ function NewAppForm() {
       preferredNode={settings.defaultNode}
       preferredStack={preferredStack}
       sourceControl={sourceControl}
+      owners={users}
+      currentUserEmail={user?.email ?? ""}
       submitLabel="Create app"
       onSubmit={(draft) => {
         const result = createApp(draft);

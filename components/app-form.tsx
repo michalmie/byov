@@ -6,11 +6,40 @@ import type { Node } from "@/lib/control-plane";
 import { slugifyAppName, type AppDraft, type AppField, type AppFieldErrors } from "@/lib/apps";
 import {
   canCreateRepos,
+  resolveOwnerRepoGrant,
   resolveRepoFullName,
   resolveRepoUrl,
   type SourceControlSettings,
 } from "@/lib/source-control";
+import { defaultAccessPolicy } from "@/lib/access-policy";
+import type {
+  AccessPolicy,
+  AccessRule,
+  AccessRuleType,
+} from "@/lib/control-plane";
 import type { TechStack } from "@/lib/stacks";
+
+const ACCESS_RULE_TYPE_LABELS: Record<string, string> = {
+  ip: "IP address",
+  cidr: "IP range (CIDR)",
+  network: "Network (tailnet/local/vpn)",
+  email: "Email",
+  emailDomain: "Email domain",
+  group: "Group / role",
+  authenticated: "Any signed-in user",
+  apiKey: "API key id",
+  clientCert: "Client certificate",
+  country: "Country code",
+  schedule: "Access until (date)",
+};
+
+const ACCESS_RULE_TYPES = Object.keys(ACCESS_RULE_TYPE_LABELS) as AccessRuleType[];
+
+/** Minimal workspace-member shape the owner picker needs. */
+export interface AppOwnerOption {
+  email: string;
+  name?: string;
+}
 
 function FieldError({ id, message }: { id: string; message?: string }) {
   if (!message) {
@@ -33,6 +62,8 @@ export function AppForm({
   preferredNode,
   preferredStack,
   sourceControl,
+  owners,
+  currentUserEmail,
   submitLabel,
   onSubmit,
   onCancel,
@@ -50,6 +81,10 @@ export function AppForm({
   preferredStack?: string;
   /** Workspace GitHub taxonomy; preview + auto-link when it can create. */
   sourceControl?: SourceControlSettings;
+  /** Workspace members the owner picker offers; empty shows an email input. */
+  owners?: readonly AppOwnerOption[];
+  /** Signed-in creator email, used as the owner until the picker is touched. */
+  currentUserEmail?: string;
   submitLabel: string;
   onSubmit: (draft: AppDraft) => AppFieldErrors | null;
   onCancel: () => void;
@@ -59,6 +94,9 @@ export function AppForm({
   // The stack is optional, so the ?stack= prefill only applies until the
   // user touches the select — otherwise "No stack yet" could never win.
   const [stackTouched, setStackTouched] = useState(false);
+  // Same for the owner: the creator is the default owner until the
+  // picker is touched, so "Unassigned" stays reachable.
+  const [ownerTouched, setOwnerTouched] = useState(false);
 
   const preferredStackValid =
     preferredStack && stacks.some((entry) => entry.slug === preferredStack)
@@ -74,6 +112,24 @@ export function AppForm({
     (preferredNode && nodes.some((entry) => entry.slug === preferredNode)
       ? preferredNode
       : (nodes[0]?.slug ?? ""));
+
+  const accessPolicy: AccessPolicy = draft.accessPolicy ?? defaultAccessPolicy();
+
+  function setAccessPolicy(policy: AccessPolicy) {
+    setDraft((prev) => ({ ...prev, accessPolicy: policy }));
+    setErrors((prev) =>
+      prev.accessPolicy ? { ...prev, accessPolicy: undefined } : prev,
+    );
+  }
+
+  function updateRule(index: number, patch: Partial<AccessRule>) {
+    setAccessPolicy({
+      ...accessPolicy,
+      rules: accessPolicy.rules.map((rule, i) =>
+        i === index ? { ...rule, ...patch } : rule,
+      ),
+    });
+  }
 
   function set(field: AppField, value: string) {
     setDraft((prev) => ({ ...prev, [field]: value }));
@@ -94,6 +150,17 @@ export function AppForm({
   const repoUrl = willCreateRepo
     ? resolveRepoUrl(sourceControl!, effectiveSlug)
     : "";
+  const owner =
+    (draft.owner ?? "") ||
+    (!ownerTouched ? (currentUserEmail ?? "") : "");
+  const ownerGithub = draft.ownerGithub ?? "";
+  const ownerGrant = sourceControl
+    ? resolveOwnerRepoGrant(sourceControl, effectiveSlug, ownerGithub)
+    : null;
+  const ownerOptions = owners ?? [];
+  const ownerKnown = ownerOptions.some(
+    (entry) => entry.email.toLowerCase() === owner.trim().toLowerCase(),
+  );
 
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
@@ -101,6 +168,9 @@ export function AppForm({
       ...draft,
       stack,
       node,
+      owner,
+      ownerGithub,
+      accessPolicy,
       ...(willCreateRepo
         ? { repoUrl, branch: sourceControl!.defaultBranch }
         : {}),
@@ -274,6 +344,250 @@ export function AppForm({
           <FieldError id={`${formId}-node-error`} message={errors.node} />
         </div>
 
+        <fieldset className="field">
+          <legend className="field-label">Access policy</legend>
+          <p id={`${formId}-access-hint`} className="hint">
+            Who may use the deployed app. Workspace is the safe default —
+            a new app never starts public by accident.
+          </p>
+          <div className="grid gap-2" role="radiogroup" aria-label="Access scope">
+            {(
+              [
+                ["public", "Public", "Anyone on the internet can reach the app. No sign-in."],
+                ["workspace", "Workspace", "Only signed-in workspace members."],
+                ["restricted", "Restricted", "Only visitors matching the rules below. Denied by default."],
+              ] as const
+            ).map(([scope, label, hint]) => (
+              <label key={scope} className="flex items-start gap-2 text-sm">
+                <input
+                  type="radio"
+                  name={`${formId}-access-scope`}
+                  value={scope}
+                  checked={accessPolicy.scope === scope}
+                  onChange={() =>
+                    setAccessPolicy({ ...accessPolicy, scope })
+                  }
+                />
+                <span>
+                  <span className="font-medium">{label}</span>
+                  <span className="block text-[13px]" style={{ color: "var(--color-muted)" }}>
+                    {hint}
+                  </span>
+                </span>
+              </label>
+            ))}
+          </div>
+
+          {accessPolicy.scope !== "public" && (
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={Boolean(accessPolicy.requireAuth)}
+                onChange={(event) =>
+                  setAccessPolicy({
+                    ...accessPolicy,
+                    requireAuth: event.target.checked,
+                  })
+                }
+              />
+              Require sign-in before rules are checked
+            </label>
+          )}
+
+          {accessPolicy.scope === "restricted" && (
+            <div className="grid gap-3">
+              {accessPolicy.rules.map((rule, index) => (
+                <div key={rule.id} className="flex flex-wrap items-end gap-2">
+                  <label className="grid gap-1 text-[13px]">
+                    Effect
+                    <select
+                      aria-label={`Rule ${index + 1} effect`}
+                      className="input"
+                      value={rule.effect}
+                      onChange={(event) =>
+                        updateRule(index, {
+                          effect: event.target.value as AccessRule["effect"],
+                        })
+                      }
+                    >
+                      <option value="allow">Allow</option>
+                      <option value="deny">Deny</option>
+                    </select>
+                  </label>
+                  <label className="grid gap-1 text-[13px]">
+                    Type
+                    <select
+                      aria-label={`Rule ${index + 1} type`}
+                      className="input"
+                      value={rule.type}
+                      onChange={(event) =>
+                        updateRule(index, {
+                          type: event.target.value as AccessRuleType,
+                        })
+                      }
+                    >
+                      {ACCESS_RULE_TYPES.map((type) => (
+                        <option key={type} value={type}>
+                          {ACCESS_RULE_TYPE_LABELS[type]}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="grid flex-1 gap-1 text-[13px]">
+                    Value
+                    <input
+                      aria-label={`Rule ${index + 1} value`}
+                      className="input mono"
+                      type="text"
+                      autoComplete="off"
+                      spellCheck={false}
+                      placeholder={
+                        rule.type === "cidr"
+                          ? "203.0.113.0/24"
+                          : rule.type === "ip"
+                            ? "203.0.113.10"
+                            : rule.type === "emailDomain"
+                              ? "partner.example"
+                              : rule.type === "country"
+                                ? "DE"
+                                : rule.type === "network"
+                                  ? "tailnet"
+                                  : "value"
+                      }
+                      value={rule.value}
+                      onChange={(event) =>
+                        updateRule(index, { value: event.target.value })
+                      }
+                    />
+                  </label>
+                  <button
+                    type="button"
+                    className="btn-ghost px-2 py-1.5 text-[13px]"
+                    onClick={() =>
+                      setAccessPolicy({
+                        ...accessPolicy,
+                        rules: accessPolicy.rules.filter((_, i) => i !== index),
+                      })
+                    }
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
+              <div>
+                <button
+                  type="button"
+                  className="btn-ghost px-3 py-1.5 text-[13px]"
+                  onClick={() =>
+                    setAccessPolicy({
+                      ...accessPolicy,
+                      rules: [
+                        ...accessPolicy.rules,
+                        {
+                          id: `rule-${Date.now()}-${accessPolicy.rules.length + 1}`,
+                          effect: "allow",
+                          type: "cidr",
+                          value: "",
+                        },
+                      ],
+                    })
+                  }
+                >
+                  Add rule
+                </button>
+              </div>
+              <p className="hint">
+                Deny wins over allow. API key and certificate values are
+                ids/labels, never secrets.
+              </p>
+            </div>
+          )}
+          <FieldError
+            id={`${formId}-accessPolicy-error`}
+            message={errors.accessPolicy}
+          />
+        </fieldset>
+
+        <div className="field">
+          <label className="field-label" htmlFor={`${formId}-owner`}>
+            App owner
+          </label>
+          {ownerOptions.length > 0 ? (
+            <select
+              id={`${formId}-owner`}
+              className="input max-w-md"
+              value={owner}
+              aria-invalid={Boolean(errors.owner)}
+              aria-describedby={describedBy("owner", `${formId}-owner-hint`)}
+              onChange={(event) => {
+                setOwnerTouched(true);
+                set("owner", event.target.value);
+              }}
+            >
+              <option value="">Unassigned</option>
+              {owner && !ownerKnown && (
+                <option value={owner}>{owner}</option>
+              )}
+              {ownerOptions.map((entry) => (
+                <option key={entry.email} value={entry.email}>
+                  {entry.name ? `${entry.name} — ${entry.email}` : entry.email}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              id={`${formId}-owner`}
+              className="input max-w-md"
+              type="email"
+              autoComplete="off"
+              placeholder="owner@company.com"
+              value={owner}
+              aria-invalid={Boolean(errors.owner)}
+              aria-describedby={describedBy("owner", `${formId}-owner-hint`)}
+              onChange={(event) => {
+                setOwnerTouched(true);
+                set("owner", event.target.value);
+              }}
+            />
+          )}
+          <p id={`${formId}-owner-hint`} className="hint">
+            Who owns this app. Defaults to you; pick a workspace member or
+            leave Unassigned to decide later.
+          </p>
+          <FieldError id={`${formId}-owner-error`} message={errors.owner} />
+        </div>
+
+        <div className="field">
+          <label className="field-label" htmlFor={`${formId}-owner-github`}>
+            Owner GitHub username
+          </label>
+          <input
+            id={`${formId}-owner-github`}
+            className="input max-w-md mono"
+            type="text"
+            autoComplete="off"
+            autoCapitalize="off"
+            spellCheck={false}
+            placeholder="ada-dev"
+            value={ownerGithub}
+            aria-invalid={Boolean(errors.ownerGithub)}
+            aria-describedby={describedBy(
+              "ownerGithub",
+              `${formId}-owner-github-hint`,
+            )}
+            onChange={(event) => set("ownerGithub", event.target.value)}
+          />
+          <p id={`${formId}-owner-github-hint`} className="hint">
+            The owner is added as a contributor (push access) to the app
+            repo when it is created or linked. Leave blank to invite them
+            later.
+          </p>
+          <FieldError
+            id={`${formId}-owner-github-error`}
+            message={errors.ownerGithub}
+          />
+        </div>
+
         {sourceControl && (
           <div
             className="grid gap-1 p-4 text-sm"
@@ -283,7 +597,7 @@ export function AppForm({
               borderRadius: "var(--radius-card)",
             }}
           >
-            <p className="font-medium">Source control</p>
+            <p className="font-medium">Code repositories</p>
             {willCreateRepo ? (
               <>
                 <p style={{ color: "var(--color-ink-2)" }}>
@@ -295,6 +609,34 @@ export function AppForm({
                 <p className="mono text-[13px]" style={{ color: "var(--color-muted)" }}>
                   {repoUrl}
                 </p>
+                {ownerGrant ? (
+                  <p style={{ color: "var(--color-ink-2)" }}>
+                    {ownerGrant.status === "already-owner" ? (
+                      <>
+                        Owner{" "}
+                        <span className="mono">@{ownerGrant.username}</span>{" "}
+                        owns{" "}
+                        <span className="mono">
+                          {sourceControl.accountLogin}
+                        </span>{" "}
+                        — they already have full access to{" "}
+                        <span className="mono">{repoFullName}</span>.
+                      </>
+                    ) : (
+                      <>
+                        Owner{" "}
+                        <span className="mono">@{ownerGrant.username}</span>{" "}
+                        will be added as a contributor (push) to{" "}
+                        <span className="mono">{repoFullName}</span>.
+                      </>
+                    )}
+                  </p>
+                ) : (
+                  <p style={{ color: "var(--color-ink-2)" }}>
+                    Add the owner&apos;s GitHub username above so they get
+                    contributor access automatically.
+                  </p>
+                )}
               </>
             ) : sourceControl.connected ? (
               <p style={{ color: "var(--color-ink-2)" }}>
@@ -302,14 +644,14 @@ export function AppForm({
                 <span className="mono">{sourceControl.accountLogin || "—"}</span>.
                 Auto-create is off — link the repo from the app page.{" "}
                 <Link href="/settings/source-control" className="underline underline-offset-2">
-                  Source control settings
+                  Code repository settings
                 </Link>
               </p>
             ) : (
               <p style={{ color: "var(--color-ink-2)" }}>
                 No GitHub account linked yet.{" "}
                 <Link href="/settings/source-control" className="underline underline-offset-2">
-                  Link GitHub in Settings → Source control
+                  Link GitHub in Settings → Code repositories
                 </Link>{" "}
                 to auto-create a private{" "}
                 <span className="mono">byov-</span> repo for new apps.

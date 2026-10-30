@@ -4,10 +4,12 @@ import {
   canCreateRepos,
   defaultSourceControlSettings,
   isGitHubLogin,
+  isRepoAccountOwner,
   isValidRepoAffix,
   normalizeSourceControlSettings,
   normalizeTopics,
   parseStoredSourceControlSettings,
+  resolveOwnerRepoGrant,
   resolveRepoFullName,
   resolveRepoName,
   resolveRepoUrl,
@@ -16,12 +18,14 @@ import {
 } from "@/lib/source-control";
 
 const linked: SourceControlSettings = {
+  provider: "github",
   connected: true,
   accountType: "organization",
   accountLogin: "acme-labs",
   installationId: "12345678",
   defaultVisibility: "private",
   allowPublicRepos: false,
+  repoPattern: "byov-{app-slug}",
   repoPrefix: "byov-",
   repoSuffix: "",
   defaultBranch: "main",
@@ -32,12 +36,14 @@ const linked: SourceControlSettings = {
 describe("defaultSourceControlSettings", () => {
   it("starts unlinked, private by default, with the byov- prefix", () => {
     expect(defaultSourceControlSettings()).toEqual({
+      provider: "github",
       connected: false,
       accountType: "organization",
       accountLogin: "",
       installationId: "",
       defaultVisibility: "private",
       allowPublicRepos: false,
+      repoPattern: "byov-{app-slug}",
       repoPrefix: "byov-",
       repoSuffix: "",
       defaultBranch: "main",
@@ -140,15 +146,21 @@ describe("validateSourceControlSettings", () => {
     ).toEqual({});
   });
 
-  it("validates prefix, suffix, branch and topics", () => {
+  it("validates the repo pattern, branch and topics", () => {
     expect(
-      validateSourceControlSettings({ ...linked, repoPrefix: "by ov" })
-        .repoPrefix,
+      validateSourceControlSettings({ ...linked, repoPattern: "byov-app" })
+        .repoPattern,
+    ).toMatch(/\{app-slug\}/);
+    expect(
+      validateSourceControlSettings({ ...linked, repoPattern: "a/b-{app-slug}" })
+        .repoPattern,
     ).toMatch(/lowercase/);
     expect(
-      validateSourceControlSettings({ ...linked, repoSuffix: "a/b" })
-        .repoSuffix,
-    ).toMatch(/lowercase/);
+      validateSourceControlSettings({
+        ...linked,
+        repoPattern: "{app-slug}-{app-slug}",
+      }).repoPattern,
+    ).toBeTruthy();
     expect(
       validateSourceControlSettings({ ...linked, defaultBranch: "" })
         .defaultBranch,
@@ -171,8 +183,13 @@ describe("repo taxonomy resolver", () => {
     );
   });
 
-  it("honors a custom prefix and suffix", () => {
-    const custom = { ...linked, repoPrefix: "apps-", repoSuffix: "-svc" };
+  it("honors a custom pattern", () => {
+    const custom = {
+      ...linked,
+      repoPattern: "apps-{app-slug}-svc",
+      repoPrefix: "apps-",
+      repoSuffix: "-svc",
+    };
     expect(resolveRepoName(custom, "rota-planner")).toBe(
       "apps-rota-planner-svc",
     );
@@ -198,6 +215,43 @@ describe("repo taxonomy resolver", () => {
     expect(canCreateRepos(linked)).toBe(true);
     expect(canCreateRepos(defaultSourceControlSettings())).toBe(false);
     expect(canCreateRepos({ ...linked, accountLogin: "-bad" })).toBe(false);
+  });
+});
+
+describe("resolveOwnerRepoGrant", () => {
+  it("grants the owner push access as a contributor on the app repo", () => {
+    expect(resolveOwnerRepoGrant(linked, "rota-planner", "ada-dev")).toEqual({
+      username: "ada-dev",
+      permission: "push",
+      repoFullName: "acme-labs/byov-rota-planner",
+      repoUrl: "https://github.com/acme-labs/byov-rota-planner",
+      status: "invited",
+    });
+  });
+
+  it("needs no invite when the owner owns the linked account", () => {
+    expect(isRepoAccountOwner(linked, "Acme-Labs")).toBe(true);
+    expect(isRepoAccountOwner(linked, "ada-dev")).toBe(false);
+    expect(
+      resolveOwnerRepoGrant(linked, "rota-planner", "ACME-LABS")?.status,
+    ).toBe("already-owner");
+  });
+
+  it("returns no grant without a valid owner login or a linked account", () => {
+    expect(resolveOwnerRepoGrant(linked, "rota-planner", "")).toBeNull();
+    expect(resolveOwnerRepoGrant(linked, "rota-planner", undefined)).toBeNull();
+    expect(resolveOwnerRepoGrant(linked, "rota-planner", "ada_dev")).toBeNull();
+    expect(
+      resolveOwnerRepoGrant(defaultSourceControlSettings(), "rota-planner", "ada-dev"),
+    ).toBeNull();
+    expect(
+      resolveOwnerRepoGrant({ ...linked, connected: false }, "rota-planner", "ada-dev"),
+    ).toBeNull();
+  });
+
+  it("protects unenumerated login variants: unicode and spaces never grant", () => {
+    expect(resolveOwnerRepoGrant(linked, "rota-planner", "ada dev")).toBeNull();
+    expect(resolveOwnerRepoGrant(linked, "rota-planner", "ádà-dev")).toBeNull();
   });
 });
 
@@ -232,12 +286,14 @@ describe("parseStoredSourceControlSettings", () => {
       topics: 42,
     });
     expect(parsed).toEqual({
+      provider: "github",
       connected: true,
       accountType: "user",
       accountLogin: "ada-dev",
       installationId: "42",
       defaultVisibility: "private",
       allowPublicRepos: false,
+      repoPattern: "byov-{app-slug}-ok",
       repoPrefix: "byov-",
       repoSuffix: "-ok",
       defaultBranch: "main",
@@ -248,18 +304,29 @@ describe("parseStoredSourceControlSettings", () => {
 });
 
 describe("normalizeSourceControlSettings", () => {
-  it("trims the login and lowers affixes and topics", () => {
+  it("trims the login, derives affixes from the pattern, and lowers topics", () => {
     expect(
       normalizeSourceControlSettings({
         ...linked,
         accountLogin: "  Acme-Labs ",
-        repoPrefix: " BYOV- ",
+        repoPattern: " APPS-{app-slug}-SVC ",
         topics: " BYOV,, Internal ",
       }),
     ).toMatchObject({
       accountLogin: "Acme-Labs",
-      repoPrefix: "byov-",
+      repoPattern: "apps-{app-slug}-svc",
+      repoPrefix: "apps-",
+      repoSuffix: "-svc",
       topics: "byov, internal",
     });
+  });
+
+  it("derives the pattern from legacy affixes when none is stored", () => {
+    const parsed = parseStoredSourceControlSettings({
+      repoPrefix: "apps-",
+      repoSuffix: "-svc",
+    });
+    expect(parsed.repoPattern).toBe("apps-{app-slug}-svc");
+    expect(parsed.provider).toBe("github");
   });
 });
