@@ -187,6 +187,67 @@ describe("validateAppDraft", () => {
     );
     expect(errors.node).toMatch(/node/i);
   });
+
+  it("allows a blank owner and a valid owner assignment", () => {
+    expect(
+      validateAppDraft(draft({ owner: "", ownerGithub: "" }), listApps(), nodes, stackSlugs),
+    ).toEqual({});
+    expect(
+      validateAppDraft(
+        draft({ owner: "ada@example.com", ownerGithub: "ada-dev" }),
+        listApps(),
+        nodes,
+        stackSlugs,
+      ),
+    ).toEqual({});
+  });
+
+  it("rejects a malformed owner email", () => {
+    const errors = validateAppDraft(
+      draft({ owner: "not-an-email" }),
+      listApps(),
+      nodes,
+      stackSlugs,
+    );
+    expect(errors.owner).toMatch(/owner's email/i);
+  });
+
+  it("defaults to workspace access and rejects a restricted app with no allow rule", () => {
+    expect(
+      validateAppDraft(draft(), listApps(), nodes, stackSlugs),
+    ).toEqual({});
+    const errors = validateAppDraft(
+      draft({ accessPolicy: { scope: "restricted", rules: [] } }),
+      listApps(),
+      nodes,
+      stackSlugs,
+    );
+    expect(errors.accessPolicy).toMatch(/allow rule/i);
+    const badCidr = validateAppDraft(
+      draft({
+        accessPolicy: {
+          scope: "restricted",
+          rules: [{ id: "r1", effect: "allow", type: "cidr", value: "nope" }],
+        },
+      }),
+      listApps(),
+      nodes,
+      stackSlugs,
+    );
+    expect(badCidr.accessPolicy).toMatch(/CIDR/);
+  });
+
+  it("rejects a malformed owner GitHub login", () => {
+    for (const ownerGithub of ["-ada", "ada-", "ada--dev", "ada_dev", "ada dev"]) {
+      const errors = validateAppDraft(
+        draft({ ownerGithub }),
+        listApps(),
+        nodes,
+        stackSlugs,
+      );
+      expect(errors.ownerGithub).toMatch(/single hyphens/);
+    }
+  });
 });
 
 describe("buildApp", () => {
@@ -224,6 +285,42 @@ describe("buildApp", () => {
       listApps(),
     );
     expect(app.slug).toBe("rota-eu");
+  });
+
+  it("stores the assigned owner, lowercased, with the GitHub login", () => {
+    const app = buildApp(
+      draft({ owner: "  Ada@Example.com ", ownerGithub: "  Ada-Dev " }),
+      listApps(),
+    );
+    expect(app.owner).toBe("ada@example.com");
+    expect(app.ownerGithub).toBe("Ada-Dev");
+  });
+
+  it("stores the workspace access default and explicit restricted rules", () => {
+    expect(buildApp(draft(), listApps()).accessPolicy).toEqual({
+      scope: "workspace",
+      rules: [],
+    });
+    const app = buildApp(
+      draft({
+        accessPolicy: {
+          scope: "restricted",
+          rules: [
+            { id: "", effect: "allow", type: "email", value: " Ada@Example.com " },
+          ],
+        },
+      }),
+      listApps(),
+    );
+    expect(app.accessPolicy?.rules[0].value).toBe("ada@example.com");
+    expect(app.accessPolicy?.rules[0].id).toBeTruthy();
+    expect(parseStoredApps(JSON.parse(JSON.stringify([app])))).toEqual([app]);
+  });
+
+  it("omits owner fields when left blank", () => {
+    const app = buildApp(draft({ owner: "  ", ownerGithub: " " }), listApps());
+    expect("owner" in app).toBe(false);
+    expect("ownerGithub" in app).toBe(false);
   });
 
   it("trims the name, description and stack", () => {
@@ -290,6 +387,26 @@ describe("parseStoredApps", () => {
   it("round-trips a stored app", () => {
     const app = buildApp(draft(), listApps());
     expect(parseStoredApps(JSON.parse(JSON.stringify([app])))).toEqual([app]);
+  });
+
+  it("round-trips the app owner and normalizes the email", () => {
+    const app = buildApp(
+      draft({ owner: "ada@example.com", ownerGithub: "ada-dev" }),
+      listApps(),
+    );
+    const parsed = parseStoredApps(
+      JSON.parse(
+        JSON.stringify([{ ...app, owner: "  ADA@Example.com " }]),
+      ),
+    );
+    expect(parsed).toEqual([app]);
+  });
+
+  it("drops blank owner fields on read", () => {
+    const app = buildApp(draft(), listApps());
+    expect(
+      parseStoredApps([{ ...app, owner: "  ", ownerGithub: "" }]),
+    ).toEqual([app]);
   });
 
   it("keeps stack-less apps with empty descriptions", () => {
