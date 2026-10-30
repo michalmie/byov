@@ -21,6 +21,8 @@ export interface AppEnvironment {
   url?: string;
   /** Provider-side application id (Coolify uuid) once provisioned. */
   providerId?: string;
+  /** Per-env variables/secrets, pushed to the provider on deploy. */
+  envVars?: Record<string, string>;
 }
 
 export interface Deployment {

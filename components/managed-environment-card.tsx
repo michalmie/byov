@@ -67,6 +67,7 @@ export function ManagedEnvironmentCard({
       checksPassing={checksPassing}
       checksTotal={checksTotal}
       actions={<DeployButton appSlug={appSlug} envName={env.name} />}
+      varKeys={Object.keys(env.envVars ?? {}).sort()}
     />
   );
 }

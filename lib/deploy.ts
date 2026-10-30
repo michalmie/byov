@@ -21,6 +21,7 @@ import {
   deployApplication,
   getApplication,
   getApplicationLogs,
+  setApplicationEnvVars,
   updateApplicationFqdn,
   type CoolifyDeps,
 } from "./coolify-adapter";
@@ -118,6 +119,9 @@ export async function deployEnv(
       providerId = created.uuid;
     } else if (resolved.url) {
       await updateApplicationFqdn(endpoint, token, providerId, resolved.url, deps);
+    }
+    if (env.envVars && Object.keys(env.envVars).length > 0) {
+      await setApplicationEnvVars(endpoint, token, providerId, env.envVars, deps);
     }
     const { deploymentId: providerDeployId } = await deployApplication(
       endpoint,
