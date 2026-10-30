@@ -4,6 +4,12 @@ import { useState } from "react";
 import Link from "next/link";
 import type { Node } from "@/lib/control-plane";
 import { slugifyAppName, type AppDraft, type AppField, type AppFieldErrors } from "@/lib/apps";
+import {
+  canCreateRepos,
+  resolveRepoFullName,
+  resolveRepoUrl,
+  type SourceControlSettings,
+} from "@/lib/source-control";
 import type { TechStack } from "@/lib/stacks";
 
 function FieldError({ id, message }: { id: string; message?: string }) {
@@ -26,6 +32,7 @@ export function AppForm({
   nodes,
   preferredNode,
   preferredStack,
+  sourceControl,
   submitLabel,
   onSubmit,
   onCancel,
@@ -41,6 +48,8 @@ export function AppForm({
   preferredNode: string;
   /** Prefilled stack slug (e.g. from ?stack=), or "" for none. */
   preferredStack?: string;
+  /** Workspace GitHub taxonomy; preview + auto-link when it can create. */
+  sourceControl?: SourceControlSettings;
   submitLabel: string;
   onSubmit: (draft: AppDraft) => AppFieldErrors | null;
   onCancel: () => void;
@@ -73,9 +82,29 @@ export function AppForm({
     );
   }
 
+  const effectiveSlug =
+    draft.slug.trim() || slugifyAppName(draft.name) || "your-app";
+  const willCreateRepo =
+    Boolean(sourceControl) &&
+    canCreateRepos(sourceControl!) &&
+    sourceControl!.autoCreateRepo;
+  const repoFullName = willCreateRepo
+    ? resolveRepoFullName(sourceControl!, effectiveSlug)
+    : "";
+  const repoUrl = willCreateRepo
+    ? resolveRepoUrl(sourceControl!, effectiveSlug)
+    : "";
+
   function handleSubmit(event: React.FormEvent) {
     event.preventDefault();
-    const result = onSubmit({ ...draft, stack, node });
+    const result = onSubmit({
+      ...draft,
+      stack,
+      node,
+      ...(willCreateRepo
+        ? { repoUrl, branch: sourceControl!.defaultBranch }
+        : {}),
+    });
     if (result) {
       setErrors(result);
     }
@@ -244,6 +273,50 @@ export function AppForm({
           </p>
           <FieldError id={`${formId}-node-error`} message={errors.node} />
         </div>
+
+        {sourceControl && (
+          <div
+            className="grid gap-1 p-4 text-sm"
+            style={{
+              background: "var(--color-paper)",
+              border: "1px solid var(--color-rule)",
+              borderRadius: "var(--radius-card)",
+            }}
+          >
+            <p className="font-medium">Source control</p>
+            {willCreateRepo ? (
+              <>
+                <p style={{ color: "var(--color-ink-2)" }}>
+                  A GitHub repo will be created and linked:{" "}
+                  <span className="mono font-medium">{repoFullName}</span> (
+                  {sourceControl.defaultVisibility},{" "}
+                  {sourceControl.defaultBranch}).
+                </p>
+                <p className="mono text-[13px]" style={{ color: "var(--color-muted)" }}>
+                  {repoUrl}
+                </p>
+              </>
+            ) : sourceControl.connected ? (
+              <p style={{ color: "var(--color-ink-2)" }}>
+                GitHub is linked to{" "}
+                <span className="mono">{sourceControl.accountLogin || "—"}</span>.
+                Auto-create is off — link the repo from the app page.{" "}
+                <Link href="/settings/source-control" className="underline underline-offset-2">
+                  Source control settings
+                </Link>
+              </p>
+            ) : (
+              <p style={{ color: "var(--color-ink-2)" }}>
+                No GitHub account linked yet.{" "}
+                <Link href="/settings/source-control" className="underline underline-offset-2">
+                  Link GitHub in Settings → Source control
+                </Link>{" "}
+                to auto-create a private{" "}
+                <span className="mono">byov-</span> repo for new apps.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-3">
           <button type="submit" className="btn-primary px-3 py-1.5 text-[13px]">
