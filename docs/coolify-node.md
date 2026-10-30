@@ -95,9 +95,10 @@ sections; every field is explained in place.
 | **Coolify API token** | Create an API token in Coolify (Keys & Tokens / API tokens) with permission to manage applications, then paste it here. BYOV encrypts it on the server, never shows it again, and uses it to create apps, set FQDNs, and deploy. Leave blank on edit to keep the saved token. |
 
 Press **Test** next to the endpoint, then **Test token** (see
-[Verify](#6-verify)) before saving. A failing test never blocks
-saving — the node simply stays Pending until it is reachable — but
-deploys need a passing token test.
+[Verify](#6-verify)). A new node cannot be created until Test token
+passes for the exact endpoint and token; editing an existing node
+does not require a fresh test. See the in-app guide
+[Set up a Coolify node](/docs/coolify-node).
 
 ### Serve URLs
 
@@ -136,7 +137,7 @@ view, not your laptop's.
 | Endpoint Test: **TLS fails** | Certificate missing, expired, wrong name, or privately issued | Finish step 3 so Coolify provisions its cert; check the FQDN matches; for private CAs, trust the root on the BYOV server |
 | Endpoint Test: **refused or timeout** | Coolify not listening, or ports 80/443 blocked | Re-run the step-2 checks on the server; open 80/443 in the firewall / security group |
 | DNS Test: `byov-probe.{zone}` fails | Wildcard record missing or pointing elsewhere | Re-run the step-4 record; confirm with `dig random123.apps.example.com` |
-| Node stuck **Pending** | Expected until the node adapter lands — verification is not deployment | Confirm the endpoint and DNS Tests pass; the status clears on first adapter contact, no operator action needed |
+| Node stuck **Pending** | No successful deploy/contact yet | Confirm Test token and DNS Tests pass, then deploy an app pinned to the node; the status clears on first successful deploy |
 | Test button unavailable | No endpoint entered yet | Fill in the endpoint; the button enables once there is something to probe |
 
 If every Test passes and the node is still Pending, there is nothing
