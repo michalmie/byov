@@ -92,7 +92,7 @@ sections; every field is explained in place.
 | Field        | What to enter |
 |--------------|---------------|
 | **Endpoint** (optional) | The Coolify dashboard URL you logged into in step 3, e.g. `https://coolify.example.com`. This is where the control plane will reach the node. |
-| **Coolify API token** | Create an API token in Coolify (Keys & Tokens / API tokens) with permission to manage applications, then paste it here. BYOV encrypts it on the server, never shows it again, and uses it to create apps, set FQDNs, and deploy. Leave blank on edit to keep the saved token. |
+| **Coolify API token** | Create an API token in Coolify (Keys & Tokens / API tokens) with read, write and deploy permissions, then paste it here. BYOV encrypts it on the server, never shows it again, and uses it to create apps, set domains, and deploy. Leave blank on edit to keep the saved token. |
 
 Press **Test** next to the endpoint, then **Test token** (see
 [Verify](#6-verify)). A new node cannot be created until Test token
@@ -110,6 +110,32 @@ does not require a fresh test. See the in-app guide
 Press **Add node** to save. The page then shows next steps: the node is
 Pending until first contact, the zone needs its DNS record (step 4),
 and the Tests below confirm each part.
+
+### Deploy prerequisites
+
+The first deploy to a node provisions a shared `BYOV` project there
+(one environment per BYOV env name, e.g. `sandbox`) on the node's
+single usable server, then creates one Coolify application per BYOV
+env from the app's linked Git repo:
+
+- **Linked repo:** every app needs a repo URL (plus branch, default
+  `main`) before its first deploy — without one the Deploy button
+  says so instead of calling Coolify.
+- **Public repos** deploy with no further setup.
+- **Private GitHub repos** need a GitHub App in Coolify with access
+  to the repo (Coolify dashboard → Sources → GitHub Apps). When the
+  instance has exactly one private app BYOV uses it automatically;
+  with several, pin one per node via `COOLIFY_GITHUB_APP_<SLUG>`
+  (node slug uppercased, dashes to underscores), e.g.
+  `COOLIFY_GITHUB_APP_CONTABO`. Find app uuids with:
+
+  ```bash
+  curl -H "Authorization: Bearer $COOLIFY_API_TOKEN" \
+    https://coolify.example.com/api/v1/github-apps
+  ```
+
+Pushes never ship directly: BYOV creates apps with auto-deploy off
+so every change flows through the gates and the API deploy.
 
 ## 6. Verify
 
@@ -139,6 +165,8 @@ view, not your laptop's.
 | Endpoint Test: **refused or timeout** | Coolify not listening, or ports 80/443 blocked | Re-run the step-2 checks on the server; open 80/443 in the firewall / security group |
 | DNS Test: `byov-probe.{zone}` fails | Wildcard record missing or pointing elsewhere | Re-run the step-4 record; confirm with `dig random123.apps.example.com` |
 | Node stuck **Pending** | No successful deploy/contact yet | Confirm Test token and DNS Tests pass, then deploy an app pinned to the node; the status clears on first successful deploy |
+| Deploy: **No repository linked yet** | The app has no repo URL, so there is nothing for Coolify to build | Open the app page and link its Git repo (and branch), then deploy again |
+| Deploy: **private repo clone fails** | Coolify cannot read the repo (no GitHub App access) | Add a GitHub App with repo access in Coolify (see Deploy prerequisites); with several private apps, pin one via `COOLIFY_GITHUB_APP_<SLUG>` |
 | Test button unavailable | No endpoint entered yet | Fill in the endpoint; the button enables once there is something to probe |
 
 If every Test passes and the node is still Pending, there is nothing

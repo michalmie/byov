@@ -15,13 +15,17 @@
 import type { App, Deployment, Node } from "./control-plane";
 import { listNodes } from "./control-plane";
 import {
+  coolifyGithubAppFor,
   coolifyStatusToHealth,
   createApplication,
   deployApplication,
+  ensureCoolifyTarget,
   getApplication,
   getApplicationLogs,
+  resolveGithubAppUuid,
   setApplicationEnvVars,
   updateApplicationFqdn,
+  type CoolifyBuildPack,
   type CoolifyDeps,
 } from "./coolify-adapter";
 import { resolveEnvUrl } from "./dev-urls";
@@ -50,6 +54,17 @@ async function findNode(slug: string): Promise<Node | undefined> {
 
 function deploymentId(): string {
   return `dpl_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+/** Coolify build settings per BYOV stack; unknown stacks get Node defaults. */
+export function buildTargetForStack(stack: string): {
+  buildPack: CoolifyBuildPack;
+  portsExposes: string;
+} {
+  if (stack === "fastapi-service") {
+    return { buildPack: "nixpacks", portsExposes: "8000" };
+  }
+  return { buildPack: "nixpacks", portsExposes: "3000" };
 }
 
 /** Deploy one env. `actor` is recorded on the deployment row. */
@@ -107,13 +122,41 @@ export async function deployEnv(
     appScenarios: settings.appScenarios,
   });
 
+  const repoUrl = (app.repoUrl ?? "").trim();
+  if (!repoUrl) {
+    return {
+      ok: false,
+      error: `No repository linked yet — open ${app.name} and link its Git repo, then deploy again.`,
+    };
+  }
+  const branch = (app.branch ?? "").trim() || "main";
+
   try {
     let providerId = env.providerId;
     if (!providerId) {
+      const target = await ensureCoolifyTarget(endpoint, token, envName, deps);
+      const explicitGithubApp =
+        node.githubAppUuid?.trim() || coolifyGithubAppFor(node.slug) || null;
+      const githubAppUuid = await resolveGithubAppUuid(
+        endpoint,
+        token,
+        explicitGithubApp,
+        deps,
+      );
+      const { buildPack, portsExposes } = buildTargetForStack(app.stack);
       const created = await createApplication(
         endpoint,
         token,
-        { name: `${slug}-${envName}`, fqdn: resolved.url },
+        {
+          name: `${slug}-${envName}`,
+          domains: resolved.url,
+          gitRepository: repoUrl,
+          gitBranch: branch,
+          buildPack,
+          portsExposes,
+          target,
+          githubAppUuid,
+        },
         deps,
       );
       providerId = created.uuid;
