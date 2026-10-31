@@ -441,29 +441,39 @@ curl -X DELETE $BASE/api/v1/tokens/<second-id> \
 
 ### Cell (slice 2: Coolify node adapter + deploy, built)
 
-- Adapter (`lib/coolify-adapter.ts`): create application, set FQDN,
-  deploy, read status, read logs against a Coolify node's endpoint.
-  Fetch is injectable for offline unit tests. Tokens come from the
-  server environment only (`COOLIFY_API_TOKEN`, per-node
-  `COOLIFY_TOKEN_<SLUG>` override) and never enter Postgres or the
-  browser. Provider statuses map onto BYOV health
-  (`coolifyStatusToHealth`).
+- Adapter (`lib/coolify-adapter.ts`): typed application creates
+  (`POST /api/v1/applications/public` or `/private-github-app`),
+  `domains` updates, bulk env writes, deploys via
+  `POST /api/v1/deploy?uuid=…`, status/log reads and deletes
+  against a Coolify node's endpoint. Fetch is injectable for
+  offline unit tests. Tokens resolve node-saved → per-node env
+  (`COOLIFY_TOKEN_<SLUG>`) → shared `COOLIFY_API_TOKEN` and never
+  enter the browser. Provider statuses map onto BYOV health
+  (`coolifyStatusToHealth`); provider error messages surface in
+  failures. Private GitHub repos use the node's pinned app, the
+  `COOLIFY_GITHUB_APP_<SLUG>` env, or the single private app when
+  exactly one exists.
 - Orchestration (`lib/deploy.ts`): resolves the env URL via
-  `lib/dev-urls`, provisions or reuses the Coolify application
-  (uuid persisted as `AppEnvironment.providerId`), points its FQDN
-  at that URL, triggers the deploy, and records a `Deployment` row
-  plus `deploying` env status on the unified store. First success
-  flips a Pending workspace node to healthy
-  (`touchWorkspaceNode`). Vercel nodes, missing endpoints and
-  missing tokens fail with actionable errors.
+  `lib/dev-urls`, ensures the Coolify target (single usable
+  server, shared `BYOV` project, one environment per BYOV env
+  name — created when missing), provisions or reuses the Coolify
+  application (uuid persisted as `AppEnvironment.providerId`),
+  points its domains at that URL with auto-deploy off (pushes
+  must flow through the gates), triggers the deploy, and records
+  a `Deployment` row plus `deploying` env status on the unified
+  store. First success flips a Pending workspace node to healthy
+  (`touchWorkspaceNode`). Vercel nodes, missing endpoints,
+  missing tokens and unlinked repos fail with actionable errors
+  before touching the provider.
 - API: `POST /api/v1/apps/[slug]/envs/[env]/deploy` (202),
   `GET .../status`, `GET .../logs` — token or session auth via
   `requireApiAuth`; the actor lands on the deployment row.
 - UI: every environment card carries a Deploy button; the Sandbox
   guide ship step now describes deploy-from-card instead of manual
-  FQDN wiring. Live verification against a real Coolify instance
-  (create → deploy → Sandbox URL serves the app) remains the
-  acceptance spike — sandbox tests use a fake provider.
+  FQDN wiring. Verified live against a real Coolify 4.x instance:
+  target provisioning → typed create → bulk envs → API deploy →
+  `running` with the app serving → delete; unit tests keep a fake
+  provider.
 
 ### Cell (slice 3: repo + webhook pipeline + audit events, built)
 

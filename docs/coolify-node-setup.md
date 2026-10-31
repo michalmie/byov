@@ -30,7 +30,7 @@ and triggers deploys. That needs a token:
 
 1. Log in to the Coolify panel.
 2. Open **Keys & Tokens / API tokens** and create a new token for
-   BYOV with permission to manage applications.
+   BYOV with read, write and deploy permissions.
 3. Copy the token now — Coolify shows it once. Treat it like a
    password: never commit it or paste it into chat or tickets.
 
@@ -77,15 +77,20 @@ Sandbox URLs look like `https://{app}-sandbox.{zone}`:
 
 1. Register an app in **Apps → New app** and pin its Sandbox to
    this node.
-2. Open the app and press **Deploy** on the Sandbox card.
-3. The Sandbox URL opens the app (the node is already healthy
+2. Link the app's Git repo (and branch) — without one there is
+   nothing for Coolify to build. Private GitHub repos also need
+   a GitHub App with repo access in Coolify (see
+   `docs/coolify-node.md`).
+3. Open the app and press **Deploy** on the Sandbox card.
+4. The Sandbox URL opens the app (the node is already healthy
    from its passing token test, or flips on this deploy).
 
 ## If the test fails
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
-| Token rejected (401/403) | Wrong, revoked, or under-scoped token | Create a fresh token in Coolify with manage-applications permission and paste it again. |
+| Token rejected (401/403) | Wrong, revoked, or under-scoped token | Create a fresh token in Coolify with read, write and deploy permissions and paste it again. |
+| Deploy: **No repository linked yet** | The app has no repo URL | Open the app page and link its Git repo, then deploy again. |
 | DNS fails | Endpoint hostname typo or record not propagated | Check spelling, verify with `dig`, wait out the TTL. |
 | TLS fails | Certificate missing or wrong name | Finish Coolify's own FQDN/certificate setup so the panel URL serves valid TLS. |
 | Timeout or refused | Coolify down, or ports 80/443 blocked | Check the Coolify service and the firewall/security group. |

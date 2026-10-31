@@ -120,6 +120,11 @@ export interface Node {
   tailnetHost?: string;
   /** True when a provider API token is saved server-side (never the token). */
   hasApiToken?: boolean;
+  /**
+   * Coolify GitHub App uuid used for private-repo creates on this node.
+   * Blank means auto-detect (single private app) or the public endpoint.
+   */
+  githubAppUuid?: string;
 }
 
 export interface ActivityItem {

@@ -77,6 +77,8 @@ function seed() {
     checks: [],
     envs: [{ name: "sandbox", node: node.slug, status: "pending" }],
     deployments: [],
+    repoUrl: "https://github.com/example/rota-planner.git",
+    branch: "main",
   };
   appsTable.set(app.slug, JSON.stringify(app));
   kvTable.set("settings", JSON.stringify({
@@ -87,10 +89,23 @@ function seed() {
 
 function okDeps(): CoolifyDeps {
   return {
-    fetchJson: vi.fn(async (url: string) => {
-      if (url.endsWith("/applications")) return { status: 201, body: { uuid: "uuid-1" } };
-      if (url.endsWith("/deploy")) return { status: 200, body: { deployment_id: "dep-1" } };
+    fetchJson: vi.fn(async (url: string, init: { method: string }) => {
+      if (url.endsWith("/api/v1/servers")) {
+        return { status: 200, body: [{ uuid: "srv-1", is_usable: true, is_reachable: true }] };
+      }
+      if (url.endsWith("/api/v1/projects")) {
+        return { status: 200, body: [{ uuid: "prj-1", name: "BYOV" }] };
+      }
+      if (url.endsWith("/environments")) {
+        return { status: 200, body: [{ uuid: "env-1", name: "sandbox" }] };
+      }
+      if (url.endsWith("/api/v1/github-apps")) return { status: 200, body: [] };
+      if (url.endsWith("/applications/public")) return { status: 201, body: { uuid: "uuid-1" } };
+      if (url.includes("/api/v1/deploy?")) {
+        return { status: 200, body: { deployments: [{ deployment_uuid: "dep-1" }] } };
+      }
       if (url.endsWith("/logs")) return { status: 200, body: "log line" };
+      if (init.method === "PATCH") return { status: 200, body: {} };
       return { status: 200, body: { uuid: "uuid-1", status: "running" } };
     }),
   };
@@ -125,7 +140,18 @@ describe("deployEnv", () => {
     const second = await deployEnv("rota-planner", "sandbox", "ada@example.com", deps);
     expect(second.ok).toBe(true);
     const urls = vi.mocked(deps.fetchJson).mock.calls.map((c) => String(c[0]));
-    expect(urls.some((u) => u.endsWith("/applications"))).toBe(false);
+    expect(urls.some((u) => u.includes("/applications/public"))).toBe(false);
+  });
+
+  it("asks for a linked repo before touching the provider", async () => {
+    const stored = JSON.parse(appsTable.get("rota-planner")!) as App;
+    delete stored.repoUrl;
+    appsTable.set(stored.slug, JSON.stringify(stored));
+    const deps = okDeps();
+    const result = await deployEnv("rota-planner", "sandbox", "ada@example.com", deps);
+    expect(result.ok).toBe(false);
+    if (!result.ok) expect(result.error).toContain("repository");
+    expect(vi.mocked(deps.fetchJson)).not.toHaveBeenCalled();
   });
 
   it("rejects Vercel nodes and missing tokens clearly", async () => {
